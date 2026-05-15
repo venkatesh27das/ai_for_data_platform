@@ -3,8 +3,6 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AppLayout } from "./components/AppLayout";
 import { Admin } from "./pages/Admin";
-import { CapabilityHub } from "./pages/CapabilityHub";
-import { DataJourney } from "./pages/DataJourney";
 import { DataProducts } from "./pages/DataProducts";
 import { DemoWorkbench } from "./pages/DemoWorkbench";
 import { Home } from "./pages/Home";
@@ -19,8 +17,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <Route element={<AppLayout />}>
           <Route index element={<Navigate to="/home" replace />} />
           <Route path="/home" element={<Home />} />
-          <Route path="/capability-hub" element={<CapabilityHub />} />
-          <Route path="/data-journey" element={<DataJourney />} />
+          <Route path="/capability-hub" element={<Navigate to="/studios?mode=capabilities" replace />} />
+          <Route path="/data-journey" element={<Navigate to="/studios?mode=journey" replace />} />
           <Route path="/studios" element={<Studios />} />
           <Route path="/data-products" element={<DataProducts />} />
           <Route path="/migrate-modernize" element={<MigrateModernize />} />

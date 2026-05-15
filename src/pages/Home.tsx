@@ -31,7 +31,7 @@ export function Home() {
         <HeroBanner
           title={<>Welcome to <span className="text-orange-600">AI for Data Platform</span></>}
           subtitle="Discover, launch, and operationalize AI-powered data capabilities across the full journey from ingestion to consumption."
-          actions={<><Link to="/capability-hub" className="btn-primary"><Box className="h-4 w-4" />Explore Capabilities</Link><Link to="/data-journey" className="btn-secondary"><Route className="h-4 w-4" />View Data Journey</Link><Link to="/studios" className="btn-secondary"><Rocket className="h-4 w-4" />Launch a Studio</Link></>}
+          actions={<><Link to="/studios?mode=capabilities" className="btn-primary"><Box className="h-4 w-4" />Explore Capabilities</Link><Link to="/studios?mode=journey" className="btn-secondary"><Route className="h-4 w-4" />View Data Journey</Link><Link to="/studios" className="btn-secondary"><Rocket className="h-4 w-4" />Launch a Studio</Link></>}
         />
         <section className="space-y-3">
           <h2 className="section-title">Platform Snapshot</h2>
@@ -45,7 +45,7 @@ export function Home() {
         <section className="card p-3.5 2xl:p-4">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="section-title">Featured Capabilities</h2>
-            <Link to="/capability-hub" className="text-sm font-bold text-orange-600">View all capabilities</Link>
+            <Link to="/studios?mode=capabilities" className="text-sm font-bold text-orange-600">View all capabilities</Link>
           </div>
           <div className="grid grid-cols-[repeat(auto-fit,minmax(142px,1fr))] gap-3">
             {featured.map((item) => {

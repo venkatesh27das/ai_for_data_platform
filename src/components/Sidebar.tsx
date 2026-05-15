@@ -1,11 +1,9 @@
-import { Box, CloudUpload, FlaskConical, Home, LayoutDashboard, Route, Settings, SquareCode } from "lucide-react";
+import { Box, CloudUpload, FlaskConical, Home, Settings, SquareCode } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { cn } from "../lib/utils";
 
 const navItems = [
   { label: "Home", to: "/home", icon: Home },
-  { label: "Capability Hub", to: "/capability-hub", icon: LayoutDashboard },
-  { label: "Data Journey", to: "/data-journey", icon: Route },
   { label: "Studios", to: "/studios", icon: SquareCode },
   { label: "Data Products", to: "/data-products", icon: Box },
   { label: "Migrate to Modernize", to: "/migrate-modernize", icon: CloudUpload },
