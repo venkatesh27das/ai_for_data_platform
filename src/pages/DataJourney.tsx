@@ -18,7 +18,7 @@ export function DataJourney() {
   const selected = journeyStages.find((stage) => stage.id === selectedId)!;
   const supporting = capabilities.filter((capability) => selected.capabilities.includes(capability.name));
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_340px] gap-5">
+    <div className="grid grid-cols-[minmax(0,1fr)_300px] gap-5">
       <div className="space-y-5">
         <PageHeader title="Data Journey" subtitle="Navigate the end-to-end AI-supported data engineering flow and identify capabilities supporting each stage." actions={<><button className="btn-primary">Explore Full Journey</button><button className="btn-secondary">View Capability Map</button></>} />
         <div className="grid grid-cols-3 gap-4">
@@ -52,7 +52,7 @@ export function DataJourney() {
         <section className="card p-4">
           <h2 className="section-title mb-4">Capability Coverage Across Journey</h2>
           <div className="grid grid-cols-7 gap-2">
-            {journeyStages.map((stage) => <div key={stage.id} className="rounded-xl border border-slate-200 p-3"><div className="mb-2 text-center text-xs font-bold">{stage.id}</div><ProgressBar value={stage.capabilities.length * 28} color="bg-green-500" /><p className="mt-2 text-center text-xs text-slate-600">{stage.capabilities[0]}</p></div>)}
+            {journeyStages.map((stage) => <div key={stage.id} className="rounded-lg border border-slate-200 p-3"><div className="mb-2 text-center text-xs font-bold">{stage.id}</div><ProgressBar value={stage.capabilities.length * 28} color="bg-green-500" /><p className="mt-2 text-center text-xs text-slate-600">{stage.capabilities[0]}</p></div>)}
           </div>
         </section>
         <section className="grid grid-cols-4 gap-4">

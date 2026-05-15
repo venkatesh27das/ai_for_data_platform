@@ -8,12 +8,12 @@ export function CapabilityCard({ capability }: { capability: Capability }) {
   return (
     <article className="card group p-4 transition hover:-translate-y-0.5 hover:border-orange-200 hover:shadow-lg">
       <div className="flex items-start gap-4">
-        <div className="rounded-xl bg-orange-50 p-3 text-orange-600">
+        <div className="rounded-lg bg-orange-50 p-3 text-orange-600 ring-1 ring-orange-100">
           <Icon className="h-7 w-7" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
-            <h3 className="text-base font-bold leading-snug text-slate-950">{capability.name}</h3>
+            <h3 className="text-base font-extrabold leading-snug text-slate-950">{capability.name}</h3>
             <StatusBadge status={capability.status} />
           </div>
           <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">{capability.description}</p>

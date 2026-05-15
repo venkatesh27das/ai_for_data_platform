@@ -16,7 +16,7 @@ export function DemoWorkbench() {
   const [tab, setTab] = useState("All Demos");
   const visible = tab === "All Demos" || tab === "My Saved Demos" ? demoScenarios : demoScenarios.filter((demo) => demo.category === tab);
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_340px] gap-5">
+    <div className="grid grid-cols-[minmax(0,1fr)_300px] gap-5">
       <div className="space-y-5">
         <PageHeader title="Demo Workbench" subtitle="Explore, run, and showcase curated AI for Data use cases and platform capabilities." />
         <HeroBanner title="Client-Ready Demo Experience" subtitle="Run guided demo scenarios, configure sample datasets, switch personas, and showcase end-to-end platform value." tags={<><StatusBadge status="Available" /><span className="rounded-md border border-orange-200 bg-orange-50 px-2 py-0.5 text-xs font-semibold text-orange-700">Persona Driven</span><span className="rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">Reusable</span></>} actions={<><button className="btn-primary"><Play className="h-4 w-4" />Launch Demo</button><button className="btn-secondary"><Settings className="h-4 w-4" />Configure Scenario</button><button className="btn-secondary"><BookOpen className="h-4 w-4" />Browse Demo Library</button></>} />
@@ -24,7 +24,7 @@ export function DemoWorkbench() {
         <section>
           <h2 className="section-title mb-3">Featured Demo Scenarios</h2>
           <div className="grid grid-cols-3 gap-4">
-            {visible.map((demo) => <article key={demo.name} className="card p-4"><div className="flex items-start gap-3"><div className="rounded-xl bg-orange-50 p-3 text-orange-600"><Play className="h-6 w-6" /></div><div><h3 className="font-bold text-slate-950">{demo.name}</h3><p className="mt-1 h-12 text-sm leading-6 text-slate-600">{demo.description}</p></div></div><div className="mt-3 flex gap-2"><span className="rounded-md bg-orange-50 px-2 py-1 text-xs font-semibold text-orange-700">{demo.persona}</span><span className="rounded-md bg-green-50 px-2 py-1 text-xs font-semibold text-green-700">{demo.readiness}</span></div><div className="mt-3 grid grid-cols-3 gap-2 text-xs text-slate-500"><span>{demo.domain}</span><span>{demo.useCase}</span><span>{demo.duration}</span></div><button onClick={() => notify(`${demo.name} launched`)} className="btn-secondary mt-4 w-full">{demo.readiness === "In Review" ? "Preview" : "Run Demo"}</button></article>)}
+            {visible.map((demo) => <article key={demo.name} className="card p-4"><div className="flex items-start gap-3"><div className="rounded-lg bg-orange-50 p-3 text-orange-600"><Play className="h-6 w-6" /></div><div><h3 className="font-bold text-slate-950">{demo.name}</h3><p className="mt-1 h-12 text-sm leading-6 text-slate-600">{demo.description}</p></div></div><div className="mt-3 flex gap-2"><span className="rounded-md bg-orange-50 px-2 py-1 text-xs font-semibold text-orange-700">{demo.persona}</span><span className="rounded-md bg-green-50 px-2 py-1 text-xs font-semibold text-green-700">{demo.readiness}</span></div><div className="mt-3 grid grid-cols-3 gap-2 text-xs text-slate-500"><span>{demo.domain}</span><span>{demo.useCase}</span><span>{demo.duration}</span></div><button onClick={() => notify(`${demo.name} launched`)} className="btn-secondary mt-4 w-full">{demo.readiness === "In Review" ? "Preview" : "Run Demo"}</button></article>)}
           </div>
         </section>
         <section className="card p-4">

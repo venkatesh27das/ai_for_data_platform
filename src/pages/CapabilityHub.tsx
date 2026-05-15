@@ -18,7 +18,7 @@ export function CapabilityHub() {
   const [tab, setTab] = useState("All");
   const visible = tab === "All" ? capabilities.slice(0, 8) : capabilities.filter((item) => item.category === tab);
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_340px] gap-5">
+    <div className="grid grid-cols-[minmax(0,1fr)_300px] gap-5">
       <div className="space-y-5">
         <PageHeader title="Capability Hub" subtitle="Explore, launch, and manage AI for Data capabilities across the platform" actions={<button onClick={() => notify("Request submitted")} className="btn-secondary"><Plus className="h-4 w-4" />Request New Capability</button>} />
         <FilterBar filters={["All Capabilities", "Status", "Journey Stage", "Domain"]} />
@@ -30,7 +30,7 @@ export function CapabilityHub() {
         <section className="card p-4">
           <h2 className="section-title mb-4">Journey Coverage</h2>
           <div className="grid grid-cols-7 gap-3">
-            {journeyStages.map((stage) => <div key={stage.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-center"><stage.icon className="mx-auto h-6 w-6 text-orange-600" /><div className="mt-2 text-xs font-bold">{stage.shortName}</div><div className="mt-1 text-xs text-slate-500">{stage.capabilities.length} capabilities</div></div>)}
+            {journeyStages.map((stage) => <div key={stage.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-center"><stage.icon className="mx-auto h-6 w-6 text-orange-600" /><div className="mt-2 text-xs font-bold">{stage.shortName}</div><div className="mt-1 text-xs text-slate-500">{stage.capabilities.length} capabilities</div></div>)}
           </div>
         </section>
         <section className="grid grid-cols-4 gap-4">

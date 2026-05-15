@@ -16,15 +16,15 @@ export function AppLayout() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen">
+      <Topbar />
       <Sidebar />
-      <div className="pl-72">
-        <Topbar />
-        <main className="px-7 py-6">
+      <main className="pl-[8rem] pt-16">
+        <div className="px-4 py-4 2xl:py-4">
           <Outlet />
-        </main>
-      </div>
-      {toast && <div className="fixed bottom-6 right-6 z-50 rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white shadow-xl">{toast}</div>}
+        </div>
+      </main>
+      {toast && <div className="fixed bottom-6 right-6 z-50 rounded-lg bg-slate-950 px-4 py-3 text-sm font-semibold text-white shadow-xl">{toast}</div>}
     </div>
   );
 }
