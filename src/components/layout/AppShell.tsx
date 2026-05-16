@@ -6,7 +6,7 @@ export default function AppShell() {
   return (
     <div className="min-h-screen bg-nexus-page">
       <Sidebar />
-      <main className="ml-[128px] min-h-screen pr-5">
+      <main className="ml-[96px] min-h-screen overflow-x-clip pr-3">
         <TopBar />
         <Outlet />
         <footer className="flex items-center justify-between py-6 text-xs text-slate-500">

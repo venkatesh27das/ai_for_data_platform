@@ -12,17 +12,17 @@ const nav = [
 
 export default function Sidebar() {
   return (
-    <aside className="fixed left-5 top-1/2 z-30 flex w-[88px] -translate-y-1/2 flex-col items-center rounded-[24px] border border-slate-200 bg-white px-4 py-6 shadow-panel">
-      <div className="border-b border-slate-100 pb-6">
-        <div className="grid h-12 w-12 place-items-center rounded-xl orange-gradient text-white shadow-sm" title="DataNexus">
-          <Box className="h-7 w-7" />
+    <aside className="fixed left-4 top-1/2 z-30 flex w-[68px] -translate-y-1/2 flex-col items-center rounded-[22px] border border-slate-200 bg-white px-3 py-5 shadow-panel">
+      <div className="border-b border-slate-100 pb-5">
+        <div className="grid h-10 w-10 place-items-center rounded-xl orange-gradient text-white shadow-sm" title="DataNexus">
+          <Box className="h-6 w-6" />
         </div>
       </div>
-      <nav className="my-7 space-y-2">
+      <nav className="my-6 space-y-2">
         {nav.map(({ label, to, icon: Icon }) => (
-          <NavLink key={label} to={to} end={to === "/"} aria-label={label} className={({ isActive }) => `group relative grid h-12 w-12 place-items-center rounded-2xl transition ${isActive ? "bg-orange-50 text-orange-600 shadow-sm" : "text-slate-700 hover:bg-orange-50/60 hover:text-orange-600"}`}>
+          <NavLink key={label} to={to} end={to === "/"} aria-label={label} className={({ isActive }) => `group relative grid h-10 w-10 place-items-center rounded-xl transition ${isActive ? "bg-orange-50 text-orange-600 shadow-sm" : "text-slate-700 hover:bg-orange-50/60 hover:text-orange-600"}`}>
             <Icon className="h-5 w-5" />
-            <span className="pointer-events-none absolute left-[62px] top-1/2 z-40 -translate-y-1/2 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 opacity-0 shadow-card transition group-hover:translate-x-1 group-hover:opacity-100">
+            <span className="pointer-events-none absolute left-[50px] top-1/2 z-40 -translate-y-1/2 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 opacity-0 shadow-card transition group-hover:translate-x-1 group-hover:opacity-100">
               {label}
             </span>
           </NavLink>
