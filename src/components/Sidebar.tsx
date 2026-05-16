@@ -13,7 +13,7 @@ const navItems = [
 
 export function Sidebar() {
   return (
-    <aside className="fixed left-4 top-20 z-40 inline-flex w-auto flex-col items-center rounded-[1.75rem] border border-slate-200/80 bg-white/95 px-3 py-5 shadow-[0_18px_55px_rgba(15,23,42,0.14)] backdrop-blur">
+    <aside className="fixed left-4 top-1/2 z-40 inline-flex w-auto -translate-y-1/2 flex-col items-center rounded-[1.75rem] border border-slate-200/80 bg-white/95 px-3 py-5 shadow-[0_18px_55px_rgba(15,23,42,0.14)] backdrop-blur">
       <div className="text-base font-extrabold tracking-wide text-slate-400">APPS</div>
       <nav className="mt-7 flex flex-col items-center gap-4">
         {navItems.map((item) => {
