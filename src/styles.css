@@ -17,3 +17,49 @@ button, input, select { font: inherit; }
 .panel { @apply rounded-[18px] border border-nexus-line bg-white shadow-card; }
 .metric-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 @media (max-width: 1400px) { .metric-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.journey-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.journey-pipeline-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.journey-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.journey-inventory-row {
+  grid-template-columns:
+    minmax(210px, 1.25fr)
+    90px
+    84px
+    100px
+    minmax(175px, 1fr)
+    72px
+    110px
+    82px
+    70px
+    38px;
+  column-gap: 8px;
+}
+@media (min-width: 1180px) {
+  .journey-kpi-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .journey-pipeline-grid {
+    grid-template-columns:
+      minmax(0, 1fr) 22px
+      minmax(0, 1fr) 22px
+      minmax(0, 1fr) 22px
+      minmax(0, 1fr) 22px
+      minmax(0, 1fr) 22px
+      minmax(0, 1fr) 22px
+      minmax(0, 1fr);
+    gap: 8px;
+  }
+  .journey-detail-grid { grid-template-columns: 1.15fr 1fr 1fr; }
+}
+@media (min-width: 1500px) {
+  .journey-detail-grid { grid-template-columns: 1.25fr 1fr 1fr 1fr 170px; }
+}
