@@ -6,8 +6,8 @@ export default function PageHeader({ title, subtitle, actions }: { title: string
     <div className="mb-5">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-normal text-slate-950">{title}</h1>
-          <p className="mt-1 text-sm text-slate-600">{subtitle}</p>
+          <h1 className="text-[26px] font-extrabold leading-none tracking-normal text-slate-950">{title}</h1>
+          <p className="mt-2 text-[13px] text-slate-700">{subtitle}</p>
         </div>
       </div>
       <div className="mt-5 flex flex-wrap gap-3">

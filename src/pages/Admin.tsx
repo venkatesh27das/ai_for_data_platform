@@ -192,7 +192,7 @@ function Panel({ title, action, control, children }: { title: string; action?: s
   return (
     <section className="flex min-h-0 flex-col rounded-[14px] border border-slate-200 bg-white p-4 shadow-card">
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="text-[17px] font-extrabold text-slate-950">{title}</h2>
+        <h2 className="text-[15px] font-extrabold text-slate-950">{title}</h2>
         {action ? <button className="text-[12px] font-extrabold text-orange-600 hover:text-orange-700">{action}</button> : null}
         {control ? (
           <button className="flex h-9 items-center gap-5 rounded-lg border border-slate-200 bg-white px-4 text-[12px] font-bold text-slate-700 shadow-sm">
