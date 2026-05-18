@@ -1,77 +1,141 @@
 # DataNexus AI-for-Data Platform
 
-DataNexus is a Vite, React, and TypeScript single-page demo for an enterprise AI-for-data platform. It presents a governed operating layer for building, modernizing, publishing, and consuming trusted structured and unstructured data products across cloud and analytics ecosystems.
+DataNexus is a front-end demo of an enterprise AI-for-data platform. It shows how data teams can connect cloud ecosystems, run governed data journeys, launch task-specific studios, publish trusted data products, manage business semantics, and operate the platform from one control surface.
 
-The application is currently a front-end demo: it uses local mock data, route-level state, drawer interactions, and demo modals. There is no backend service or persistence layer wired in.
+The app is built as a demo-ready React experience. It uses local mock data, page state, drawers, search/filter interactions, and guided demo modals. There is no backend integration yet.
 
-## Platform Capabilities
+## Quick Start
 
-- Command centre for active journeys, pending actions, AI recommendations, recently published data products, and cloud ecosystem status.
-- Journey portfolio for managing end-to-end data initiatives from ingestion through semantic enablement and consumption.
-- Specialized studios for ingestion, extraction, quality, productization, semantic modeling, and migration workspaces.
-- Governed data product catalog with certification status, contracts, ownership, quality, usage, and recommendations.
-- Semantic hub for business terms, metrics, semantic models, domain coverage, and health actions.
-- Admin console for platform health, resource usage, cost, audit logs, approvals, and workspace operations.
+```bash
+npm install
+npm run dev
+```
+
+Open the local Vite URL, usually:
+
+```text
+http://localhost:5173/
+```
+
+Build check:
+
+```bash
+npm run build
+```
+
+## What This Demo Shows
+
+DataNexus is designed around a common enterprise problem: data teams have tools for ingestion, transformation, quality, catalogs, semantic models, BI, and AI, but the work is often fragmented. This demo presents a unified operating layer where those workflows are connected by journeys, products, semantics, governance, and platform telemetry.
+
+Use it to tell this story:
+
+1. Start from the Command Centre to see platform health, active work, recommendations, and data product reuse.
+2. Open Data Journey to show how a business data initiative moves through source onboarding, processing, modeling, validation, publishing, semantic enablement, and consumption.
+3. Use Studios to show guided workspaces and reusable templates for specialized work.
+4. Use Data Products to show certified, reusable, governed data assets.
+5. Use Semantic Hub to connect technical assets to business meaning, metrics, and domains.
+6. Use Admin Home to show operational governance, auditability, cost, and platform control.
 
 ## Screens
 
 ### Command Centre
 
-The home screen is the executive and operator landing surface. It summarizes platform KPIs, cloud/provider coverage, active journeys, pending governance actions, AI recommendations, recent data products, and ecosystem connections.
+The Command Centre is the operator landing page. It gives a fast read on active journeys, product certification, open actions, platform health, reuse, cost, and connected ecosystem services.
 
 <img alt="Command Centre" src="docs/screenshots/home-command-centre.png" width="900" />
 
-Use this screen to start a data journey, create or explore data products, review admin actions, jump into active work, and inspect connected ecosystem services.
+What to notice:
+
+- KPI tiles route users to the right operational surface.
+- Business-goal cards help users start from intent, not tool selection.
+- Pending actions and AI recommendations open related entity context.
+- Cloud/provider logos reinforce the platform's cloud-agnostic positioning.
 
 ### Data Journey
 
-The Data Journey screen provides a portfolio view of active data initiatives and a focused journey detail workspace. It shows portfolio metrics, journey inventory, pipeline stages, execution targets, progress, artifacts, summaries, approvals, and contextual controls.
+Data Journey tracks end-to-end initiatives from ingestion to consumption. It combines portfolio metrics, journey inventory, pipeline stage state, artifacts, approvals, and execution details.
 
 <img alt="Data Journey" src="docs/screenshots/data-journey.png" width="900" />
 
-This screen is useful for explaining how the platform moves a data initiative from source onboarding through modeling, semantic context, quality gates, publishing, and consumption.
+What to notice:
+
+- Tabs separate structured, unstructured, hybrid, and personal work views.
+- The selected journey shows a stage-by-stage pipeline canvas.
+- Stage details expose execution target, artifacts, progress, logs, and approvals.
+- This is the best screen for explaining the platform's delivery lifecycle.
 
 ### Studios
 
-Studios are guided workspaces for specialized platform tasks. The page groups featured studios, capability entry points, active sessions, workspace insights, recommended templates, AI recommendations, and recent activity.
+Studios are guided workspaces for common data platform jobs: ingestion, extraction, quality, productization, semantic modeling, and migration.
 
 <img alt="Studios" src="docs/screenshots/studios.png" width="900" />
 
-Use this screen to demonstrate how users launch repeatable workspaces from governed templates instead of starting every ingestion, extraction, product, semantic, or migration effort from scratch.
+What to notice:
+
+- Featured studios map to repeatable enterprise data work.
+- Templates reduce blank-page starts for teams.
+- Active sessions show progress, state, and ownership of running work.
+- Recommendations connect studio activity back to products and semantics.
 
 ### Data Products
 
-The Data Products screen is the governed catalog and product management surface. It includes product metrics, featured products, a searchable/filterable catalog table, health and governance panels, recommendations, and recent activity.
+Data Products is the governed catalog and product management surface. It presents certified assets, drafts, product quality, consumption options, health signals, and recommendations.
 
 <img alt="Data Products" src="docs/screenshots/data-products.png" width="900" />
 
-Use this screen to explain product ownership, certification, contracts, quality, reuse, and the path from raw assets to consumable data products.
+What to notice:
+
+- Featured products show domain, owner, type, quality, freshness, and consumption methods.
+- The catalog supports local search and filters for demo exploration.
+- Governance tiles show contract compliance, SLA adherence, access requests, alerts, and certification queue.
+- This is the main screen for explaining reusable data-as-a-product.
 
 ### Semantic Hub
 
-Semantic Hub manages the business meaning layer across metrics, terms, models, and linked products. It includes semantic summary metrics, asset exploration, semantic health, an action queue, domain overview, and recent semantic updates.
+Semantic Hub manages trusted business meaning across terms, metrics, semantic models, domains, and linked data products.
 
 <img alt="Semantic Hub" src="docs/screenshots/semantic-hub.png" width="900" />
 
-Use this screen to explain how the platform connects technical assets to business vocabulary, reusable metrics, semantic models, and domain coverage.
+What to notice:
+
+- Summary cards show semantic coverage and governance gaps.
+- The asset table connects terms, metrics, models, ownership, and linked assets.
+- Semantic Health and Action Queue show where stewardship work is needed.
+- Domain Overview explains how business context is organized.
 
 ### Admin Home
 
-Admin Home is the operational control surface for platform administrators. It covers users, workspaces, connectors, policies, platform health, resource usage, cost overview, audit logs, approvals, and quick actions.
+Admin Home is the platform operations console for users, workspaces, connectors, environments, policies, health, usage, cost, audit logs, approvals, and quick actions.
 
 <img alt="Admin Home" src="docs/screenshots/admin.png" width="900" />
 
-Use this screen to explain platform operations, governance oversight, cost monitoring, approvals, and auditability.
+What to notice:
+
+- Platform health and usage make operations visible.
+- Cost overview gives a quick FinOps story.
+- Audit logs and approvals show governance accountability.
+- Quick actions support common admin workflows.
 
 ## Demo Interactions
 
-Most visible controls are wired for demo purposes:
+Most visible controls are wired so the app feels connected during a walkthrough:
 
-- Primary page actions open contextual demo modals.
-- Table rows, cards, recommendations, and pending actions open connected entity drawers.
+- Primary actions open contextual demo modals.
+- Rows, cards, pending actions, and recommendations open related entity drawers.
 - Search and filters work locally on catalog-style screens.
 - Sidebar navigation switches between the six main routes.
-- Top bar controls for workspace, environment, notifications, profile, and search expose demo flows or route navigation.
+- Top bar workspace, environment, notification, profile, and search controls expose demo flows or navigation.
+
+## Routes
+
+| Route | Screen | Purpose |
+| --- | --- | --- |
+| `/` | Command Centre | Platform overview and next best actions |
+| `/data-journey` | Data Journey | Initiative lifecycle and delivery progress |
+| `/studios` | Studios | Guided workspaces and templates |
+| `/data-products` | Data Products | Governed product catalog |
+| `/semantic-hub` | Semantic Hub | Business meaning, metrics, and semantic assets |
+| `/admin` | Admin Home | Platform operations and governance |
 
 ## Tech Stack
 
@@ -83,72 +147,31 @@ Most visible controls are wired for demo purposes:
 - Lucide React icons
 - Recharts
 
-## Project Structure
+## Project Map
 
 ```text
 src/
-  App.tsx
-  main.tsx
-  pages/
-    Home.tsx
-    DataJourney.tsx
-    Studios.tsx
-    DataProducts.tsx
-    SemanticHub.tsx
-    Admin.tsx
-  components/
-    common/
-    layout/
-    charts/
-  data/
-    mockData.ts
-  types/
-    index.ts
-icons/
-docs/
-  screenshots/
+  App.tsx                     Route registration
+  main.tsx                    React entry point
+  pages/                      Main product screens
+  components/common/          Drawers, modals, cards, buttons, tables
+  components/layout/          Sidebar, top bar, app shell
+  components/charts/          Lightweight chart visuals
+  data/mockData.ts            Demo entities and relationships
+  types/index.ts              Shared TypeScript types
+icons/                        Cloud and ecosystem assets
+docs/screenshots/             README screenshots
+AI_HANDOFF.md                 Current product/context handoff
 ```
 
-## Getting Started
+## Development Notes
 
-Install dependencies:
+- Keep the enterprise SaaS shell, sidebar, top bar, and dashboard language intact unless the product direction changes.
+- Use `DemoFlowModal` for demo-only workflows that do not have backend behavior.
+- Use `EntityDrawer` when a click should show related product, journey, semantic, studio, approval, or service context.
+- Keep mock data in `src/data/mockData.ts` until API contracts are defined.
+- Treat `AI_HANDOFF.md` as the latest context handoff for accepted UI direction and known preferences.
 
-```bash
-npm install
-```
+## Current Status
 
-Run the development server:
-
-```bash
-npm run dev
-```
-
-Build for production:
-
-```bash
-npm run build
-```
-
-Preview the production build:
-
-```bash
-npm run preview
-```
-
-## Routes
-
-| Route | Screen |
-| --- | --- |
-| `/` | Command Centre |
-| `/data-journey` | Data Journey |
-| `/studios` | Studios |
-| `/data-products` | Data Products |
-| `/semantic-hub` | Semantic Hub |
-| `/admin` | Admin Home |
-
-## Notes For Future Development
-
-- Keep the current enterprise SaaS shell, sidebar, top bar, and compact dashboard language unless the product direction changes.
-- Use `DemoFlowModal` for non-backend workflows and `EntityDrawer` for related asset context.
-- Promote mock interactions into real API-backed flows only after backend contracts are defined.
-- Treat `AI_HANDOFF.md` as the current product/context handoff for accepted design direction and known preferences.
+This is a polished front-end prototype, not a production platform. The next meaningful product steps are backend contracts, authentication/authorization, persistent entities, real connector telemetry, and replacing demo modals with working flows.
