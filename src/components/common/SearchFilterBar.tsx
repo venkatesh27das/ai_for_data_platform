@@ -1,6 +1,6 @@
 import { Filter, Search } from "lucide-react";
 
-export default function SearchFilterBar({ search, onSearch, filters }: { search: string; onSearch: (value: string) => void; filters: { label: string; value: string; options: string[]; onChange: (value: string) => void }[] }) {
+export default function SearchFilterBar({ search, onSearch, filters, onFilterClick }: { search: string; onSearch: (value: string) => void; filters: { label: string; value: string; options: string[]; onChange: (value: string) => void }[]; onFilterClick?: () => void }) {
   return (
     <div className="mb-3 flex flex-wrap items-center gap-3">
       <label className="relative min-w-[260px] flex-1">
@@ -13,7 +13,7 @@ export default function SearchFilterBar({ search, onSearch, filters }: { search:
           {filter.options.map((option) => <option key={option} value={option}>{option}</option>)}
         </select>
       ))}
-      <button className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 hover:border-orange-200 hover:text-orange-600"><Filter className="h-3.5 w-3.5" /> Filters</button>
+      <button onClick={onFilterClick} className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 hover:border-orange-200 hover:text-orange-600"><Filter className="h-3.5 w-3.5" /> Filters</button>
     </div>
   );
 }

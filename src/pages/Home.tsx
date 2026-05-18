@@ -22,8 +22,16 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import DemoFlowModal, { type DemoFlow } from "../components/common/DemoFlowModal";
 import EntityDrawer from "../components/common/EntityDrawer";
 import type { DrawerEntity } from "../types";
+import awsLogo from "../../icons/aws_image.png";
+import azureLogo from "../../icons/azure_logo.png";
+import databricksLogo from "../../icons/Databricks_Logo.png";
+import gcpLogo from "../../icons/gcp_icon.svg";
+import powerBiLogo from "../../icons/Power_BI_Logo.png";
+import snowflakeLogo from "../../icons/snowflake_logo.png";
 
 type Tone = "orange" | "green" | "blue" | "purple" | "slate";
 
@@ -35,15 +43,22 @@ const toneMap: Record<Tone, string> = {
   slate: "border-slate-200 bg-slate-50 text-slate-500",
 };
 
-const cloudLogos = ["aws", "Microsoft Azure", "Google Cloud", "databricks", "snowflake", "Power BI"] as const;
+const cloudLogos = [
+  { label: "AWS", src: awsLogo },
+  { label: "Microsoft Azure", src: azureLogo },
+  { label: "Google Cloud", src: gcpLogo },
+  { label: "Databricks", src: databricksLogo },
+  { label: "Snowflake", src: snowflakeLogo },
+  { label: "Power BI", src: powerBiLogo },
+] as const;
 
 const kpis = [
-  { title: "Active Journeys", value: "28", delta: "14%", note: "vs last 30 days", icon: Rocket, tone: "green", direction: "up" },
-  { title: "Certified Products", value: "124", delta: "18%", note: "vs last 30 days", icon: ShieldCheck, tone: "orange", direction: "up" },
-  { title: "Open Actions", value: "16", delta: "11%", note: "vs last 30 days", icon: TriangleAlert, tone: "orange", direction: "down" },
-  { title: "Platform Health", value: "98%", delta: "Healthy", note: "All systems operational", icon: HeartPulse, tone: "blue", health: true },
-  { title: "Reuse Rate", value: "62%", delta: "9%", note: "vs last 30 days", icon: RefreshCw, tone: "purple", direction: "up" },
-  { title: "Monthly Cost", value: "$48.7K", delta: "8%", note: "vs last month", icon: Gauge, tone: "orange", direction: "down" },
+  { title: "Active Journeys", value: "28", delta: "14%", note: "vs last 30 days", icon: Rocket, tone: "green", direction: "up", target: "/data-journey" },
+  { title: "Certified Products", value: "124", delta: "18%", note: "vs last 30 days", icon: ShieldCheck, tone: "orange", direction: "up", target: "/data-products" },
+  { title: "Open Actions", value: "16", delta: "11%", note: "vs last 30 days", icon: TriangleAlert, tone: "orange", direction: "down", target: "/admin" },
+  { title: "Platform Health", value: "98%", delta: "Healthy", note: "All systems operational", icon: HeartPulse, tone: "blue", health: true, target: "/admin" },
+  { title: "Reuse Rate", value: "62%", delta: "9%", note: "vs last 30 days", icon: RefreshCw, tone: "purple", direction: "up", target: "/data-products" },
+  { title: "Monthly Cost", value: "$48.7K", delta: "8%", note: "vs last month", icon: Gauge, tone: "orange", direction: "down", target: "/admin" },
 ] as const;
 
 const businessGoals = [
@@ -62,16 +77,16 @@ const activeJourneys = [
 ] as const;
 
 const pendingActions = [
-  { title: "Review data quality alerts for Claims Gold Dataset", tag: "Data Quality", time: "2h ago", icon: TriangleAlert },
-  { title: "Approve contract schema changes", tag: "Governance", time: "5h ago", icon: TriangleAlert },
-  { title: "Re-run failed ingestion: HPC APACMy Feed", tag: "Ingestion", time: "18h ago", icon: Gauge },
-  { title: "Update semantic terms in Provider Domain", tag: "Semantic", time: "2d ago", icon: Network },
+  { title: "Review data quality alerts for Claims Gold Dataset", tag: "Data Quality", time: "2h ago", icon: TriangleAlert, entity: { type: "product", id: "dp-claims-gold" } },
+  { title: "Approve contract schema changes", tag: "Governance", time: "5h ago", icon: TriangleAlert, entity: { type: "approval", id: "ap-schema-change" } },
+  { title: "Re-run failed ingestion: HCP APAC Feed", tag: "Ingestion", time: "18h ago", icon: Gauge, entity: { type: "journey", id: "jr-provider-ingestion" } },
+  { title: "Update semantic terms in Provider Domain", tag: "Semantic", time: "2d ago", icon: Network, entity: { type: "semantic", id: "sa-provider-domain" } },
 ] as const;
 
 const recommendations = [
-  { title: "Enable data repartitioning in 5 of 7 datasets", badge: "High Impact", tone: "orange" },
-  { title: "Create data product from Customer 360 model", badge: "Recommended", tone: "green" },
-  { title: "Optimize storage for 2 datasets", detail: "Potential monthly savings: $2.2K", badge: "Cost Saving", tone: "green" },
+  { title: "Enable data repartitioning in 5 of 7 datasets", badge: "High Impact", tone: "orange", entity: { type: "product", id: "dp-claims-gold" } },
+  { title: "Create data product from Customer 360 model", badge: "Recommended", tone: "green", entity: { type: "semantic", id: "sa-customer-360" } },
+  { title: "Optimize storage for 2 datasets", detail: "Potential monthly savings: $2.2K", badge: "Cost Saving", tone: "green", entity: { type: "product", id: "dp-provider-contract" } },
 ] as const;
 
 const products = [
@@ -93,66 +108,84 @@ const ecosystem = [
 
 export default function Home() {
   const [drawer, setDrawer] = useState<DrawerEntity | null>(null);
+  const [flow, setFlow] = useState<DemoFlow | null>(null);
+  const navigate = useNavigate();
 
   return (
     <>
       <section className="overflow-hidden rounded-[18px] border border-slate-200 bg-white shadow-card">
         <div className="grid grid-cols-[minmax(0,1fr)_minmax(440px,.62fr)] gap-4 border-b border-slate-200 px-5 py-5 max-[1180px]:grid-cols-1">
           <div>
-            <h1 className="text-[30px] font-extrabold leading-none tracking-normal text-slate-950 min-[1500px]:text-[34px]">AI-for-Data Command Center</h1>
+            <h1 className="text-[30px] font-extrabold leading-none tracking-normal text-slate-950 min-[1500px]:text-[34px]">Command Centre</h1>
             <p className="mt-3 text-[13px] text-slate-700">Build, govern, and consume trusted structured and unstructured data products across any cloud.</p>
             <div className="mt-4 flex flex-wrap gap-2">
-              <HomeAction primary icon={Plus} label="Start Data Journey" />
-              <HomeAction icon={Box} label="Create Data Product" />
-              <HomeAction icon={BookOpen} label="Explore Catalog" />
-              <HomeAction icon={TriangleAlert} label="Review Actions" />
+              <HomeAction primary icon={Plus} label="Start Data Journey" onClick={() => navigate("/data-journey")} />
+              <HomeAction icon={Box} label="Create Data Product" onClick={() => navigate("/data-products")} />
+              <HomeAction icon={BookOpen} label="Explore Catalog" onClick={() => navigate("/data-products")} />
+              <HomeAction icon={TriangleAlert} label="Review Actions" onClick={() => navigate("/admin")} />
             </div>
           </div>
 
           <div className="flex flex-col justify-end">
             <p className="mb-3 text-center text-[13px] font-bold text-slate-950">Cloud Agnostic <span className="px-2 text-slate-400">.</span> Built for Choice</p>
             <div className="grid h-10 grid-cols-6 items-center divide-x divide-slate-100 rounded-lg border border-slate-200 bg-white px-2 text-center shadow-sm">
-              {cloudLogos.map((logo) => <span key={logo} className="truncate px-2 text-[10px] font-bold text-slate-700 min-[1500px]:text-[11px]">{logo}</span>)}
+              {cloudLogos.map((logo) => (
+                <span key={logo.label} className="grid min-w-0 place-items-center px-2">
+                  <img src={logo.src} alt={logo.label} title={logo.label} className="max-h-6 max-w-[112px] object-contain" />
+                </span>
+              ))}
             </div>
           </div>
         </div>
 
         <div className="home-kpi-grid border-b border-slate-200 p-3">
-          {kpis.map((kpi) => <KpiCard key={kpi.title} {...kpi} />)}
+          {kpis.map((kpi) => <KpiCard key={kpi.title} {...kpi} onClick={() => navigate(kpi.target)} />)}
         </div>
 
         <div className="border-b border-slate-200 px-4 py-2.5">
           <SectionHeader title="Start from a Business Goal" />
           <div className="home-goal-grid mt-2">
-            {businessGoals.map((goal) => <BusinessGoal key={goal.title} {...goal} />)}
+            {businessGoals.map((goal) => <BusinessGoal key={goal.title} {...goal} onClick={() => {
+              if (goal.title.includes("Source")) navigate("/admin");
+              else if (goal.title.includes("Documents")) navigate("/studios");
+              else if (goal.title.includes("Product")) navigate("/data-products");
+              else if (goal.title.includes("Quality")) navigate("/data-journey");
+              else if (goal.title.includes("Semantic")) navigate("/semantic-hub");
+              else setFlow({
+                title: "Modernize Workload",
+                description: "This demo flow assesses a legacy workload and starts a modernization journey.",
+                steps: ["Scan legacy SQL, jobs, and upstream dependencies.", "Recommend target cloud services and migration pattern.", "Create a migration studio workspace with tasks and owners."],
+                primaryAction: "Create modernization plan",
+              });
+            }} />)}
           </div>
         </div>
 
         <div className="home-panel-grid border-b border-slate-200 p-3">
-          <Panel title="My Active Journeys">
+          <Panel title="My Active Journeys" onAction={() => navigate("/data-journey")}>
             <div className="divide-y divide-slate-100">
               {activeJourneys.map((journey) => <JourneyRow key={journey.title} {...journey} onClick={() => setDrawer({ type: "journey", id: journey.id })} />)}
             </div>
           </Panel>
 
-          <Panel title="Pending Actions">
+          <Panel title="Pending Actions" onAction={() => navigate("/admin")}>
             <div className="divide-y divide-slate-100">
-              {pendingActions.map((action) => <PendingRow key={action.title} {...action} />)}
+              {pendingActions.map((action) => <PendingRow key={action.title} {...action} onClick={() => setDrawer(action.entity as DrawerEntity)} />)}
             </div>
           </Panel>
 
-          <Panel title="AI Recommendations">
+          <Panel title="AI Recommendations" onAction={() => navigate("/data-products")}>
             <div className="divide-y divide-slate-100">
-              {recommendations.map((item) => <RecommendationRow key={item.title} {...item} />)}
+              {recommendations.map((item) => <RecommendationRow key={item.title} {...item} onClick={() => setDrawer(item.entity as DrawerEntity)} />)}
             </div>
           </Panel>
         </div>
 
         <div className="border-b border-slate-200 px-4 py-2.5">
-          <SectionHeader title="Recently Published Data Products" action="View catalog" />
+          <SectionHeader title="Recently Published Data Products" action="View catalog" onAction={() => navigate("/data-products")} />
           <div className="home-product-grid mt-2">
             {products.map((product) => <ProductCard key={product.id} {...product} onClick={() => setDrawer({ type: "product", id: product.id })} />)}
-            <button className="hidden place-items-center rounded-[14px] border border-slate-200 bg-white text-slate-500 shadow-sm min-[1500px]:grid">
+            <button onClick={() => navigate("/data-products")} className="hidden place-items-center rounded-[14px] border border-slate-200 bg-white text-slate-500 shadow-sm min-[1500px]:grid" aria-label="Open product catalog">
               <ArrowRight className="h-6 w-6" />
             </button>
           </div>
@@ -161,36 +194,37 @@ export default function Home() {
         <div className="px-4 py-2.5">
           <SectionHeader title="Platform & Ecosystem Summary" />
           <div className="mt-2 grid grid-cols-7 divide-x divide-slate-200 rounded-[12px] border border-slate-200 bg-white px-2 py-2.5 max-[1180px]:grid-cols-2 max-[1180px]:divide-x-0 max-[1180px]:gap-2">
-            {ecosystem.map((item) => <EcosystemItem key={item.name} {...item} />)}
+            {ecosystem.map((item) => <EcosystemItem key={item.name} {...item} onClick={() => setFlow(ecosystemFlow(item.name, item.detail))} />)}
           </div>
         </div>
       </section>
 
       <EntityDrawer entity={drawer} onClose={() => setDrawer(null)} onNavigate={setDrawer} />
+      <DemoFlowModal flow={flow} onClose={() => setFlow(null)} />
     </>
   );
 }
 
-function HomeAction({ icon: Icon, label, primary = false }: { icon: LucideIcon; label: string; primary?: boolean }) {
+function HomeAction({ icon: Icon, label, primary = false, onClick }: { icon: LucideIcon; label: string; primary?: boolean; onClick?: () => void }) {
   return (
-    <button className={`inline-flex h-9 min-w-[132px] items-center justify-center gap-1.5 rounded-lg border px-3 text-[11px] font-bold shadow-sm transition hover:-translate-y-0.5 min-[1500px]:h-10 min-[1500px]:min-w-[160px] min-[1500px]:gap-2 min-[1500px]:text-[13px] ${primary ? "orange-gradient border-orange-500 text-white" : "border-orange-200 bg-white text-orange-600 hover:border-orange-300"}`}>
+    <button onClick={onClick} className={`inline-flex h-9 min-w-[132px] items-center justify-center gap-1.5 rounded-lg border px-3 text-[11px] font-bold shadow-sm transition hover:-translate-y-0.5 min-[1500px]:h-10 min-[1500px]:min-w-[160px] min-[1500px]:gap-2 min-[1500px]:text-[13px] ${primary ? "orange-gradient border-orange-500 text-white" : "border-orange-200 bg-white text-orange-600 hover:border-orange-300"}`}>
       <Icon className="h-3.5 w-3.5 min-[1500px]:h-4 min-[1500px]:w-4" /> {label}
     </button>
   );
 }
 
-function SectionHeader({ title, action }: { title: string; action?: string }) {
+function SectionHeader({ title, action, onAction }: { title: string; action?: string; onAction?: () => void }) {
   return (
     <div className="flex items-center justify-between gap-3">
       <h2 className="text-[14px] font-extrabold text-slate-950">{title}</h2>
-      {action ? <button className="text-[12px] font-bold text-slate-700 hover:text-orange-600">{action}</button> : null}
+      {action ? <button onClick={onAction} className="text-[12px] font-bold text-slate-700 hover:text-orange-600">{action}</button> : null}
     </div>
   );
 }
 
-function KpiCard({ title, value, delta, note, icon: Icon, tone, direction, health = false }: { title: string; value: string; delta: string; note: string; icon: LucideIcon; tone: Tone; direction?: "up" | "down"; health?: boolean }) {
+function KpiCard({ title, value, delta, note, icon: Icon, tone, direction, health = false, onClick }: { title: string; value: string; delta: string; note: string; icon: LucideIcon; tone: Tone; direction?: "up" | "down"; health?: boolean; onClick: () => void }) {
   return (
-    <button className="min-h-[92px] rounded-[12px] border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-orange-200 min-[1500px]:min-h-[102px] min-[1500px]:p-4">
+    <button onClick={onClick} className="min-h-[92px] rounded-[12px] border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-orange-200 min-[1500px]:min-h-[102px] min-[1500px]:p-4">
       <div className="flex items-start gap-2 min-[1500px]:gap-3">
         <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full border min-[1500px]:h-11 min-[1500px]:w-11 ${toneMap[tone]}`}><Icon className="h-4.5 w-4.5 min-[1500px]:h-6 min-[1500px]:w-6" /></span>
         <span className="min-w-0">
@@ -211,9 +245,9 @@ function Delta({ direction, children }: { direction?: "up" | "down"; children: R
   return <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 min-[1500px]:text-[11px]"><Icon className="h-3.5 w-3.5" />{children}</span>;
 }
 
-function BusinessGoal({ title, detail, icon: Icon, tone }: { title: string; detail: string; icon: LucideIcon; tone: Tone }) {
+function BusinessGoal({ title, detail, icon: Icon, tone, onClick }: { title: string; detail: string; icon: LucideIcon; tone: Tone; onClick?: () => void }) {
   return (
-    <button className="grid min-h-[72px] grid-cols-[30px_1fr_16px] items-center gap-2 rounded-[12px] border border-slate-200 bg-white p-2.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-orange-200 min-[1500px]:min-h-[86px] min-[1500px]:grid-cols-[42px_1fr_20px] min-[1500px]:gap-3 min-[1500px]:p-4">
+    <button onClick={onClick} className="grid min-h-[72px] grid-cols-[30px_1fr_16px] items-center gap-2 rounded-[12px] border border-slate-200 bg-white p-2.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-orange-200 min-[1500px]:min-h-[86px] min-[1500px]:grid-cols-[42px_1fr_20px] min-[1500px]:gap-3 min-[1500px]:p-4">
       <Icon className={`h-6 w-6 min-[1500px]:h-8 min-[1500px]:w-8 ${tone === "green" ? "text-emerald-600" : tone === "blue" ? "text-blue-600" : tone === "purple" ? "text-purple-600" : "text-orange-600"}`} />
       <span className="min-w-0">
         <b className="block text-[10px] leading-[13px] text-slate-950 min-[1500px]:text-[12px] min-[1500px]:leading-4">{title}</b>
@@ -224,10 +258,10 @@ function BusinessGoal({ title, detail, icon: Icon, tone }: { title: string; deta
   );
 }
 
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
+function Panel({ title, children, onAction }: { title: string; children: React.ReactNode; onAction?: () => void }) {
   return (
     <section className="rounded-[14px] border border-slate-200 bg-white p-3 shadow-sm">
-      <SectionHeader title={title} action="View all" />
+      <SectionHeader title={title} action="View all" onAction={onAction} />
       <div className="mt-2">{children}</div>
     </section>
   );
@@ -251,9 +285,9 @@ function JourneyRow({ title, detail, progress, due, icon: Icon, tone, onClick }:
   );
 }
 
-function PendingRow({ title, tag, time, icon: Icon }: { title: string; tag: string; time: string; icon: LucideIcon }) {
+function PendingRow({ title, tag, time, icon: Icon, onClick }: { title: string; tag: string; time: string; icon: LucideIcon; entity: DrawerEntity; onClick: () => void }) {
   return (
-    <button className="grid w-full grid-cols-[24px_1fr_82px_48px] items-center gap-2.5 py-2 text-left hover:bg-orange-50/40">
+    <button onClick={onClick} className="grid w-full grid-cols-[24px_1fr_82px_48px] items-center gap-2.5 py-2 text-left hover:bg-orange-50/40">
       <Icon className="h-4 w-4 text-orange-600" />
       <span className="truncate text-[12px] font-medium text-slate-700">{title}</span>
       <span className="rounded-md bg-slate-100 px-2 py-1 text-center text-[10px] font-semibold text-slate-600">{tag}</span>
@@ -262,9 +296,9 @@ function PendingRow({ title, tag, time, icon: Icon }: { title: string; tag: stri
   );
 }
 
-function RecommendationRow({ title, detail, badge, tone }: { title: string; detail?: string; badge: string; tone: string }) {
+function RecommendationRow({ title, detail, badge, tone, onClick }: { title: string; detail?: string; badge: string; tone: string; entity: DrawerEntity; onClick: () => void }) {
   return (
-    <button className="grid w-full grid-cols-[24px_1fr_86px] items-center gap-2.5 py-2.5 text-left hover:bg-orange-50/40">
+    <button onClick={onClick} className="grid w-full grid-cols-[24px_1fr_86px] items-center gap-2.5 py-2.5 text-left hover:bg-orange-50/40">
       <Link2 className="h-4 w-4 text-emerald-600" />
       <span className="min-w-0">
         <span className="block truncate text-[12px] font-medium text-slate-700">{title}</span>
@@ -303,14 +337,23 @@ function ProductCard({ title, detail, status, quality, icon: Icon, tone, methods
   );
 }
 
-function EcosystemItem({ name, detail, logo, tone }: { name: string; detail: string; logo: string; tone: Tone }) {
+function EcosystemItem({ name, detail, logo, tone, onClick }: { name: string; detail: string; logo: string; tone: Tone; onClick: () => void }) {
   return (
-    <div className="grid grid-cols-[36px_1fr] items-center gap-2 px-2">
+    <button onClick={onClick} className="grid w-full grid-cols-[36px_1fr] items-center gap-2 rounded-lg px-2 py-1 text-left hover:bg-orange-50/40">
       <span className={`text-center text-[19px] font-extrabold ${tone === "blue" ? "text-blue-600" : tone === "orange" ? "text-orange-600" : "text-slate-700"}`}>{logo}</span>
       <span className="min-w-0">
         <b className="block truncate text-[12px] text-slate-800">{name}</b>
         <span className="mt-1 flex items-center gap-2 truncate text-[10px] font-medium text-slate-500">{detail}<span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> <span className="text-emerald-600">Healthy</span></span>
       </span>
-    </div>
+    </button>
   );
+}
+
+function ecosystemFlow(name: string, detail: string): DemoFlow {
+  return {
+    title: name,
+    description: `${name} is connected to the active workspace for demo data, lineage, execution, and governance signals.`,
+    steps: [`Inspect the current connection: ${detail}.`, "Validate credentials, sync status, and mapped assets.", "Open related products, jobs, lineage, and health checks."],
+    primaryAction: "Open connection",
+  };
 }

@@ -1,6 +1,5 @@
 import {
   ArrowRight,
-  Bell,
   CalendarDays,
   Check,
   CheckCircle2,
@@ -23,6 +22,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useState } from "react";
+import DemoFlowModal, { type DemoFlow } from "../components/common/DemoFlowModal";
 import EntityDrawer from "../components/common/EntityDrawer";
 import type { DrawerEntity } from "../types";
 
@@ -40,11 +40,11 @@ const portfolioMetrics = [
 ] as const;
 
 const journeys = [
-  { name: "Claims to Trusted Data Product", type: "Hybrid", domain: "Claims", owner: "Priya Shah", initials: "PS", stage: "3. Data Modeling & Transformation", progress: 48, status: "Running", updated: "Jun 06, 2025 10:30 AM", health: "Healthy", accent: "blue" },
+  { name: "Claims to Trusted Data Product", type: "Hybrid", domain: "Claims", owner: "Priya Nair", initials: "PN", stage: "3. Data Modeling & Transformation", progress: 48, status: "Running", updated: "Jun 06, 2025 10:30 AM", health: "Healthy", accent: "blue" },
   { name: "Provider 360 Ingestion", type: "Structured", domain: "Provider Mgmt", owner: "Rahul Singh", initials: "RS", stage: "2. Storage, Processing & Extraction", progress: 62, status: "Running", updated: "Jun 06, 2025 09:15 AM", health: "Healthy", accent: "blue" },
   { name: "Sales Performance Mart", type: "Structured", domain: "Sales", owner: "Anjali Mehta", initials: "AM", stage: "4. Data Quality & Validation", progress: 30, status: "Pending Review", updated: "Jun 06, 2025 08:45 AM", health: "At Risk", accent: "blue" },
   { name: "Claims Documents NLP", type: "Unstructured", domain: "Claims", owner: "David Kumar", initials: "DK", stage: "2. Storage, Processing & Extraction", progress: 25, status: "Running", updated: "Jun 05, 2025 05:20 PM", health: "Healthy", accent: "blue" },
-  { name: "Customer 360 Data Product", type: "Hybrid", domain: "Customer 360", owner: "Priya Shah", initials: "PS", stage: "5. Data Productization & Publishing", progress: 70, status: "Awaiting Approval", updated: "Jun 05, 2025 04:00 PM", health: "Healthy", accent: "blue" },
+  { name: "Customer 360 Data Product", type: "Hybrid", domain: "Customer 360", owner: "Rohan Mehta", initials: "RM", stage: "5. Data Productization & Publishing", progress: 70, status: "Awaiting Approval", updated: "Jun 05, 2025 04:00 PM", health: "Healthy", accent: "blue" },
 ] as const;
 
 const pipelineStages: { title: string; state: StageState }[] = [
@@ -97,6 +97,8 @@ const toneMap: Record<string, string> = {
 
 export default function DataJourney() {
   const [drawer, setDrawer] = useState<DrawerEntity | null>(null);
+  const [flow, setFlow] = useState<DemoFlow | null>(null);
+  const [activeTab, setActiveTab] = useState("All Journeys");
   const selected = journeys[0];
 
   return (
@@ -106,31 +108,20 @@ export default function DataJourney() {
           <div className="flex flex-wrap items-start justify-between gap-4">
             <h1 className="text-[26px] font-extrabold leading-none text-slate-950">Data Journey</h1>
             <div className="flex flex-wrap items-center justify-end gap-3">
-              <TopSelect label="Workspace" value="Commercial" />
-              <TopSelect label="Environment" value="Prod" />
-              <TopSelect label="Cloud" value="Multi-Cloud" />
-              <button className="relative grid h-10 w-10 place-items-center rounded-xl text-slate-800">
-                <Bell className="h-5 w-5" />
-                <span className="absolute right-0 top-0 grid h-5 w-5 place-items-center rounded-full bg-orange-600 text-[10px] font-bold text-white">12</span>
-              </button>
-              <button className="grid h-10 w-10 place-items-center rounded-xl text-slate-700"><CircleHelp className="h-5 w-5" /></button>
-              <button className="flex h-10 items-center gap-2 rounded-xl px-2">
-                <span className="grid h-10 w-10 place-items-center rounded-full bg-orange-600 text-sm font-bold text-white">PS</span>
-                <b className="hidden text-sm text-slate-900 xl:block">Priya Shah</b>
-                <ChevronDown className="h-4 w-4" />
-              </button>
+              <TopSelect label="Cloud" value="Multi-Cloud" onClick={() => setFlow(selectionFlow("Cloud", "Multi-Cloud"))} />
+              <button onClick={() => setFlow(journeyHelpFlow)} className="grid h-10 w-10 place-items-center rounded-xl text-slate-700" aria-label="Open journey help"><CircleHelp className="h-5 w-5" /></button>
             </div>
           </div>
           <nav className="mt-5 flex gap-8 border-b border-slate-200 text-[13px] font-semibold text-slate-600">
-            {["All Journeys", "Structured", "Unstructured", "Hybrid", "My Work"].map((tab, index) => (
-              <button key={tab} className={`border-b-2 px-2 pb-3 ${index === 0 ? "border-orange-600 text-orange-600" : "border-transparent hover:text-slate-950"}`}>{tab}</button>
+            {["All Journeys", "Structured", "Unstructured", "Hybrid", "My Work"].map((tab) => (
+              <button key={tab} onClick={() => setActiveTab(tab)} className={`border-b-2 px-2 pb-3 ${activeTab === tab ? "border-orange-600 text-orange-600" : "border-transparent hover:text-slate-950"}`}>{tab}</button>
             ))}
           </nav>
           <p className="mt-3 text-[13px] text-slate-700">Portfolio view of all data journeys across the platform.</p>
         </section>
 
         <section className="journey-kpi-grid">
-          {portfolioMetrics.map((metric) => <PortfolioMetric key={metric.title} {...metric} />)}
+          {portfolioMetrics.map((metric) => <PortfolioMetric key={metric.title} {...metric} onClick={() => setFlow(metricFlow(metric.title, metric.value))} />)}
         </section>
 
         <section className="flex flex-wrap items-center gap-3">
@@ -138,15 +129,15 @@ export default function DataJourney() {
             <input className="h-full w-full rounded-lg border border-slate-200 bg-white pl-4 pr-11 text-sm shadow-sm outline-none focus:border-orange-300 focus:ring-4 focus:ring-orange-100" placeholder="Search journeys..." />
             <Search className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" />
           </label>
-          <FilterSelect label="Type: All" />
-          <FilterSelect label="Domain: All" />
-          <FilterSelect label="Owner: All" />
-          <FilterSelect label="Status: All" />
+          <FilterSelect label="Type: All" onClick={() => setFlow(filterFlow("journey type"))} />
+          <FilterSelect label="Domain: All" onClick={() => setFlow(filterFlow("domain"))} />
+          <FilterSelect label="Owner: All" onClick={() => setFlow(filterFlow("owner"))} />
+          <FilterSelect label="Status: All" onClick={() => setFlow(filterFlow("status"))} />
           <div className="ml-auto flex flex-wrap items-center gap-3">
-            <button className="flex h-11 items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 shadow-sm">
+            <button onClick={() => setFlow(filterFlow("date range"))} className="flex h-11 items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 shadow-sm">
               May 07, 2025 - Jun 06, 2025 <CalendarDays className="h-4 w-4 text-slate-500" />
             </button>
-            <button className="flex h-11 items-center gap-2 rounded-lg bg-orange-600 px-5 text-sm font-bold text-white shadow-sm">
+            <button onClick={() => setFlow(newJourneyFlow)} className="flex h-11 items-center gap-2 rounded-lg bg-orange-600 px-5 text-sm font-bold text-white shadow-sm">
               <Plus className="h-4 w-4" /> New Journey
             </button>
           </div>
@@ -160,11 +151,11 @@ export default function DataJourney() {
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 text-sm text-slate-600">
             <span>Showing 1 to 5 of 42 journeys</span>
             <div className="flex items-center gap-2">
-              <button className="grid h-8 min-w-8 place-items-center rounded-md border border-slate-200 bg-white text-sm font-semibold text-slate-600"><ChevronLeft className="h-4 w-4" /></button>
+              <button onClick={() => setFlow(paginationFlow)} className="grid h-8 min-w-8 place-items-center rounded-md border border-slate-200 bg-white text-sm font-semibold text-slate-600"><ChevronLeft className="h-4 w-4" /></button>
               {["1", "2", "3", "4", "5", "...", "9"].map((item) => (
-                <button key={item} className={`grid h-8 min-w-8 place-items-center rounded-md border text-sm font-semibold ${item === "1" ? "border-orange-600 bg-orange-600 text-white" : "border-slate-200 bg-white text-slate-600"}`}>{item}</button>
+                <button key={item} onClick={() => setFlow(paginationFlow)} className={`grid h-8 min-w-8 place-items-center rounded-md border text-sm font-semibold ${item === "1" ? "border-orange-600 bg-orange-600 text-white" : "border-slate-200 bg-white text-slate-600"}`}>{item}</button>
               ))}
-              <button className="grid h-8 min-w-8 place-items-center rounded-md border border-slate-200 bg-white text-sm font-semibold text-slate-600"><ChevronRight className="h-4 w-4" /></button>
+              <button onClick={() => setFlow(paginationFlow)} className="grid h-8 min-w-8 place-items-center rounded-md border border-slate-200 bg-white text-sm font-semibold text-slate-600"><ChevronRight className="h-4 w-4" /></button>
             </div>
           </div>
         </section>
@@ -183,8 +174,8 @@ export default function DataJourney() {
               </div>
             </div>
             <div className="flex gap-3">
-              <button className="h-9 rounded-lg border border-slate-200 bg-white px-4 text-[11px] font-bold text-slate-800">View Journey Details</button>
-              <button className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-[11px] font-bold text-slate-800">Actions <ChevronDown className="h-4 w-4" /></button>
+              <button onClick={() => setDrawer({ type: "journey", id: "jr-claims-modernization" })} className="h-9 rounded-lg border border-slate-200 bg-white px-4 text-[11px] font-bold text-slate-800">View Journey Details</button>
+              <button onClick={() => setFlow(journeyActionsFlow)} className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-[11px] font-bold text-slate-800">Actions <ChevronDown className="h-4 w-4" /></button>
             </div>
           </div>
           <div className="px-5 py-3">
@@ -215,7 +206,7 @@ export default function DataJourney() {
                     <b className="min-w-0 text-slate-700">{target.value}</b>
                   </div>
                 ))}
-                <button className="pt-1 text-[12px] font-bold text-blue-600">View full configuration</button>
+                <button onClick={() => setFlow(configurationFlow)} className="pt-1 text-[12px] font-bold text-blue-600">View full configuration</button>
               </div>
             </DetailPanel>
             <DetailPanel title="Stage Progress">
@@ -241,27 +232,97 @@ export default function DataJourney() {
                     <b className="text-slate-800">{value}</b>
                   </div>
                 ))}
-                <button className="pt-1 text-[12px] font-bold text-blue-600">View stage logs</button>
+                <button onClick={() => setFlow(stageLogsFlow)} className="pt-1 text-[12px] font-bold text-blue-600">View stage logs</button>
               </div>
             </DetailPanel>
             <DetailPanel title="Approvals">
               <div className="space-y-2.5">
                 <ApprovalCount label="Pending" value="1" tone="orange" />
                 <ApprovalCount label="Approved" value="2" tone="green" />
-                <button className="text-[12px] font-bold text-blue-600">View all approvals</button>
+                <button onClick={() => setDrawer({ type: "approval", id: "ap-schema-change" })} className="text-[12px] font-bold text-blue-600">View all approvals</button>
               </div>
             </DetailPanel>
           </div>
         </section>
       </div>
       <EntityDrawer entity={drawer} onClose={() => setDrawer(null)} onNavigate={setDrawer} />
+      <DemoFlowModal flow={flow} onClose={() => setFlow(null)} />
     </>
   );
 }
 
-function TopSelect({ label, value }: { label: string; value: string }) {
+const newJourneyFlow: DemoFlow = {
+  title: "Start New Data Journey",
+  description: "Creates an end-to-end journey from source onboarding through publishing and consumption.",
+  steps: ["Choose journey type, domain, and owner.", "Select source systems, target environment, and templates.", "Generate tasks, checkpoints, and governance approvals."],
+  primaryAction: "Create journey",
+};
+
+const journeyActionsFlow: DemoFlow = {
+  title: "Journey Actions",
+  description: "Runs operational actions for the selected journey.",
+  steps: ["Pause, resume, or rerun the active stage.", "Request approval, attach artifacts, or publish stage outputs.", "Notify stakeholders and write the journey audit trail."],
+  primaryAction: "Run action",
+};
+
+const configurationFlow: DemoFlow = {
+  title: "Full Configuration",
+  description: "Shows execution target, orchestration, repository, and environment configuration for the current stage.",
+  steps: ["Inspect cloud target and compute settings.", "Review orchestration and repository links.", "Validate security, secrets, and deployment policy."],
+  primaryAction: "Open configuration",
+};
+
+const stageLogsFlow: DemoFlow = {
+  title: "Stage Logs",
+  description: "Opens execution logs and generated artifacts for the current journey stage.",
+  steps: ["Review latest run status and processing metrics.", "Inspect warnings, failed records, and retries.", "Export logs or create remediation tasks."],
+  primaryAction: "Open logs",
+};
+
+const journeyHelpFlow: DemoFlow = {
+  title: "Journey Help",
+  description: "Provides contextual help for creating and operating data journeys.",
+  steps: ["Search help by journey stage or task.", "Open recommended templates and guardrails.", "Contact a platform steward with the current journey context."],
+  primaryAction: "Open help center",
+};
+
+const paginationFlow: DemoFlow = {
+  title: "Journey Pagination",
+  description: "Loads additional journey inventory pages while preserving filters and selected journey context.",
+  steps: ["Keep active filters and search text.", "Fetch the selected result page.", "Update the inventory and keep the selected journey available for drill-down."],
+  primaryAction: "Load page",
+};
+
+function selectionFlow(label: string, value: string): DemoFlow {
+  return {
+    title: `Change ${label}`,
+    description: `Switches the current ${label.toLowerCase()} from ${value} and refreshes journey data for the demo.`,
+    steps: ["Show available options for the current user.", "Validate access and environment compatibility.", "Refresh metrics, inventory, and selected journey details."],
+    primaryAction: `Switch ${label.toLowerCase()}`,
+  };
+}
+
+function metricFlow(title: string, value: string): DemoFlow {
+  return {
+    title,
+    description: `Opens the journey portfolio slice behind the ${value} ${title.toLowerCase()} metric.`,
+    steps: ["Apply the relevant inventory filters.", "Show trend, owners, and affected journeys.", "Open a journey or export the metric view for review."],
+    primaryAction: "Open metric detail",
+  };
+}
+
+function filterFlow(label: string): DemoFlow {
+  return {
+    title: `Filter by ${label}`,
+    description: `Narrows the journey inventory by ${label} while keeping the demo dataset connected.`,
+    steps: ["Show available values with counts.", "Apply the selected filter to inventory and metrics.", "Keep selected journey details synchronized."],
+    primaryAction: "Apply filter",
+  };
+}
+
+function TopSelect({ label, value, onClick }: { label: string; value: string; onClick: () => void }) {
   return (
-    <button className="flex h-12 min-w-[150px] items-center justify-between rounded-lg border border-slate-200 bg-white px-3 text-left shadow-sm">
+    <button onClick={onClick} className="flex h-12 min-w-[150px] items-center justify-between rounded-lg border border-slate-200 bg-white px-3 text-left shadow-sm">
       <span>
         <span className="block text-[11px] font-semibold text-slate-500">{label}</span>
         <b className="block text-[13px] text-slate-950">{value}</b>
@@ -271,9 +332,9 @@ function TopSelect({ label, value }: { label: string; value: string }) {
   );
 }
 
-function PortfolioMetric({ title, value, delta, icon: Icon, tone, negative, chart }: { title: string; value: string; delta: string; icon: LucideIcon; tone: keyof typeof toneMap; negative?: boolean; chart?: boolean }) {
+function PortfolioMetric({ title, value, delta, icon: Icon, tone, negative, chart, onClick }: { title: string; value: string; delta: string; icon: LucideIcon; tone: keyof typeof toneMap; negative?: boolean; chart?: boolean; onClick: () => void }) {
   return (
-    <button className="flex min-h-[90px] items-center gap-3 rounded-[14px] border border-slate-200 bg-white p-3 text-left shadow-card">
+    <button onClick={onClick} className="flex min-h-[90px] items-center gap-3 rounded-[14px] border border-slate-200 bg-white p-3 text-left shadow-card">
       <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-full border ${toneMap[tone]}`}><Icon className="h-4 w-4" /></span>
       <span className="min-w-0 flex-1">
         <b className="block text-[12px] leading-4 text-slate-950">{title}</b>
@@ -285,8 +346,8 @@ function PortfolioMetric({ title, value, delta, icon: Icon, tone, negative, char
   );
 }
 
-function FilterSelect({ label }: { label: string }) {
-  return <button className="flex h-11 min-w-[150px] items-center justify-between rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 shadow-sm">{label}<ChevronDown className="h-4 w-4" /></button>;
+function FilterSelect({ label, onClick }: { label: string; onClick: () => void }) {
+  return <button onClick={onClick} className="flex h-11 min-w-[150px] items-center justify-between rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 shadow-sm">{label}<ChevronDown className="h-4 w-4" /></button>;
 }
 
 function formatInventoryDate(value: string) {

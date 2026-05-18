@@ -26,6 +26,8 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import DemoFlowModal, { type DemoFlow } from "../components/common/DemoFlowModal";
 import EntityDrawer from "../components/common/EntityDrawer";
 import StatusBadge from "../components/common/StatusBadge";
 import { dataProducts, domains } from "../data/mockData";
@@ -87,6 +89,8 @@ const activityRows = [
 
 export default function DataProducts() {
   const [drawer, setDrawer] = useState<DrawerEntity | null>(null);
+  const [flow, setFlow] = useState<DemoFlow | null>(null);
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [domain, setDomain] = useState("");
   const [type, setType] = useState("");
@@ -109,27 +113,27 @@ export default function DataProducts() {
             </div>
           </div>
           <div className="mt-5 flex flex-wrap gap-3">
-            <ProductAction primary icon={Plus} label="Create Data Product" />
-            <ProductAction icon={Grid2X2} label="Browse Catalog" />
-            <ProductAction icon={CloudUpload} label="Import Metadata" />
-            <ProductAction icon={FileCog} label="Manage Contracts" />
+            <ProductAction primary icon={Plus} label="Create Data Product" onClick={() => setFlow(createProductFlow)} />
+            <ProductAction icon={Grid2X2} label="Browse Catalog" onClick={() => { setSearch(""); setDomain(""); setType(""); setStatus(""); }} />
+            <ProductAction icon={CloudUpload} label="Import Metadata" onClick={() => setFlow(importMetadataFlow)} />
+            <ProductAction icon={FileCog} label="Manage Contracts" onClick={() => setFlow(contractFlow)} />
           </div>
         </section>
 
         <section className="rounded-[14px] border border-slate-200 bg-white p-3 shadow-card">
           <div className="data-products-metric-grid">
-            {metrics.map((metric) => <MetricTile key={metric.title} {...metric} />)}
+            {metrics.map((metric) => <MetricTile key={metric.title} {...metric} onClick={() => setFlow(metricDetailFlow(metric.title, metric.value))} />)}
           </div>
         </section>
 
-        <DashboardPanel title="Featured Data Products" info action="View all featured">
+        <DashboardPanel title="Featured Data Products" info action="View all featured" onAction={() => setSearch("")}>
           <div className="data-products-feature-grid">
             {dataProducts.slice(0, 6).map((product) => <FeaturedProductCard key={product.id} product={product} onClick={() => setDrawer({ type: "product", id: product.id })} />)}
           </div>
         </DashboardPanel>
 
         <section className="data-products-main-grid">
-          <DashboardPanel title="All Data Products" action="View all">
+          <DashboardPanel title="All Data Products" action="View all" onAction={() => setSearch("")}>
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <label className="relative h-9 min-w-[240px] flex-1">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -138,7 +142,7 @@ export default function DataProducts() {
               <FilterSelect label="All Domains" value={domain} options={domains} onChange={setDomain} />
               <FilterSelect label="All Types" value={type} options={typeOptions} onChange={setType} />
               <FilterSelect label="All Status" value={status} options={["Certified", "Draft", "Pending"]} onChange={setStatus} />
-              <button className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-[12px] font-bold text-slate-700 shadow-sm hover:border-orange-200 hover:text-orange-600">
+              <button onClick={() => { setSearch(""); setDomain(""); setType(""); setStatus(""); }} className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-[12px] font-bold text-slate-700 shadow-sm hover:border-orange-200 hover:text-orange-600">
                 <Filter className="h-4 w-4" /> Filters
               </button>
             </div>
@@ -146,23 +150,23 @@ export default function DataProducts() {
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-[12px] text-slate-600">
               <span>Showing 1 to {filtered.length} of 248 products</span>
               <div className="flex items-center gap-2">
-                <PageButton><ChevronLeft className="h-4 w-4" /></PageButton>
-                {["1", "2", "3", "...", "31"].map((item) => <PageButton key={item} active={item === "1"}>{item}</PageButton>)}
-                <PageButton><ChevronRight className="h-4 w-4" /></PageButton>
+                <PageButton onClick={() => setFlow(productPaginationFlow)}><ChevronLeft className="h-4 w-4" /></PageButton>
+                {["1", "2", "3", "...", "31"].map((item) => <PageButton key={item} active={item === "1"} onClick={() => setFlow(productPaginationFlow)}>{item}</PageButton>)}
+                <PageButton onClick={() => setFlow(productPaginationFlow)}><ChevronRight className="h-4 w-4" /></PageButton>
               </div>
               <label className="flex items-center gap-2">
                 Rows per page:
-                <span className="flex h-8 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 font-semibold text-slate-700">10 <ChevronDown className="h-4 w-4" /></span>
+                <button onClick={() => setFlow(rowsPerPageFlow)} className="flex h-8 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 font-semibold text-slate-700">10 <ChevronDown className="h-4 w-4" /></button>
               </label>
             </div>
           </DashboardPanel>
 
-          <DashboardPanel title="Product Health & Governance" action="View all">
+          <DashboardPanel title="Product Health & Governance" action="View all" onAction={() => navigate("/admin")}>
             <div className="grid grid-cols-1 gap-2.5 min-[760px]:grid-cols-3">
-              {governance.slice(0, 3).map((item) => <GovernanceCard key={item.title} {...item} />)}
+              {governance.slice(0, 3).map((item) => <GovernanceCard key={item.title} {...item} onClick={() => setFlow(governanceFlow(item.title, item.value))} />)}
             </div>
             <div className="mt-2.5 grid grid-cols-1 gap-2.5 min-[760px]:grid-cols-2">
-              {governance.slice(3).map((item) => <GovernanceCard key={item.title} {...item} />)}
+              {governance.slice(3).map((item) => <GovernanceCard key={item.title} {...item} onClick={() => setFlow(governanceFlow(item.title, item.value))} />)}
             </div>
           </DashboardPanel>
         </section>
@@ -174,7 +178,7 @@ export default function DataProducts() {
             </div>
           </DashboardPanel>
 
-          <DashboardPanel title="Recent Activity" action="View all activity">
+          <DashboardPanel title="Recent Activity" action="View all activity" onAction={() => navigate("/admin")}>
             <div className="space-y-2">
               {activityRows.map((item) => <ActivityRow key={item.title} {...item} onClick={() => setDrawer({ type: "product", id: item.productId })} />)}
             </div>
@@ -182,21 +186,75 @@ export default function DataProducts() {
         </section>
       </div>
       <EntityDrawer entity={drawer} onClose={() => setDrawer(null)} onNavigate={setDrawer} />
+      <DemoFlowModal flow={flow} onClose={() => setFlow(null)} />
     </>
   );
 }
 
-function ProductAction({ icon: Icon, label, primary = false }: { icon: LucideIcon; label: string; primary?: boolean }) {
+const createProductFlow: DemoFlow = {
+  title: "Create Data Product",
+  description: "Packages curated data into a governed, reusable product that can be certified and consumed.",
+  steps: ["Choose source assets or a completed journey output.", "Attach owner, domain, contract, SLA, and semantic links.", "Run quality checks and publish as Draft or Certified."],
+  primaryAction: "Create product draft",
+};
+
+const importMetadataFlow: DemoFlow = {
+  title: "Import Metadata",
+  description: "Brings catalog metadata from Snowflake, Databricks, cloud storage, or API registries into DataNexus.",
+  steps: ["Select a connector and workspace.", "Preview schemas, owners, tags, and lineage.", "Map imported assets to products and governance policies."],
+  primaryAction: "Import metadata",
+};
+
+const contractFlow: DemoFlow = {
+  title: "Manage Data Contracts",
+  description: "Reviews contracts, schema expectations, access terms, and product SLAs.",
+  steps: ["Open products missing contracts or renewal checks.", "Compare schema and freshness commitments with current telemetry.", "Submit contract updates for governance approval."],
+  primaryAction: "Open contract queue",
+};
+
+const productPaginationFlow: DemoFlow = {
+  title: "Catalog Pagination",
+  description: "Loads more data products while keeping search, filters, and row selections connected.",
+  steps: ["Preserve active search and filters.", "Fetch the requested result page.", "Keep product drill-down and governance panels synchronized."],
+  primaryAction: "Load catalog page",
+};
+
+const rowsPerPageFlow: DemoFlow = {
+  title: "Rows Per Page",
+  description: "Changes the catalog table density for demo review.",
+  steps: ["Choose 10, 25, 50, or 100 rows.", "Reload the current filtered product list.", "Keep pagination and selection context stable."],
+  primaryAction: "Apply density",
+};
+
+function metricDetailFlow(title: string, value: string): DemoFlow {
+  return {
+    title,
+    description: `Opens the product catalog slice behind the ${value} ${title.toLowerCase()} metric.`,
+    steps: ["Show the trend and contributing products.", "Apply matching catalog filters.", "Open a product, export, or create a governance task."],
+    primaryAction: "Open metric detail",
+  };
+}
+
+function governanceFlow(title: string, value: string): DemoFlow {
+  return {
+    title,
+    description: `Reviews the ${title.toLowerCase()} signal currently showing ${value}.`,
+    steps: ["Open related products and policy checks.", "Inspect warnings, owners, SLAs, and access requests.", "Assign remediation or route approval."],
+    primaryAction: "Open governance detail",
+  };
+}
+
+function ProductAction({ icon: Icon, label, primary = false, onClick }: { icon: LucideIcon; label: string; primary?: boolean; onClick?: () => void }) {
   return (
-    <button className={`inline-flex h-10 min-w-[190px] items-center justify-center gap-2 rounded-lg border px-4 text-[13px] font-bold shadow-sm transition hover:-translate-y-0.5 ${primary ? "orange-gradient border-orange-500 text-white" : "border-slate-200 bg-white text-slate-800 hover:border-orange-200 hover:text-orange-600"}`}>
+    <button onClick={onClick} className={`inline-flex h-10 min-w-[190px] items-center justify-center gap-2 rounded-lg border px-4 text-[13px] font-bold shadow-sm transition hover:-translate-y-0.5 ${primary ? "orange-gradient border-orange-500 text-white" : "border-slate-200 bg-white text-slate-800 hover:border-orange-200 hover:text-orange-600"}`}>
       <Icon className="h-[18px] w-[18px]" /> {label}
     </button>
   );
 }
 
-function MetricTile({ title, value, delta, detail, icon: Icon, tone, values }: { title: string; value: string; delta: string; detail: string; icon: LucideIcon; tone: ProductTone; values: readonly number[] }) {
+function MetricTile({ title, value, delta, detail, icon: Icon, tone, values, onClick }: { title: string; value: string; delta: string; detail: string; icon: LucideIcon; tone: ProductTone; values: readonly number[]; onClick: () => void }) {
   return (
-    <div className="overflow-hidden rounded-[12px] border border-slate-100 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:border-orange-100 hover:shadow-card">
+    <button onClick={onClick} className="overflow-hidden rounded-[12px] border border-slate-100 bg-white p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-orange-100 hover:shadow-card">
       <div className="flex items-start gap-3">
         <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-[10px] border ${toneMap[tone]}`}><Icon className="h-5 w-5" /></span>
         <span className="min-w-0 flex-1">
@@ -209,7 +267,7 @@ function MetricTile({ title, value, delta, detail, icon: Icon, tone, values }: {
         <span className="text-right text-[10px] font-semibold leading-4 text-slate-500">{detail}</span>
       </div>
       <RichMetricChart tone={tone} values={values} />
-    </div>
+    </button>
   );
 }
 
@@ -255,7 +313,7 @@ function RichMetricChart({ tone, values }: { tone: ProductTone; values: readonly
   );
 }
 
-function DashboardPanel({ title, action, info = false, children }: { title: string; action?: string; info?: boolean; children: React.ReactNode }) {
+function DashboardPanel({ title, action, info = false, children, onAction }: { title: string; action?: string; info?: boolean; children: React.ReactNode; onAction?: () => void }) {
   return (
     <section className="rounded-[14px] border border-slate-200 bg-white p-3 shadow-card">
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -263,7 +321,7 @@ function DashboardPanel({ title, action, info = false, children }: { title: stri
           {title}
           {info ? <span className="grid h-4 w-4 place-items-center rounded-full border border-slate-300 text-[10px] text-slate-400">i</span> : null}
         </h2>
-        {action ? <button className="flex items-center gap-2 text-[12px] font-bold text-slate-700 hover:text-orange-600">{action}<ArrowRight className="h-4 w-4" /></button> : null}
+        {action ? <button onClick={onAction} className="flex items-center gap-2 text-[12px] font-bold text-slate-700 hover:text-orange-600">{action}<ArrowRight className="h-4 w-4" /></button> : null}
       </div>
       {children}
     </section>
@@ -345,16 +403,16 @@ function ProductTable({ rows, onSelect }: { rows: DataProduct[]; onSelect: (prod
   );
 }
 
-function GovernanceCard({ title, value, delta, icon: Icon, tone, warning = false }: { title: string; value: string; delta: string; icon: LucideIcon; tone: ProductTone; warning?: boolean }) {
+function GovernanceCard({ title, value, delta, icon: Icon, tone, warning = false, onClick }: { title: string; value: string; delta: string; icon: LucideIcon; tone: ProductTone; warning?: boolean; onClick: () => void }) {
   return (
-    <div className="min-h-[118px] rounded-[10px] border border-slate-200 bg-white p-4 shadow-sm">
+    <button onClick={onClick} className="min-h-[118px] rounded-[10px] border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-orange-200">
       <div className="flex items-center gap-3">
         <Icon className={`h-5 w-5 ${tone === "green" ? "text-emerald-600" : tone === "teal" ? "text-cyan-700" : tone === "blue" ? "text-blue-500" : tone === "purple" ? "text-purple-600" : "text-orange-600"}`} />
         <b className="truncate text-[12px] text-slate-800">{title}</b>
       </div>
       <p className="mt-4 text-[25px] font-extrabold leading-none text-slate-950">{value}</p>
       <p className={`mt-4 text-[11px] font-bold ${warning ? "text-orange-600" : "text-emerald-600"}`}>{warning ? "" : "▲ "}{delta}</p>
-    </div>
+    </button>
   );
 }
 
@@ -385,8 +443,8 @@ function ProductChip({ children }: { children: React.ReactNode }) {
   return <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-bold text-slate-600">{children}</span>;
 }
 
-function PageButton({ children, active = false }: { children: React.ReactNode; active?: boolean }) {
-  return <button className={`grid h-8 min-w-8 place-items-center rounded-md border px-2 text-[12px] font-bold ${active ? "border-orange-500 text-orange-600 shadow-[0_0_0_1px_rgba(249,115,22,.18)]" : "border-transparent text-slate-500 hover:border-slate-200"}`}>{children}</button>;
+function PageButton({ children, active = false, onClick }: { children: React.ReactNode; active?: boolean; onClick: () => void }) {
+  return <button onClick={onClick} className={`grid h-8 min-w-8 place-items-center rounded-md border px-2 text-[12px] font-bold ${active ? "border-orange-500 text-orange-600 shadow-[0_0_0_1px_rgba(249,115,22,.18)]" : "border-transparent text-slate-500 hover:border-slate-200"}`}>{children}</button>;
 }
 
 function compactDomain(value: string) {

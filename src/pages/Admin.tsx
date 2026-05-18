@@ -24,7 +24,9 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import DonutChart from "../components/charts/DonutChart";
+import DemoFlowModal, { type DemoFlow } from "../components/common/DemoFlowModal";
 import EntityDrawer from "../components/common/EntityDrawer";
 import { adminEvents, approvals, healthServices } from "../data/mockData";
 import type { Approval, DrawerEntity } from "../types";
@@ -84,6 +86,8 @@ const quickActions = [
 
 export default function Admin() {
   const [drawer, setDrawer] = useState<DrawerEntity | null>(null);
+  const [flow, setFlow] = useState<DemoFlow | null>(null);
+  const navigate = useNavigate();
 
   const openApproval = (approval: Approval) => setDrawer({ type: "approval", id: approval.id });
 
@@ -96,24 +100,24 @@ export default function Admin() {
         </section>
 
         <section className="admin-stat-grid">
-          {stats.map((stat) => <StatCard key={stat.title} {...stat} />)}
-          <SystemHealthCard />
+          {stats.map((stat) => <StatCard key={stat.title} {...stat} onClick={() => setFlow(adminMetricFlow(stat.title, stat.value))} />)}
+          <SystemHealthCard onClick={() => setFlow(systemHealthFlow)} />
         </section>
 
         <section className="admin-mid-grid">
-          <Panel title="Platform Health" action="View All">
-            <PlatformHealthTable />
-            <PanelLink label="View System Health" />
+          <Panel title="Platform Health" action="View All" onAction={() => setFlow(systemHealthFlow)}>
+            <PlatformHealthTable onOpen={(service) => setFlow(serviceHealthFlow(service.service, service.status))} />
+            <PanelLink label="View System Health" onClick={() => setFlow(systemHealthFlow)} />
           </Panel>
 
-          <Panel title="Resource Usage" control="This Month">
+          <Panel title="Resource Usage" control="This Month" onControl={() => setFlow(periodFlow("Resource Usage"))}>
             <div className="space-y-7 px-2 py-4">
-              {resourceUsage.map((item) => <ResourceRow key={item.title} {...item} />)}
+              {resourceUsage.map((item) => <ResourceRow key={item.title} {...item} onClick={() => setFlow(adminMetricFlow(item.title, item.value))} />)}
             </div>
-            <PanelLink label="View Usage & Cost" />
+            <PanelLink label="View Usage & Cost" onClick={() => setFlow(usageCostFlow)} />
           </Panel>
 
-          <Panel title="Cost Overview" control="This Month">
+          <Panel title="Cost Overview" control="This Month" onControl={() => setFlow(periodFlow("Cost Overview"))}>
             <div className="px-5 py-5">
               <div className="flex flex-wrap items-end gap-8">
                 <p className="text-[28px] font-extrabold leading-none text-slate-950">$48,250.75 <span className="text-[12px] font-bold">USD</span></p>
@@ -126,18 +130,18 @@ export default function Admin() {
                 </div>
               </div>
             </div>
-            <PanelLink label="View Detailed Cost" />
+            <PanelLink label="View Detailed Cost" onClick={() => setFlow(usageCostFlow)} />
           </Panel>
         </section>
 
         <section className="admin-bottom-grid">
-          <Panel title="Recent Audit Logs" action="View All">
+          <Panel title="Recent Audit Logs" action="View All" onAction={() => setFlow(auditFlow)}>
             <div className="divide-y divide-slate-100">
               {auditRows.map((event) => <AuditRow key={event.id} {...event} onClick={() => setDrawer({ type: "event", id: event.eventId })} />)}
             </div>
           </Panel>
 
-          <Panel title="Pending Approvals" action="View All">
+          <Panel title="Pending Approvals" action="View All" onAction={() => setDrawer({ type: "approval", id: "ap-provider-access" })}>
             <div className="divide-y divide-slate-100">
               {approvals.map((approval) => <ApprovalRow key={approval.id} approval={approval} onClick={() => openApproval(approval)} />)}
             </div>
@@ -145,19 +149,25 @@ export default function Admin() {
 
           <Panel title="Quick Actions">
             <div className="grid grid-cols-3 gap-3 p-3">
-              {quickActions.map((action) => <QuickAction key={action.label} {...action} />)}
+              {quickActions.map((action) => <QuickAction key={action.label} {...action} onClick={() => {
+                if (action.label === "View Audit Logs") setFlow(auditFlow);
+                else if (action.label === "System Health") setFlow(systemHealthFlow);
+                else if (action.label === "Add Data Source" || action.label === "Manage Connectors") navigate("/data-products");
+                else setFlow(adminActionFlow(action.label));
+              }} />)}
             </div>
           </Panel>
         </section>
       </div>
       <EntityDrawer entity={drawer} onClose={() => setDrawer(null)} onNavigate={setDrawer} />
+      <DemoFlowModal flow={flow} onClose={() => setFlow(null)} />
     </>
   );
 }
 
-function StatCard({ title, value, delta, icon: Icon, neutral = false }: { title: string; value: string; delta: string; icon: LucideIcon; neutral?: boolean }) {
+function StatCard({ title, value, delta, icon: Icon, neutral = false, onClick }: { title: string; value: string; delta: string; icon: LucideIcon; neutral?: boolean; onClick: () => void }) {
   return (
-    <div className="rounded-[12px] border border-slate-200 bg-white p-5 shadow-card">
+    <button onClick={onClick} className="rounded-[12px] border border-slate-200 bg-white p-5 text-left shadow-card transition hover:border-orange-200">
       <div className="flex items-start gap-4">
         <span className="grid h-12 w-12 shrink-0 place-items-center rounded-[10px] border border-orange-100 bg-orange-50 text-orange-600"><Icon className="h-7 w-7" /></span>
         <span className="min-w-0">
@@ -169,13 +179,13 @@ function StatCard({ title, value, delta, icon: Icon, neutral = false }: { title:
           </span>
         </span>
       </div>
-    </div>
+    </button>
   );
 }
 
-function SystemHealthCard() {
+function SystemHealthCard({ onClick }: { onClick: () => void }) {
   return (
-    <div className="rounded-[12px] border border-slate-200 bg-white p-5 shadow-card">
+    <button onClick={onClick} className="rounded-[12px] border border-slate-200 bg-white p-5 text-left shadow-card transition hover:border-orange-200">
       <div className="flex items-start gap-4">
         <span className="grid h-12 w-12 shrink-0 place-items-center rounded-[10px] border border-orange-100 bg-orange-50 text-orange-600"><ShieldPlus className="h-7 w-7" /></span>
         <span>
@@ -184,18 +194,75 @@ function SystemHealthCard() {
           <span className="mt-5 block text-[12px] font-medium text-slate-500">All systems operational</span>
         </span>
       </div>
-    </div>
+    </button>
   );
 }
 
-function Panel({ title, action, control, children }: { title: string; action?: string; control?: string; children: React.ReactNode }) {
+const systemHealthFlow: DemoFlow = {
+  title: "System Health",
+  description: "Shows platform service telemetry and the action path for warning or failed services.",
+  steps: ["Review service status, last check, and open issues.", "Drill into delayed catalog sync or connector failures.", "Assign remediation or acknowledge the incident for audit."],
+  primaryAction: "Open health console",
+};
+
+const usageCostFlow: DemoFlow = {
+  title: "Usage & Cost",
+  description: "Breaks down compute, storage, transfer, and AI usage by workspace and environment.",
+  steps: ["Filter usage by month, workspace, and service.", "Inspect high-cost drivers and trend changes.", "Create optimization recommendations or budget alerts."],
+  primaryAction: "Open cost dashboard",
+};
+
+const auditFlow: DemoFlow = {
+  title: "Audit Logs",
+  description: "Provides a traceable history of access, policy, publishing, and admin changes.",
+  steps: ["Search by user, event type, severity, or related asset.", "Open event details and related product/semantic context.", "Export evidence for security and compliance review."],
+  primaryAction: "Open audit logs",
+};
+
+function adminActionFlow(label: string): DemoFlow {
+  return {
+    title: label,
+    description: `Runs the ${label.toLowerCase()} administration workflow with approvals and audit capture.`,
+    steps: ["Capture required details and scope.", "Validate permissions, policies, and environment impact.", "Submit or complete the action and write an audit event."],
+    primaryAction: "Run workflow",
+  };
+}
+
+function adminMetricFlow(title: string, value: string): DemoFlow {
+  return {
+    title,
+    description: `Opens the admin detail behind the ${value} ${title.toLowerCase()} signal.`,
+    steps: ["Show trend, owners, workspace, and environment breakdown.", "Open related users, workspaces, sources, or billing records.", "Create an audit-backed follow-up if action is needed."],
+    primaryAction: "Open detail",
+  };
+}
+
+function serviceHealthFlow(service: string, status: string): DemoFlow {
+  return {
+    title: service,
+    description: `Opens ${service} service telemetry. Current status is ${status}.`,
+    steps: ["Inspect last checks, latency, and open incidents.", "Open connected jobs, connectors, and workspaces.", "Acknowledge, assign, or create remediation."],
+    primaryAction: "Open service",
+  };
+}
+
+function periodFlow(panel: string): DemoFlow {
+  return {
+    title: `${panel} Period`,
+    description: "Changes the reporting period for the admin dashboard panel.",
+    steps: ["Choose month, quarter, custom range, or current billing cycle.", "Reload the panel metrics and charts.", "Preserve workspace and environment filters."],
+    primaryAction: "Apply period",
+  };
+}
+
+function Panel({ title, action, control, children, onAction, onControl }: { title: string; action?: string; control?: string; children: React.ReactNode; onAction?: () => void; onControl?: () => void }) {
   return (
     <section className="flex min-h-0 flex-col rounded-[14px] border border-slate-200 bg-white p-4 shadow-card">
       <div className="mb-4 flex items-center justify-between gap-3">
         <h2 className="text-[15px] font-extrabold text-slate-950">{title}</h2>
-        {action ? <button className="text-[12px] font-extrabold text-orange-600 hover:text-orange-700">{action}</button> : null}
+        {action ? <button onClick={onAction} className="text-[12px] font-extrabold text-orange-600 hover:text-orange-700">{action}</button> : null}
         {control ? (
-          <button className="flex h-9 items-center gap-5 rounded-lg border border-slate-200 bg-white px-4 text-[12px] font-bold text-slate-700 shadow-sm">
+          <button onClick={onControl} className="flex h-9 items-center gap-5 rounded-lg border border-slate-200 bg-white px-4 text-[12px] font-bold text-slate-700 shadow-sm">
             {control}<ChevronDown className="h-4 w-4 text-slate-500" />
           </button>
         ) : null}
@@ -205,7 +272,7 @@ function Panel({ title, action, control, children }: { title: string; action?: s
   );
 }
 
-function PlatformHealthTable() {
+function PlatformHealthTable({ onOpen }: { onOpen: (service: (typeof healthServices)[number]) => void }) {
   return (
     <div className="overflow-hidden rounded-[10px] border border-slate-100">
       <div className="admin-health-row grid bg-slate-50 px-3 py-3 text-[11px] font-bold text-slate-500">
@@ -213,23 +280,23 @@ function PlatformHealthTable() {
       </div>
       <div className="divide-y divide-slate-100">
         {healthServices.map((service) => (
-          <div key={service.service} className="admin-health-row grid items-center px-3 py-2.5">
+          <button key={service.service} onClick={() => onOpen(service)} className="admin-health-row grid items-center px-3 py-2.5 text-left hover:bg-orange-50/40">
             <b className="truncate text-[12px] text-slate-800">{service.service}</b>
             <span className={`flex items-center gap-2 text-[12px] font-bold ${service.status === "Warning" ? "text-orange-600" : "text-emerald-600"}`}>
               <span className={`h-2 w-2 rounded-full ${service.status === "Warning" ? "bg-orange-500" : "bg-emerald-500"}`} />{service.status}
             </span>
             <span className="text-[12px] font-medium text-slate-600">{service.lastChecked}</span>
             <span className="text-[12px] font-bold text-slate-400">{service.status === "Warning" ? "1 issue" : "-"}</span>
-          </div>
+          </button>
         ))}
       </div>
     </div>
   );
 }
 
-function ResourceRow({ title, value, percent, icon: Icon }: { title: string; value: string; percent: number; icon: LucideIcon }) {
+function ResourceRow({ title, value, percent, icon: Icon, onClick }: { title: string; value: string; percent: number; icon: LucideIcon; onClick: () => void }) {
   return (
-    <div className="grid grid-cols-[38px_1fr_92px_44px] items-center gap-4">
+    <button onClick={onClick} className="grid w-full grid-cols-[38px_1fr_92px_44px] items-center gap-4 rounded-lg text-left hover:bg-orange-50/40">
       <Icon className="h-6 w-6 text-slate-500" />
       <span>
         <span className="mb-3 flex items-center justify-between gap-3">
@@ -241,7 +308,7 @@ function ResourceRow({ title, value, percent, icon: Icon }: { title: string; val
         </span>
       </span>
       <span className="text-right text-[12px] font-semibold text-slate-700">{percent}%</span>
-    </div>
+    </button>
   );
 }
 
@@ -255,10 +322,10 @@ function CostLegendRow({ label, value, color }: { label: string; value: string; 
   );
 }
 
-function PanelLink({ label }: { label: string }) {
+function PanelLink({ label, onClick }: { label: string; onClick?: () => void }) {
   return (
     <div className="mt-auto flex justify-end pt-4">
-      <button className="flex items-center gap-3 text-[13px] font-extrabold text-orange-600 hover:text-orange-700">
+      <button onClick={onClick} className="flex items-center gap-3 text-[13px] font-extrabold text-orange-600 hover:text-orange-700">
         {label}<ArrowRight className="h-5 w-5" />
       </button>
     </div>
@@ -302,9 +369,9 @@ function PriorityBadge({ priority }: { priority: Priority }) {
   return <span className={`rounded-md border px-2 py-1 text-center text-[11px] font-extrabold ${className}`}>{priority}</span>;
 }
 
-function QuickAction({ label, icon: Icon }: { label: string; icon: LucideIcon }) {
+function QuickAction({ label, icon: Icon, onClick }: { label: string; icon: LucideIcon; onClick?: () => void }) {
   return (
-    <button className="min-h-[86px] rounded-[10px] border border-slate-200 bg-white p-3 text-center text-[12px] font-extrabold text-slate-800 shadow-sm transition hover:-translate-y-0.5 hover:border-orange-200 hover:text-orange-600">
+    <button onClick={onClick} className="min-h-[86px] rounded-[10px] border border-slate-200 bg-white p-3 text-center text-[12px] font-extrabold text-slate-800 shadow-sm transition hover:-translate-y-0.5 hover:border-orange-200 hover:text-orange-600">
       <Icon className="mx-auto mb-3 h-7 w-7 text-orange-600" />
       {label}
     </button>

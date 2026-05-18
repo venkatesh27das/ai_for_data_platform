@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import DemoFlowModal, { type DemoFlow } from "../components/common/DemoFlowModal";
 import EntityDrawer from "../components/common/EntityDrawer";
 import ProgressBar from "../components/common/ProgressBar";
 import StatusBadge from "../components/common/StatusBadge";
@@ -80,6 +82,8 @@ const activity = [
 
 export default function Studios() {
   const [drawer, setDrawer] = useState<DrawerEntity | null>(null);
+  const [flow, setFlow] = useState<DemoFlow | null>(null);
+  const navigate = useNavigate();
 
   return (
     <>
@@ -90,15 +94,15 @@ export default function Studios() {
             <p className="text-[13px] text-slate-700">Launch specialized workspaces to build, govern, and operationalize structured and unstructured data assets.</p>
           </div>
           <div className="mt-5 flex flex-wrap gap-3">
-            <StudioAction primary icon={Plus} label="Launch New Studio" />
-            <StudioAction icon={Grid2X2} label="Browse Templates" />
-            <StudioAction icon={Play} label="Resume Last Session" />
-            <StudioAction icon={UserPlus} label="Create Workspace" />
+            <StudioAction primary icon={Plus} label="Launch New Studio" onClick={() => setFlow(launchStudioFlow)} />
+            <StudioAction icon={Grid2X2} label="Browse Templates" onClick={() => setFlow(templateFlow)} />
+            <StudioAction icon={Play} label="Resume Last Session" onClick={() => setDrawer({ type: "studio", id: "ss-claims-extraction" })} />
+            <StudioAction icon={UserPlus} label="Create Workspace" onClick={() => navigate("/admin")} />
           </div>
           <div className="mt-4 border-t border-slate-200 pt-4">
             <SectionTitle title="Featured Studios" action="View all studios" />
             <div className="studios-feature-grid mt-3">
-              {studios.map((studio) => <StudioCard key={studio.name} {...studio} />)}
+              {studios.map((studio) => <StudioCard key={studio.name} {...studio} onClick={() => setFlow({ title: studio.name, description: `Launches a ${studio.name} workspace using governed templates and connected platform assets.`, steps: ["Select workspace and environment.", `Choose one of ${studio.templates.toLowerCase()} or start blank.`, "Assign owners, connect assets, and begin guided execution."], primaryAction: "Launch workspace" })} />)}
             </div>
           </div>
         </section>
@@ -106,9 +110,9 @@ export default function Studios() {
         <section className="studios-mid-grid">
           <DashboardPanel title="Browse by Capability">
             <div className="grid grid-cols-1 gap-2.5 min-[1500px]:grid-cols-2">
-              {capabilities.map((capability) => <CapabilityCard key={capability.title} {...capability} />)}
+              {capabilities.map((capability) => <CapabilityCard key={capability.title} {...capability} onClick={() => setFlow(capabilityFlow(capability.title, capability.detail))} />)}
             </div>
-            <PanelLink label="View all capabilities" />
+            <PanelLink label="View all capabilities" onClick={() => setFlow(capabilityDirectoryFlow)} />
           </DashboardPanel>
 
           <DashboardPanel title="Active Studio Sessions" action="View all sessions">
@@ -134,28 +138,28 @@ export default function Studios() {
                 ))}
               </div>
             </div>
-            <PanelLink label="Go to all sessions" />
+            <PanelLink label="Go to all sessions" onClick={() => setDrawer({ type: "studio", id: "ss-claims-extraction" })} />
           </DashboardPanel>
 
           <DashboardPanel title="Workspace Insights">
             <div className="grid grid-cols-3 gap-2.5 max-[1500px]:grid-cols-2 max-[1180px]:grid-cols-3 max-[760px]:grid-cols-2">
               {insightMetrics.map(([title, value, detail]) => <InsightCard key={title} title={title} value={value} detail={detail} />)}
             </div>
-            <PanelLink label="View full health dashboard" />
+            <PanelLink label="View full health dashboard" onClick={() => setFlow(studioHealthFlow)} />
           </DashboardPanel>
         </section>
 
         <section className="studios-bottom-grid">
-          <DashboardPanel title="Recommended Templates" action="View all templates">
+          <DashboardPanel title="Recommended Templates" action="View all templates" onAction={() => setFlow(templateFlow)}>
             <div className="grid grid-cols-1 gap-2.5 min-[1500px]:grid-cols-3 min-[1800px]:grid-cols-5">
-              {templates.map((template) => <TemplateCard key={template.title} {...template} />)}
+              {templates.map((template) => <TemplateCard key={template.title} {...template} onClick={() => setFlow(templateLaunchFlow(template.title, template.detail))} />)}
             </div>
           </DashboardPanel>
 
           <DashboardPanel title="AI Recommendations">
             <div className="space-y-2">
               {recommendations.slice(0, 3).map((recommendation) => (
-                <button key={recommendation.id} className="flex w-full items-center gap-3 rounded-[10px] border border-slate-100 bg-white px-3 py-2 text-left shadow-sm transition hover:border-orange-200">
+                <button key={recommendation.id} onClick={() => navigate(recommendation.relatedEntityType === "product" ? "/data-products" : "/semantic-hub")} className="flex w-full items-center gap-3 rounded-[10px] border border-slate-100 bg-white px-3 py-2 text-left shadow-sm transition hover:border-orange-200">
                   <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-orange-50 text-orange-600"><Sparkles className="h-[18px] w-[18px]" /></span>
                   <span className="min-w-0 flex-1">
                     <b className="block truncate text-[12px] text-slate-900">{recommendation.title}</b>
@@ -165,50 +169,106 @@ export default function Studios() {
                 </button>
               ))}
             </div>
-            <PanelLink label="View all recommendations" />
+            <PanelLink label="View all recommendations" onClick={() => navigate("/data-products")} />
           </DashboardPanel>
 
           <DashboardPanel title="Recent Activity" action="View all activity">
             <div className="space-y-2">
-              {activity.map((item) => <ActivityRow key={item.title} {...item} />)}
+              {activity.map((item) => <ActivityRow key={item.title} {...item} onClick={() => setFlow(activityFlow(item.title, item.detail))} />)}
             </div>
           </DashboardPanel>
         </section>
       </div>
       <EntityDrawer entity={drawer} onClose={() => setDrawer(null)} onNavigate={setDrawer} />
+      <DemoFlowModal flow={flow} onClose={() => setFlow(null)} />
     </>
   );
 }
 
-function StudioAction({ icon: Icon, label, primary = false }: { icon: LucideIcon; label: string; primary?: boolean }) {
+const launchStudioFlow: DemoFlow = {
+  title: "Launch New Studio",
+  description: "Creates a guided workspace for ingestion, extraction, quality, productization, semantics, or migration.",
+  steps: ["Pick a studio type and starting template.", "Connect source assets, owners, and target environment.", "Create a runnable session with recommendations and checkpoints."],
+  primaryAction: "Launch studio",
+};
+
+const templateFlow: DemoFlow = {
+  title: "Browse Templates",
+  description: "Shows reusable implementation patterns for common data engineering and governance work.",
+  steps: ["Filter templates by capability, cloud, and domain.", "Preview inputs, outputs, required connectors, and estimated effort.", "Launch the template as a studio session."],
+  primaryAction: "Use template",
+};
+
+const capabilityDirectoryFlow: DemoFlow = {
+  title: "Capability Directory",
+  description: "Groups studios and templates by the kind of work a demo user wants to complete.",
+  steps: ["Browse capabilities with active sessions and templates.", "Open recommended templates and connected assets.", "Launch a guided studio workspace from the selected capability."],
+  primaryAction: "Open directory",
+};
+
+const studioHealthFlow: DemoFlow = {
+  title: "Studio Health Dashboard",
+  description: "Shows studio availability, session throughput, template usage, and AI assist health.",
+  steps: ["Review uptime, success rate, and running session telemetry.", "Open slow or failed sessions.", "Assign remediation or tune studio configuration."],
+  primaryAction: "Open health dashboard",
+};
+
+function capabilityFlow(title: string, detail: string): DemoFlow {
+  return {
+    title,
+    description: `Opens ${title.toLowerCase()} templates and examples for ${detail.toLowerCase()}.`,
+    steps: ["Review recommended studios and templates.", "Inspect active sessions connected to the capability.", "Launch a workspace with owners, inputs, and checkpoints."],
+    primaryAction: "Open capability",
+  };
+}
+
+function templateLaunchFlow(title: string, detail: string): DemoFlow {
+  return {
+    title,
+    description: detail,
+    steps: ["Preview inputs, outputs, connectors, and generated tasks.", "Map the template to a workspace and target environment.", "Launch a studio session connected to products and governance checks."],
+    primaryAction: "Launch template",
+  };
+}
+
+function activityFlow(title: string, detail: string): DemoFlow {
+  return {
+    title,
+    description: `Opens the activity detail from ${detail}.`,
+    steps: ["Show actor, timestamp, and affected assets.", "Open linked studio session or product context.", "Capture follow-up notes in the audit stream."],
+    primaryAction: "Open activity",
+  };
+}
+
+function StudioAction({ icon: Icon, label, primary = false, onClick }: { icon: LucideIcon; label: string; primary?: boolean; onClick?: () => void }) {
   return (
-    <button className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg border px-4 text-[13px] font-bold shadow-sm transition hover:-translate-y-0.5 ${primary ? "orange-gradient border-orange-500 text-white" : "border-slate-200 bg-white text-slate-800 hover:border-orange-200 hover:text-orange-600"}`}>
+    <button onClick={onClick} className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg border px-4 text-[13px] font-bold shadow-sm transition hover:-translate-y-0.5 ${primary ? "orange-gradient border-orange-500 text-white" : "border-slate-200 bg-white text-slate-800 hover:border-orange-200 hover:text-orange-600"}`}>
       <Icon className="h-[18px] w-[18px]" /> {label}
     </button>
   );
 }
 
-function SectionTitle({ title, action }: { title: string; action?: string }) {
+function SectionTitle({ title, action, onAction }: { title: string; action?: string; onAction?: () => void }) {
   return (
     <div className="flex items-center justify-between gap-3">
       <h2 className="flex items-center gap-2 text-[15px] font-extrabold text-slate-950">{title}<span className="grid h-4 w-4 place-items-center rounded-full border border-slate-300 text-[10px] text-slate-400">i</span></h2>
-      {action ? <button className="flex items-center gap-2 text-[12px] font-bold text-slate-700 hover:text-orange-600">{action}<ArrowRight className="h-4 w-4" /></button> : null}
+      {action ? <button onClick={onAction} className="flex items-center gap-2 text-[12px] font-bold text-slate-700 hover:text-orange-600">{action}<ArrowRight className="h-4 w-4" /></button> : null}
     </div>
   );
 }
 
-function DashboardPanel({ title, action, children }: { title: string; action?: string; children: React.ReactNode }) {
+function DashboardPanel({ title, action, children, onAction }: { title: string; action?: string; children: React.ReactNode; onAction?: () => void }) {
   return (
     <section className="flex h-full flex-col rounded-[14px] border border-slate-200 bg-white p-3 shadow-card">
-      <SectionTitle title={title} action={action} />
+      <SectionTitle title={title} action={action} onAction={onAction} />
       <div className="mt-3 flex min-h-0 flex-1 flex-col">{children}</div>
     </section>
   );
 }
 
-function StudioCard({ name, icon: Icon, description, templates, active, updated, tone }: { name: string; icon: LucideIcon; description: string; templates: string; active: string; updated: string; tone: StudioTone }) {
+function StudioCard({ name, icon: Icon, description, templates, active, updated, tone, onClick }: { name: string; icon: LucideIcon; description: string; templates: string; active: string; updated: string; tone: StudioTone; onClick?: () => void }) {
   return (
-    <button className="min-h-[148px] rounded-[10px] border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-orange-200 hover:shadow-card">
+    <button onClick={onClick} className="min-h-[148px] rounded-[10px] border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-orange-200 hover:shadow-card">
       <div className={`grid h-11 w-11 place-items-center rounded-[10px] border ${toneMap[tone]}`}><Icon className="h-6 w-6" /></div>
       <h3 className="mt-2 text-[14px] font-extrabold leading-snug text-slate-950">{name}</h3>
       <p className="mt-1 line-clamp-2 min-h-8 text-[11px] leading-4 text-slate-600">{description}</p>
@@ -222,9 +282,9 @@ function StudioCard({ name, icon: Icon, description, templates, active, updated,
   );
 }
 
-function CapabilityCard({ title, detail, icon: Icon, tone }: { title: string; detail: string; icon: LucideIcon; tone: StudioTone }) {
+function CapabilityCard({ title, detail, icon: Icon, tone, onClick }: { title: string; detail: string; icon: LucideIcon; tone: StudioTone; onClick: () => void }) {
   return (
-    <button className="grid min-h-[94px] grid-cols-[38px_1fr] items-start gap-3 rounded-[10px] border border-slate-100 bg-slate-50/70 p-3 text-left transition hover:border-orange-200 hover:bg-white min-[1500px]:min-h-[104px]">
+    <button onClick={onClick} className="grid min-h-[94px] grid-cols-[38px_1fr] items-start gap-3 rounded-[10px] border border-slate-100 bg-slate-50/70 p-3 text-left transition hover:border-orange-200 hover:bg-white min-[1500px]:min-h-[104px]">
       <span className={`grid h-9 w-9 place-items-center rounded-lg border ${toneMap[tone]}`}><Icon className="h-5 w-5" /></span>
       <span className="min-w-0 pt-0.5">
         <b className="block min-h-8 text-[12px] leading-4 text-slate-950">{title}</b>
@@ -244,9 +304,9 @@ function InsightCard({ title, value, detail }: { title: string; value: string; d
   );
 }
 
-function TemplateCard({ title, detail, uses, icon: Icon, tone }: { title: string; detail: string; uses: string; icon: LucideIcon; tone: StudioTone }) {
+function TemplateCard({ title, detail, uses, icon: Icon, tone, onClick }: { title: string; detail: string; uses: string; icon: LucideIcon; tone: StudioTone; onClick: () => void }) {
   return (
-    <button className="grid min-h-[174px] grid-rows-[36px_40px_48px_1fr] rounded-[10px] border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:border-orange-200">
+    <button onClick={onClick} className="grid min-h-[174px] grid-rows-[36px_40px_48px_1fr] rounded-[10px] border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:border-orange-200">
       <span className={`grid h-9 w-9 place-items-center rounded-lg border ${toneMap[tone]}`}><Icon className="h-5 w-5" /></span>
       <b className="mt-2 line-clamp-2 text-[12px] leading-4 text-slate-950">{title}</b>
       <span className="mt-1 line-clamp-3 text-[11px] leading-4 text-slate-600">{detail}</span>
@@ -258,9 +318,9 @@ function TemplateCard({ title, detail, uses, icon: Icon, tone }: { title: string
   );
 }
 
-function ActivityRow({ title, detail, time, icon: Icon, tone }: { title: string; detail: string; time: string; icon: LucideIcon; tone: StudioTone }) {
+function ActivityRow({ title, detail, time, icon: Icon, tone, onClick }: { title: string; detail: string; time: string; icon: LucideIcon; tone: StudioTone; onClick: () => void }) {
   return (
-    <button className="flex w-full items-center gap-3 rounded-[10px] bg-slate-50/80 px-3 py-2 text-left transition hover:bg-orange-50/50">
+    <button onClick={onClick} className="flex w-full items-center gap-3 rounded-[10px] bg-slate-50/80 px-3 py-2 text-left transition hover:bg-orange-50/50">
       <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-full border ${toneMap[tone]}`}><Icon className="h-5 w-5" /></span>
       <span className="min-w-0 flex-1">
         <b className="block truncate text-[12px] text-slate-900">{title}</b>
@@ -277,10 +337,10 @@ function StudioIcon({ name }: { name: string }) {
   return <Icon className={`h-[18px] w-[18px] ${studio.tone === "orange" ? "text-orange-600" : studio.tone === "blue" ? "text-blue-600" : studio.tone === "green" ? "text-emerald-600" : studio.tone === "purple" ? "text-purple-600" : studio.tone === "amber" ? "text-amber-600" : "text-cyan-700"}`} />;
 }
 
-function PanelLink({ label }: { label: string }) {
+function PanelLink({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <div className="mt-auto flex justify-center pt-3">
-      <button className="flex items-center gap-2 text-[12px] font-bold text-orange-600 hover:text-orange-700">{label}<ArrowRight className="h-4 w-4" /></button>
+      <button onClick={onClick} className="flex items-center gap-2 text-[12px] font-bold text-orange-600 hover:text-orange-700">{label}<ArrowRight className="h-4 w-4" /></button>
     </div>
   );
 }

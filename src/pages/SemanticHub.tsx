@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
+import DemoFlowModal, { type DemoFlow } from "../components/common/DemoFlowModal";
 import EntityDrawer from "../components/common/EntityDrawer";
 import { domains } from "../data/mockData";
 import type { DrawerEntity } from "../types";
@@ -105,6 +106,7 @@ export default function SemanticHub() {
   const [type, setType] = useState("");
   const [status, setStatus] = useState("");
   const [owner, setOwner] = useState("");
+  const [flow, setFlow] = useState<DemoFlow | null>(null);
 
   const typeOptions = useMemo(() => Array.from(new Set(assetRows.map((asset) => asset.type))), []);
   const ownerOptions = useMemo(() => Array.from(new Set(assetRows.map((asset) => asset.owner))), []);
@@ -126,14 +128,14 @@ export default function SemanticHub() {
             <p className="mt-2 text-[13px] text-slate-700">Define trusted business meaning, certify metrics, and connect semantic context to data products, BI, APIs, and AI agents.</p>
           </div>
           <div className="mt-5 flex flex-wrap gap-3">
-            <SemanticAction primary icon={Plus} label="Create Semantic Model" />
-            <SemanticAction icon={BookOpen} label="Add Business Term" />
-            <SemanticAction icon={GitBranch} label="Create Metric" />
-            <SemanticAction icon={Import} label="Import Terms" />
+            <SemanticAction primary icon={Plus} label="Create Semantic Model" onClick={() => setFlow(semanticModelFlow)} />
+            <SemanticAction icon={BookOpen} label="Add Business Term" onClick={() => setFlow(businessTermFlow)} />
+            <SemanticAction icon={GitBranch} label="Create Metric" onClick={() => setFlow(metricFlow)} />
+            <SemanticAction icon={Import} label="Import Terms" onClick={() => setFlow(importTermsFlow)} />
           </div>
 
           <div className="semantic-metric-grid mt-5">
-            {summaryMetrics.map((metric) => <SummaryMetric key={metric.title} {...metric} />)}
+            {summaryMetrics.map((metric) => <SummaryMetric key={metric.title} {...metric} onClick={() => setFlow(semanticMetricFlow(metric.title, metric.value))} />)}
           </div>
         </section>
 
@@ -148,7 +150,7 @@ export default function SemanticHub() {
               <FilterSelect label="All Types" value={type} options={typeOptions} onChange={setType} />
               <FilterSelect label="All Status" value={status} options={["Certified", "Draft", "Review Needed"]} onChange={setStatus} />
               <FilterSelect label="All Owners" value={owner} options={ownerOptions} onChange={setOwner} wide />
-              <button className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-[12px] font-bold text-slate-700 shadow-sm hover:border-orange-200 hover:text-orange-600">
+              <button onClick={() => { setSearch(""); setDomain(""); setType(""); setStatus(""); setOwner(""); }} className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-[12px] font-bold text-slate-700 shadow-sm hover:border-orange-200 hover:text-orange-600">
                 <Filter className="h-4 w-4" /> Filters
               </button>
             </div>
@@ -156,13 +158,13 @@ export default function SemanticHub() {
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-[12px] text-slate-600">
               <span>Showing 1 to {filtered.length} of {assetRows.length} assets</span>
               <div className="flex items-center gap-2">
-                <PageButton><ChevronLeft className="h-4 w-4" /></PageButton>
-                <PageButton active>1</PageButton>
-                <PageButton><ChevronRight className="h-4 w-4" /></PageButton>
+                <PageButton onClick={() => setFlow(semanticPaginationFlow)}><ChevronLeft className="h-4 w-4" /></PageButton>
+                <PageButton active onClick={() => setFlow(semanticPaginationFlow)}>1</PageButton>
+                <PageButton onClick={() => setFlow(semanticPaginationFlow)}><ChevronRight className="h-4 w-4" /></PageButton>
               </div>
               <label className="flex items-center gap-2">
                 Rows per page:
-                <span className="flex h-8 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 font-semibold text-slate-700">10 <ChevronDown className="h-4 w-4" /></span>
+                <button onClick={() => setFlow(semanticRowsFlow)} className="flex h-8 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 font-semibold text-slate-700">10 <ChevronDown className="h-4 w-4" /></button>
               </label>
             </div>
           </DashboardPanel>
@@ -170,7 +172,7 @@ export default function SemanticHub() {
           <div className="space-y-3">
             <DashboardPanel title="Semantic Health" info>
               <div className="grid grid-cols-1 gap-2.5 min-[760px]:grid-cols-2">
-                {healthCards.map((item) => <HealthCard key={item.title} {...item} />)}
+                {healthCards.map((item) => <HealthCard key={item.title} {...item} onClick={() => setFlow(semanticHealthFlow(item.title, item.value))} />)}
               </div>
             </DashboardPanel>
 
@@ -185,7 +187,7 @@ export default function SemanticHub() {
         <section className="semantic-bottom-grid">
           <DashboardPanel title="Domain Overview">
             <div className="semantic-domain-grid">
-              {domainCards.map((domainCard) => <DomainCard key={domainCard.title} {...domainCard} />)}
+              {domainCards.map((domainCard) => <DomainCard key={domainCard.title} {...domainCard} onClick={() => setDomain(domainCard.title)} />)}
             </div>
           </DashboardPanel>
 
@@ -197,13 +199,74 @@ export default function SemanticHub() {
         </section>
       </div>
       <EntityDrawer entity={drawer} onClose={() => setDrawer(null)} onNavigate={setDrawer} />
+      <DemoFlowModal flow={flow} onClose={() => setFlow(null)} />
     </>
   );
 }
 
-function SemanticAction({ icon: Icon, label, primary = false }: { icon: LucideIcon; label: string; primary?: boolean }) {
+const semanticModelFlow: DemoFlow = {
+  title: "Create Semantic Model",
+  description: "Starts a governed semantic model connected to data products, metrics, and business terms.",
+  steps: ["Choose a domain and owner.", "Select source data products and glossary terms.", "Generate relationships, certify model coverage, and publish to BI/API/AI consumers."],
+  primaryAction: "Create model",
+};
+
+const businessTermFlow: DemoFlow = {
+  title: "Add Business Term",
+  description: "Adds a trusted definition to the business glossary and connects it to assets.",
+  steps: ["Capture definition, domain, steward, and synonyms.", "Map the term to columns, metrics, and data products.", "Submit for steward approval and certification."],
+  primaryAction: "Add term",
+};
+
+const metricFlow: DemoFlow = {
+  title: "Create Metric",
+  description: "Defines a certified metric with calculation logic and ownership.",
+  steps: ["Enter metric definition, formula, and grain.", "Attach validated source products and semantic terms.", "Run consistency checks and publish to consumers."],
+  primaryAction: "Create metric",
+};
+
+const importTermsFlow: DemoFlow = {
+  title: "Import Terms",
+  description: "Imports glossary terms from CSV, Collibra, Alation, or a source catalog.",
+  steps: ["Upload or connect to a glossary source.", "Deduplicate against existing business terms.", "Route new and changed terms to domain stewards."],
+  primaryAction: "Import terms",
+};
+
+const semanticPaginationFlow: DemoFlow = {
+  title: "Semantic Asset Pagination",
+  description: "Loads more semantic assets while preserving filters and selected context.",
+  steps: ["Keep search and filter values.", "Fetch the requested asset page.", "Keep action queues and recently updated items connected."],
+  primaryAction: "Load assets",
+};
+
+const semanticRowsFlow: DemoFlow = {
+  title: "Rows Per Page",
+  description: "Changes semantic asset table density for demo review.",
+  steps: ["Choose a table density.", "Reload the filtered semantic asset list.", "Preserve selected asset and queue context."],
+  primaryAction: "Apply density",
+};
+
+function semanticMetricFlow(title: string, value: string): DemoFlow {
+  return {
+    title,
+    description: `Opens the semantic governance slice behind the ${value} ${title.toLowerCase()} metric.`,
+    steps: ["Show trend, owners, and related domains.", "Filter the asset table to matching assets.", "Open certification, mapping, or review actions."],
+    primaryAction: "Open metric detail",
+  };
+}
+
+function semanticHealthFlow(title: string, value: string): DemoFlow {
+  return {
+    title,
+    description: `Reviews the ${title.toLowerCase()} signal currently at ${value}.`,
+    steps: ["Open impacted models, terms, metrics, and mappings.", "Review owners and data-product links.", "Create remediation or certification work."],
+    primaryAction: "Open health detail",
+  };
+}
+
+function SemanticAction({ icon: Icon, label, primary = false, onClick }: { icon: LucideIcon; label: string; primary?: boolean; onClick?: () => void }) {
   return (
-    <button className={`inline-flex h-10 min-w-[190px] items-center justify-center gap-2 rounded-lg border px-4 text-[13px] font-bold shadow-sm transition hover:-translate-y-0.5 ${primary ? "orange-gradient border-orange-500 text-white" : "border-slate-200 bg-white text-slate-800 hover:border-orange-200 hover:text-orange-600"}`}>
+    <button onClick={onClick} className={`inline-flex h-10 min-w-[190px] items-center justify-center gap-2 rounded-lg border px-4 text-[13px] font-bold shadow-sm transition hover:-translate-y-0.5 ${primary ? "orange-gradient border-orange-500 text-white" : "border-slate-200 bg-white text-slate-800 hover:border-orange-200 hover:text-orange-600"}`}>
       <Icon className="h-[18px] w-[18px]" /> {label}
     </button>
   );
@@ -223,9 +286,9 @@ function DashboardPanel({ title, info = false, children }: { title: string; info
   );
 }
 
-function SummaryMetric({ title, value, delta, icon: Icon, tone, values, down = false }: { title: string; value: string; delta: string; icon: LucideIcon; tone: SemanticTone; values: readonly number[]; down?: boolean }) {
+function SummaryMetric({ title, value, delta, icon: Icon, tone, values, down = false, onClick }: { title: string; value: string; delta: string; icon: LucideIcon; tone: SemanticTone; values: readonly number[]; down?: boolean; onClick: () => void }) {
   return (
-    <div className="rounded-[12px] border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-orange-100 hover:shadow-card">
+    <button onClick={onClick} className="rounded-[12px] border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-orange-100 hover:shadow-card">
       <div className="flex items-start gap-4">
         <span className={`grid h-12 w-12 shrink-0 place-items-center rounded-[12px] border ${toneMap[tone]}`}><Icon className="h-7 w-7" /></span>
         <span className="min-w-0 flex-1">
@@ -237,7 +300,7 @@ function SummaryMetric({ title, value, delta, icon: Icon, tone, values, down = f
         </span>
       </div>
       <Sparkline tone={tone} values={values} />
-    </div>
+    </button>
   );
 }
 
@@ -325,9 +388,9 @@ function SemanticStatusBadge({ status }: { status: AssetRow["status"] }) {
   );
 }
 
-function HealthCard({ title, value, detail, icon: Icon, tone, neutral = false }: { title: string; value: string; detail: string; icon: LucideIcon; tone: SemanticTone; neutral?: boolean }) {
+function HealthCard({ title, value, detail, icon: Icon, tone, neutral = false, onClick }: { title: string; value: string; detail: string; icon: LucideIcon; tone: SemanticTone; neutral?: boolean; onClick: () => void }) {
   return (
-    <div className="min-h-[94px] rounded-[10px] border border-slate-200 bg-white p-4 shadow-sm">
+    <button onClick={onClick} className="min-h-[94px] rounded-[10px] border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-orange-200">
       <div className="flex items-center gap-3">
         <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-[10px] border ${toneMap[tone]}`}><Icon className="h-5 w-5" /></span>
         <span className="min-w-0">
@@ -336,7 +399,7 @@ function HealthCard({ title, value, detail, icon: Icon, tone, neutral = false }:
         </span>
       </div>
       <p className={`mt-3 flex items-center gap-1 pl-[52px] text-[11px] font-bold ${neutral ? "text-slate-500" : "text-emerald-600"}`}>{neutral ? null : <ArrowUp className="h-3.5 w-3.5" />}{detail}</p>
-    </div>
+    </button>
   );
 }
 
@@ -360,9 +423,9 @@ function PriorityBadge({ priority }: { priority: QueuePriority }) {
   return <span className={`rounded-md border px-2 py-1 text-center text-[11px] font-extrabold ${className}`}>{priority}</span>;
 }
 
-function DomainCard({ title, icon: Icon, tone, models, terms, metrics, linkedProducts, coverage }: { title: string; icon: LucideIcon; tone: SemanticTone; models: number; terms: number; metrics: number; linkedProducts: number; coverage: number }) {
+function DomainCard({ title, icon: Icon, tone, models, terms, metrics, linkedProducts, coverage, onClick }: { title: string; icon: LucideIcon; tone: SemanticTone; models: number; terms: number; metrics: number; linkedProducts: number; coverage: number; onClick: () => void }) {
   return (
-    <div className="rounded-[10px] border border-slate-200 bg-white p-4 shadow-sm">
+    <button onClick={onClick} className="rounded-[10px] border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-orange-200">
       <div className="flex items-center gap-3">
         <span className={`grid h-9 w-9 place-items-center rounded-[10px] border ${toneMap[tone]}`}><Icon className="h-5 w-5" /></span>
         <b className="text-[13px] text-slate-950">{title}</b>
@@ -379,7 +442,7 @@ function DomainCard({ title, icon: Icon, tone, models, terms, metrics, linkedPro
       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
         <span className={`block h-full rounded-full ${tone === "green" ? "bg-emerald-500" : tone === "blue" ? "bg-blue-500" : tone === "purple" ? "bg-purple-500" : "bg-orange-500"}`} style={{ width: `${coverage}%` }} />
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -402,8 +465,8 @@ function RecentRow({ title, time, icon: Icon, tone, onClick }: { title: string; 
   );
 }
 
-function PageButton({ children, active = false }: { children: React.ReactNode; active?: boolean }) {
-  return <button className={`grid h-8 min-w-8 place-items-center rounded-md border px-2 text-[12px] font-bold ${active ? "border-orange-500 text-orange-600 shadow-[0_0_0_1px_rgba(249,115,22,.18)]" : "border-transparent text-slate-500 hover:border-slate-200"}`}>{children}</button>;
+function PageButton({ children, active = false, onClick }: { children: React.ReactNode; active?: boolean; onClick: () => void }) {
+  return <button onClick={onClick} className={`grid h-8 min-w-8 place-items-center rounded-md border px-2 text-[12px] font-bold ${active ? "border-orange-500 text-orange-600 shadow-[0_0_0_1px_rgba(249,115,22,.18)]" : "border-transparent text-slate-500 hover:border-slate-200"}`}>{children}</button>;
 }
 
 function compactDomain(value: string) {
