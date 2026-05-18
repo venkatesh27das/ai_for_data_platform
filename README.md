@@ -1,4 +1,4 @@
-# DataNexus AI-for-Data Platform
+# Unified Data Platform
 
 DataNexus is a front-end demo of an enterprise AI-for-data platform. It shows how data teams can connect cloud ecosystems, run governed data journeys, launch task-specific studios, publish trusted data products, manage business semantics, and operate the platform from one control surface.
 
