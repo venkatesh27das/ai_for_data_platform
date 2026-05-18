@@ -288,13 +288,13 @@ function DashboardPanel({ title, info = false, children }: { title: string; info
 
 function SummaryMetric({ title, value, delta, icon: Icon, tone, values, down = false, onClick }: { title: string; value: string; delta: string; icon: LucideIcon; tone: SemanticTone; values: readonly number[]; down?: boolean; onClick: () => void }) {
   return (
-    <button onClick={onClick} className="rounded-[12px] border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-orange-100 hover:shadow-card">
-      <div className="flex items-start gap-4">
-        <span className={`grid h-12 w-12 shrink-0 place-items-center rounded-[12px] border ${toneMap[tone]}`}><Icon className="h-7 w-7" /></span>
+    <button onClick={onClick} className="rounded-[12px] border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-orange-100 hover:shadow-card">
+      <div className="flex items-start gap-3">
+        <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-[10px] border ${toneMap[tone]}`}><Icon className="h-5 w-5" /></span>
         <span className="min-w-0 flex-1">
           <span className="block text-[13px] font-extrabold leading-4 text-slate-800">{title}</span>
-          <span className="mt-2 block text-[27px] font-extrabold leading-none text-slate-950">{value}</span>
-          <span className={`mt-3 flex items-center gap-1 text-[11px] font-extrabold ${down ? "text-emerald-600" : "text-emerald-600"}`}>
+          <span className="mt-1.5 block text-[25px] font-extrabold leading-none text-slate-950">{value}</span>
+          <span className={`mt-2 flex items-center gap-1 text-[11px] font-extrabold ${down ? "text-emerald-600" : "text-emerald-600"}`}>
             <ArrowUp className={`h-3.5 w-3.5 ${down ? "rotate-180" : ""}`} /> {delta} vs last 30 days
           </span>
         </span>
@@ -326,7 +326,7 @@ function Sparkline({ tone, values }: { tone: SemanticTone; values: readonly numb
   });
   const path = points.map(([x, y], index) => `${index === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`).join(" ");
   return (
-    <svg className="ml-auto mt-2 block h-11 w-[92px] overflow-visible" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-hidden="true">
+    <svg className="ml-auto mt-1 block h-9 w-[92px] overflow-visible" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-hidden="true">
       <path d={path} fill="none" stroke={strokeMap[tone]} strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" vectorEffect="non-scaling-stroke" />
     </svg>
   );
@@ -425,18 +425,18 @@ function PriorityBadge({ priority }: { priority: QueuePriority }) {
 
 function DomainCard({ title, icon: Icon, tone, models, terms, metrics, linkedProducts, coverage, onClick }: { title: string; icon: LucideIcon; tone: SemanticTone; models: number; terms: number; metrics: number; linkedProducts: number; coverage: number; onClick: () => void }) {
   return (
-    <button onClick={onClick} className="rounded-[10px] border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-orange-200">
+    <button onClick={onClick} className="rounded-[10px] border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:border-orange-200">
       <div className="flex items-center gap-3">
         <span className={`grid h-9 w-9 place-items-center rounded-[10px] border ${toneMap[tone]}`}><Icon className="h-5 w-5" /></span>
         <b className="text-[13px] text-slate-950">{title}</b>
       </div>
-      <div className="mt-4 grid grid-cols-4 gap-2 text-center">
+      <div className="mt-3 grid grid-cols-4 gap-2 text-center">
         <DomainStat label="Models" value={models} />
         <DomainStat label="Terms" value={terms} />
         <DomainStat label="Metrics" value={metrics} />
         <DomainStat label="Linked Products" value={linkedProducts} />
       </div>
-      <div className="mt-4 flex items-center justify-between text-[11px] font-semibold text-slate-500">
+      <div className="mt-3 flex items-center justify-between text-[11px] font-semibold text-slate-500">
         <span>Coverage</span><span>{coverage}%</span>
       </div>
       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">

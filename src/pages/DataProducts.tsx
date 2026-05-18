@@ -332,7 +332,7 @@ function FeaturedProductCard({ product, onClick }: { product: DataProduct; onCli
   const icon = productIconMap[product.id] ?? { icon: Database, tone: "orange" as ProductTone };
   const Icon = icon.icon;
   return (
-    <button onClick={onClick} className="min-h-[190px] rounded-[10px] border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-orange-200 hover:shadow-card">
+    <button onClick={onClick} className="min-h-[168px] rounded-[10px] border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-orange-200 hover:shadow-card">
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-start gap-3">
           <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-[10px] border ${toneMap[icon.tone]}`}><Icon className="h-5 w-5" /></span>
@@ -343,12 +343,12 @@ function FeaturedProductCard({ product, onClick }: { product: DataProduct; onCli
         </div>
         <MoreVertical className="h-4 w-4 shrink-0 text-slate-400" />
       </div>
-      <div className="mt-4 grid grid-cols-[64px_1fr] gap-y-2 text-[11px]">
+      <div className="mt-3 grid grid-cols-[64px_1fr] gap-y-1.5 text-[11px]">
         <span className="font-bold text-slate-500">Domain</span><span className="truncate font-semibold text-slate-800">{compactDomain(product.domain)}</span>
         <span className="font-bold text-slate-500">Owner</span><span className="truncate font-semibold text-slate-800">{product.owner}</span>
         <span className="font-bold text-slate-500">Type</span><span className="truncate font-semibold text-slate-800">{product.type}</span>
       </div>
-      <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3 text-[11px]">
+      <div className="mt-2.5 flex items-center justify-between border-t border-slate-100 pt-2.5 text-[11px]">
         <b className="text-slate-700">Quality {product.qualityScore}%</b>
         <span className="font-medium text-slate-500">Updated {product.lastUpdated}</span>
       </div>

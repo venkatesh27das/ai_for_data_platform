@@ -151,7 +151,7 @@ export default function Studios() {
 
         <section className="studios-bottom-grid">
           <DashboardPanel title="Recommended Templates" action="View all templates" onAction={() => setFlow(templateFlow)}>
-            <div className="grid grid-cols-1 gap-2.5 min-[1500px]:grid-cols-3 min-[1800px]:grid-cols-5">
+            <div className="grid grid-cols-1 gap-2.5 min-[1180px]:grid-cols-2 min-[1500px]:grid-cols-3 min-[1800px]:grid-cols-5">
               {templates.map((template) => <TemplateCard key={template.title} {...template} onClick={() => setFlow(templateLaunchFlow(template.title, template.detail))} />)}
             </div>
           </DashboardPanel>
@@ -306,7 +306,7 @@ function InsightCard({ title, value, detail }: { title: string; value: string; d
 
 function TemplateCard({ title, detail, uses, icon: Icon, tone, onClick }: { title: string; detail: string; uses: string; icon: LucideIcon; tone: StudioTone; onClick: () => void }) {
   return (
-    <button onClick={onClick} className="grid min-h-[174px] grid-rows-[36px_40px_48px_1fr] rounded-[10px] border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:border-orange-200">
+    <button onClick={onClick} className="grid min-h-[154px] grid-rows-[34px_36px_40px_1fr] rounded-[10px] border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:border-orange-200">
       <span className={`grid h-9 w-9 place-items-center rounded-lg border ${toneMap[tone]}`}><Icon className="h-5 w-5" /></span>
       <b className="mt-2 line-clamp-2 text-[12px] leading-4 text-slate-950">{title}</b>
       <span className="mt-1 line-clamp-3 text-[11px] leading-4 text-slate-600">{detail}</span>

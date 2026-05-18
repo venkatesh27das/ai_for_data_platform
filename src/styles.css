@@ -132,7 +132,7 @@ button, input, select { font: inherit; }
   .journey-detail-grid { grid-template-columns: 1.15fr 1fr 1fr; }
   .studios-feature-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .studios-mid-grid { grid-template-columns: 0.92fr 1.1fr 1.05fr; }
-  .studios-bottom-grid { grid-template-columns: 1.35fr .88fr .85fr; }
+  .studios-bottom-grid { grid-template-columns: 1.35fr .88fr .85fr; align-items: start; }
   .data-products-metric-grid,
   .data-products-feature-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .data-products-bottom-grid { grid-template-columns: minmax(0, .9fr) minmax(0, 1.35fr); }

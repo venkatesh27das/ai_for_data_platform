@@ -19,7 +19,7 @@ The application is currently a front-end demo: it uses local mock data, route-le
 
 The home screen is the executive and operator landing surface. It summarizes platform KPIs, cloud/provider coverage, active journeys, pending governance actions, AI recommendations, recent data products, and ecosystem connections.
 
-![Command Centre](docs/screenshots/home-command-centre.png)
+<img alt="Command Centre" src="docs/screenshots/home-command-centre.png" width="900" />
 
 Use this screen to start a data journey, create or explore data products, review admin actions, jump into active work, and inspect connected ecosystem services.
 
@@ -27,7 +27,7 @@ Use this screen to start a data journey, create or explore data products, review
 
 The Data Journey screen provides a portfolio view of active data initiatives and a focused journey detail workspace. It shows portfolio metrics, journey inventory, pipeline stages, execution targets, progress, artifacts, summaries, approvals, and contextual controls.
 
-![Data Journey](docs/screenshots/data-journey.png)
+<img alt="Data Journey" src="docs/screenshots/data-journey.png" width="900" />
 
 This screen is useful for explaining how the platform moves a data initiative from source onboarding through modeling, semantic context, quality gates, publishing, and consumption.
 
@@ -35,7 +35,7 @@ This screen is useful for explaining how the platform moves a data initiative fr
 
 Studios are guided workspaces for specialized platform tasks. The page groups featured studios, capability entry points, active sessions, workspace insights, recommended templates, AI recommendations, and recent activity.
 
-![Studios](docs/screenshots/studios.png)
+<img alt="Studios" src="docs/screenshots/studios.png" width="900" />
 
 Use this screen to demonstrate how users launch repeatable workspaces from governed templates instead of starting every ingestion, extraction, product, semantic, or migration effort from scratch.
 
@@ -43,7 +43,7 @@ Use this screen to demonstrate how users launch repeatable workspaces from gover
 
 The Data Products screen is the governed catalog and product management surface. It includes product metrics, featured products, a searchable/filterable catalog table, health and governance panels, recommendations, and recent activity.
 
-![Data Products](docs/screenshots/data-products.png)
+<img alt="Data Products" src="docs/screenshots/data-products.png" width="900" />
 
 Use this screen to explain product ownership, certification, contracts, quality, reuse, and the path from raw assets to consumable data products.
 
@@ -51,7 +51,7 @@ Use this screen to explain product ownership, certification, contracts, quality,
 
 Semantic Hub manages the business meaning layer across metrics, terms, models, and linked products. It includes semantic summary metrics, asset exploration, semantic health, an action queue, domain overview, and recent semantic updates.
 
-![Semantic Hub](docs/screenshots/semantic-hub.png)
+<img alt="Semantic Hub" src="docs/screenshots/semantic-hub.png" width="900" />
 
 Use this screen to explain how the platform connects technical assets to business vocabulary, reusable metrics, semantic models, and domain coverage.
 
@@ -59,7 +59,7 @@ Use this screen to explain how the platform connects technical assets to busines
 
 Admin Home is the operational control surface for platform administrators. It covers users, workspaces, connectors, policies, platform health, resource usage, cost overview, audit logs, approvals, and quick actions.
 
-![Admin Home](docs/screenshots/admin.png)
+<img alt="Admin Home" src="docs/screenshots/admin.png" width="900" />
 
 Use this screen to explain platform operations, governance oversight, cost monitoring, approvals, and auditability.
 
