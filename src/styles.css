@@ -31,6 +31,122 @@ button, input, select { font: inherit; }
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
+.journey-expanded-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+.journey-overview-kpis,
+.journey-overview-main {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  align-items: start;
+}
+.journey-area-snapshot,
+.journey-area-stakeholders,
+.journey-area-actions,
+.journey-area-deps,
+.journey-area-activity,
+.journey-area-milestones,
+.journey-area-risks {
+  min-width: 0;
+}
+.journey-overview-timeline {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.journey-overview-rail {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1fr) 12px
+    minmax(0, 1fr) 12px
+    minmax(0, 1fr) 12px
+    minmax(0, 1fr) 12px
+    minmax(0, 1fr) 12px
+    minmax(0, 1fr) 12px
+    minmax(0, 1fr);
+  gap: 2px;
+}
+.journey-pipeline-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+.journey-artifacts-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+.journey-approvals-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+.journey-runs-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+.journey-artifact-metrics,
+.journey-artifact-bottom,
+.journey-approval-metrics,
+.journey-approval-bottom,
+.journey-run-metrics,
+.journey-run-bottom {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+.journey-artifact-row {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1fr)
+    56px
+    minmax(0, .85fr)
+    90px
+    78px
+    44px
+    72px
+    52px;
+  align-items: center;
+  column-gap: 8px;
+}
+.journey-run-row {
+  display: grid;
+  grid-template-columns:
+    82px
+    86px
+    minmax(0, 1fr)
+    92px
+    94px
+    66px
+    92px
+    42px;
+  align-items: center;
+  column-gap: 8px;
+}
+.journey-approval-row {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1.1fr)
+    64px
+    minmax(0, .9fr)
+    86px
+    78px
+    70px
+    78px
+    82px
+    44px;
+  align-items: center;
+  column-gap: 8px;
+}
+.journey-kpi-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 .journey-inventory-row {
   grid-template-columns:
     minmax(210px, 1.25fr)
@@ -42,7 +158,7 @@ button, input, select { font: inherit; }
     110px
     82px
     70px
-    38px;
+    104px;
   column-gap: 8px;
 }
 .studios-feature-grid {
@@ -130,6 +246,45 @@ button, input, select { font: inherit; }
     gap: 8px;
   }
   .journey-detail-grid { grid-template-columns: 1.15fr 1fr 1fr; }
+  .journey-expanded-detail-grid { grid-template-columns: 1fr 1fr; }
+  .journey-overview-kpis { grid-template-columns: 1.18fr .95fr 1.18fr 1fr 1fr; }
+  .journey-overview-main {
+    grid-template-columns: minmax(0, 1.55fr) minmax(260px, .58fr) minmax(320px, .72fr);
+    grid-template-areas:
+      "snapshot stakeholders actions"
+      "snapshot deps deps"
+      "activity milestones risks";
+  }
+  .journey-area-snapshot { grid-area: snapshot; align-self: stretch; }
+  .journey-area-stakeholders { grid-area: stakeholders; }
+  .journey-area-actions { grid-area: actions; }
+  .journey-area-deps { grid-area: deps; }
+  .journey-area-activity { grid-area: activity; }
+  .journey-area-milestones { grid-area: milestones; }
+  .journey-area-risks { grid-area: risks; }
+  .journey-overview-timeline {
+    grid-template-columns:
+      minmax(0, 1fr) 18px
+      minmax(0, 1fr) 18px
+      minmax(0, 1fr) 18px
+      minmax(0, 1fr) 18px
+      minmax(0, 1fr) 18px
+      minmax(0, 1fr) 18px
+      minmax(0, 1fr);
+    gap: 6px;
+  }
+  .journey-pipeline-detail-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .journey-artifacts-layout { grid-template-columns: minmax(0, 1fr) minmax(300px, .31fr); }
+  .journey-approvals-layout { grid-template-columns: minmax(0, 1fr) minmax(300px, .31fr); }
+  .journey-runs-layout { grid-template-columns: minmax(0, 1fr) minmax(300px, .31fr); }
+  .journey-artifact-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .journey-approval-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .journey-run-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .journey-artifact-bottom { grid-template-columns: minmax(0, 1.25fr) minmax(0, .95fr) minmax(240px, .8fr); }
+  .journey-approval-bottom { grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr) minmax(240px, .88fr); }
+  .journey-run-bottom { grid-template-columns: minmax(0, .95fr) minmax(0, .9fr) minmax(260px, 1fr); }
   .studios-feature-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .studios-mid-grid { grid-template-columns: 0.92fr 1.1fr 1.05fr; }
   .studios-bottom-grid { grid-template-columns: 1.35fr .88fr .85fr; align-items: start; }
@@ -148,6 +303,13 @@ button, input, select { font: inherit; }
 }
 @media (min-width: 1500px) {
   .journey-detail-grid { grid-template-columns: 1.25fr 1fr 1fr 1fr 170px; }
+  .journey-expanded-detail-grid { grid-template-columns: 1.05fr 1fr 1fr 1.35fr; }
+  .journey-artifacts-layout { grid-template-columns: minmax(0, 1fr) minmax(360px, .32fr); }
+  .journey-approvals-layout { grid-template-columns: minmax(0, 1fr) minmax(360px, .32fr); }
+  .journey-runs-layout { grid-template-columns: minmax(0, 1fr) minmax(380px, .34fr); }
+  .journey-artifact-metrics { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .journey-approval-metrics { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .journey-run-metrics { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .data-products-metric-grid,
   .data-products-feature-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .data-products-main-grid { grid-template-columns: minmax(0, 1.9fr) minmax(360px, .95fr); }

@@ -221,7 +221,7 @@ const productPaginationFlow: DemoFlow = {
 
 const rowsPerPageFlow: DemoFlow = {
   title: "Rows Per Page",
-  description: "Changes the catalog table density for demo review.",
+  description: "Changes the catalog table density for faster review.",
   steps: ["Choose 10, 25, 50, or 100 rows.", "Reload the current filtered product list.", "Keep pagination and selection context stable."],
   primaryAction: "Apply density",
 };

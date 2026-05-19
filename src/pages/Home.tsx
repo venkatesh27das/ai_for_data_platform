@@ -119,8 +119,8 @@ export default function Home() {
             <h1 className="text-[30px] font-extrabold leading-none tracking-normal text-slate-950 min-[1500px]:text-[34px]">Command Centre</h1>
             <p className="mt-3 text-[13px] text-slate-700">Build, govern, and consume trusted structured and unstructured data products across any cloud.</p>
             <div className="mt-4 flex flex-wrap gap-2">
-              <HomeAction primary icon={Plus} label="Start Data Journey" onClick={() => navigate("/data-journey")} />
-              <HomeAction icon={Box} label="Create Data Product" onClick={() => navigate("/data-products")} />
+              <HomeAction primary icon={Plus} label="Start Data Journey" onClick={() => setFlow(startJourneyFlow)} />
+              <HomeAction icon={Box} label="Create Data Product" onClick={() => setFlow(createProductFlow)} />
               <HomeAction icon={BookOpen} label="Explore Catalog" onClick={() => navigate("/data-products")} />
               <HomeAction icon={TriangleAlert} label="Review Actions" onClick={() => navigate("/admin")} />
             </div>
@@ -130,9 +130,9 @@ export default function Home() {
             <p className="mb-3 text-center text-[13px] font-bold text-slate-950">Cloud Agnostic <span className="px-2 text-slate-400">.</span> Built for Choice</p>
             <div className="grid h-10 grid-cols-6 items-center divide-x divide-slate-100 rounded-lg border border-slate-200 bg-white px-2 text-center shadow-sm">
               {cloudLogos.map((logo) => (
-                <span key={logo.label} className="grid min-w-0 place-items-center px-2">
+                <button key={logo.label} onClick={() => setFlow(cloudProviderFlow(logo.label))} className="grid min-w-0 place-items-center px-2 transition hover:scale-105" aria-label={`Open ${logo.label} connection details`}>
                   <img src={logo.src} alt={logo.label} title={logo.label} className="max-h-6 max-w-[112px] object-contain" />
-                </span>
+                </button>
               ))}
             </div>
           </div>
@@ -146,14 +146,14 @@ export default function Home() {
           <SectionHeader title="Start from a Business Goal" />
           <div className="home-goal-grid mt-2">
             {businessGoals.map((goal) => <BusinessGoal key={goal.title} {...goal} onClick={() => {
-              if (goal.title.includes("Source")) navigate("/admin");
-              else if (goal.title.includes("Documents")) navigate("/studios");
-              else if (goal.title.includes("Product")) navigate("/data-products");
-              else if (goal.title.includes("Quality")) navigate("/data-journey");
-              else if (goal.title.includes("Semantic")) navigate("/semantic-hub");
+              if (goal.title.includes("Source")) setFlow(onboardSourceFlow);
+              else if (goal.title.includes("Documents")) setFlow(processDocumentsFlow);
+              else if (goal.title.includes("Product")) setFlow(createProductFlow);
+              else if (goal.title.includes("Quality")) setFlow(improveQualityFlow);
+              else if (goal.title.includes("Semantic")) setFlow(semanticContextFlow);
               else setFlow({
                 title: "Modernize Workload",
-                description: "This demo flow assesses a legacy workload and starts a modernization journey.",
+                description: "Assess a legacy workload, identify modernization targets, and create an execution plan with owners and checkpoints.",
                 steps: ["Scan legacy SQL, jobs, and upstream dependencies.", "Recommend target cloud services and migration pattern.", "Create a migration studio workspace with tasks and owners."],
                 primaryAction: "Create modernization plan",
               });
@@ -352,8 +352,59 @@ function EcosystemItem({ name, detail, logo, tone, onClick }: { name: string; de
 function ecosystemFlow(name: string, detail: string): DemoFlow {
   return {
     title: name,
-    description: `${name} is connected to the active workspace for demo data, lineage, execution, and governance signals.`,
+    description: `${name} is connected to the active workspace for data movement, lineage, execution, and governance signals.`,
     steps: [`Inspect the current connection: ${detail}.`, "Validate credentials, sync status, and mapped assets.", "Open related products, jobs, lineage, and health checks."],
     primaryAction: "Open connection",
+  };
+}
+
+const startJourneyFlow: DemoFlow = {
+  title: "Start Data Journey",
+  description: "Create an end-to-end delivery path from source onboarding through publishing, semantic context, access, and reuse.",
+  steps: ["Choose the business goal, domain, owner, and target environment.", "Select source systems, processing templates, data quality policies, and approval checkpoints.", "Generate the journey plan with tasks, dates, linked studios, and governance owners."],
+  primaryAction: "Create journey",
+};
+
+const createProductFlow: DemoFlow = {
+  title: "Create Data Product",
+  description: "Package curated datasets, documents, APIs, or model outputs into a governed product that teams can discover and consume.",
+  steps: ["Select source assets or a completed journey output.", "Attach owner, domain, SLA, data contract, semantic links, and consumption methods.", "Run quality checks, set access policy, and publish as Draft or Certified."],
+  primaryAction: "Create product draft",
+};
+
+const onboardSourceFlow: DemoFlow = {
+  title: "Onboard a New Source",
+  description: "Connect a new source system, profile its assets, and register trusted metadata for governed use.",
+  steps: ["Choose connector type and environment, then validate credentials.", "Scan schemas, files, tables, freshness, lineage, and sensitive fields.", "Assign ownership, apply policies, and create ingestion tasks."],
+  primaryAction: "Connect source",
+};
+
+const processDocumentsFlow: DemoFlow = {
+  title: "Process Documents",
+  description: "Extract structured facts, clauses, entities, and searchable context from unstructured document collections.",
+  steps: ["Upload or connect document folders and select an extraction template.", "Run OCR, classification, entity extraction, chunking, and embedding generation.", "Review confidence scores and publish outputs to a governed product or studio."],
+  primaryAction: "Open extraction studio",
+};
+
+const improveQualityFlow: DemoFlow = {
+  title: "Improve Data Quality",
+  description: "Profile an asset, identify quality issues, and create remediation tasks tied to certification readiness.",
+  steps: ["Select product, source, or journey stage to profile.", "Review completeness, freshness, duplicates, drift, and contract violations.", "Assign rules, fixes, owners, and approval checkpoints."],
+  primaryAction: "Create quality plan",
+};
+
+const semanticContextFlow: DemoFlow = {
+  title: "Create Semantic Context",
+  description: "Build shared business meaning around data products so teams can search, govern, and consume them consistently.",
+  steps: ["Choose a domain model, glossary, ontology, or metrics layer.", "Map terms, relationships, owners, metrics, and linked data products.", "Validate coverage and publish semantic context for search and AI use."],
+  primaryAction: "Create semantic asset",
+};
+
+function cloudProviderFlow(provider: string): DemoFlow {
+  return {
+    title: `${provider} Connection`,
+    description: `${provider} is available in the current workspace for governed data movement, catalog sync, lineage, and consumption workflows.`,
+    steps: ["Review connector health, credentials, region, and workspace mappings.", "Inspect synced assets, jobs, lineage, policies, and recent failures.", "Open connection settings or launch a source onboarding workflow."],
+    primaryAction: "Open connector",
   };
 }

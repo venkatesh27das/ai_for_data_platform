@@ -201,7 +201,7 @@ const templateFlow: DemoFlow = {
 
 const capabilityDirectoryFlow: DemoFlow = {
   title: "Capability Directory",
-  description: "Groups studios and templates by the kind of work a demo user wants to complete.",
+  description: "Groups studios and templates by the kind of work the user wants to complete.",
   steps: ["Browse capabilities with active sessions and templates.", "Open recommended templates and connected assets.", "Launch a guided studio workspace from the selected capability."],
   primaryAction: "Open directory",
 };

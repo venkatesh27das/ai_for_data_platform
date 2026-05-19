@@ -241,7 +241,7 @@ const semanticPaginationFlow: DemoFlow = {
 
 const semanticRowsFlow: DemoFlow = {
   title: "Rows Per Page",
-  description: "Changes semantic asset table density for demo review.",
+  description: "Changes semantic asset table density for faster review.",
   steps: ["Choose a table density.", "Reload the filtered semantic asset list.", "Preserve selected asset and queue context."],
   primaryAction: "Apply density",
 };

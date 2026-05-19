@@ -15,7 +15,7 @@ export default function DemoFlowModal({ flow, onClose }: { flow: DemoFlow | null
       <section onClick={(event) => event.stopPropagation()} className="w-full max-w-[520px] rounded-[16px] border border-slate-200 bg-white p-5 shadow-2xl">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-[11px] font-extrabold uppercase tracking-wide text-orange-600">Demo flow</p>
+            <p className="text-[11px] font-extrabold uppercase tracking-wide text-orange-600">Workflow</p>
             <h2 className="mt-1 text-[20px] font-extrabold text-slate-950">{flow.title}</h2>
             <p className="mt-2 text-[13px] leading-5 text-slate-600">{flow.description}</p>
           </div>
@@ -40,7 +40,7 @@ export default function DemoFlowModal({ flow, onClose }: { flow: DemoFlow | null
 
         <div className="mt-5 flex justify-end gap-2">
           <button onClick={onClose} className="h-9 rounded-lg border border-slate-200 bg-white px-4 text-[12px] font-bold text-slate-700 hover:border-orange-200 hover:text-orange-600">Close</button>
-          <button onClick={onClose} className="h-9 rounded-lg border border-orange-500 orange-gradient px-4 text-[12px] font-bold text-white shadow-sm">{flow.primaryAction ?? "Complete demo flow"}</button>
+          <button onClick={onClose} className="h-9 rounded-lg border border-orange-500 orange-gradient px-4 text-[12px] font-bold text-white shadow-sm">{flow.primaryAction ?? "Complete workflow"}</button>
         </div>
       </section>
     </div>
