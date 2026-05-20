@@ -112,6 +112,19 @@ What to notice:
 - The create flow has local interactivity for demo realism: choice pills toggle, radio groups switch, select controls cycle values, tokens can be added or removed, assets can be included/excluded, filters and conditions can be edited or removed, thresholds can be edited, counters and toggles respond, and Save Draft gives visible feedback.
 - Publish Rule Set opens a confirmation dialog, runs a publishing progress state, shows a success confirmation, and can return the user to the Data Quality Studio landing page.
 
+#### Semantic Studio
+
+Semantic Studio is implemented as a dedicated studio dashboard and guided create-model workflow for building business-ready semantic models, metrics, glossary mappings, governed NLQ behavior, and publish-ready semantic assets.
+
+What to notice:
+
+- The studio landing page follows the supplied Semantic Studio wireframe with feature cards for Business Glossary, Metric & KPI Builder, Entity & Relationship Modeling, Semantic Query / NLQ Testing, Policy & Governance Mapping, and Publishing & Consumption.
+- The dashboard includes Modeling Workbench, Studio Insights, Browse by Semantic Capability, and Validation & Test Runs sections.
+- Create Semantic Model is a five-step flow: Model Basics, Sources & Scope, Entities & Metrics, Governance & Validation, and Review & Publish.
+- The create flow follows the supplied wireframes across all five steps, including contextual right rails, compact enterprise controls, readiness/checklist tables, and publish review surfaces.
+- The create flow has local interactivity for demo realism: top Continue / Publish actions advance or open publish confirmation, Save as Draft gives feedback, dropdowns have contextual options, cards and chips select/deselect, toggles switch state, selected assets/tokens can be removed, and action buttons provide visible feedback.
+- Bottom duplicate Continue/Back actions were intentionally removed; navigation is controlled from the top actions and stepper.
+
 ### Data Products
 
 Data Products is the governed catalog and product management surface. It presents certified assets, drafts, product quality, consumption options, health signals, and recommendations.
@@ -160,6 +173,7 @@ Most visible controls are wired so the app feels connected during a walkthrough:
 - Search and filters work locally on catalog-style screens.
 - Ingestion Studio supports a multi-step create flow with editable fields, selectable cards, toggles, local summary updates, draft feedback, review details, and publish confirmation.
 - Data Quality Studio supports a complete interactive create-rule-set and publish flow with stateful controls across all five steps.
+- Semantic Studio supports a complete create-semantic-model flow with contextual dropdowns, selectable tiles/chips, removable tokens, toggles, publish warning review, and publish confirmation.
 - Sidebar navigation switches between the six main routes.
 - Top bar workspace, environment, notification, profile, and search controls expose demo flows or navigation.
 
@@ -175,6 +189,8 @@ Most visible controls are wired so the app feels connected during a walkthrough:
 | `/studios/processing-extraction` | Processing & Extraction Studio | Guided extraction pipeline creation |
 | `/studios/data-quality` | Data Quality Studio | Quality operations dashboard, rule coverage, alerts, and recommendations |
 | `/studios/data-quality/create` | Create Data Quality Rule Set | Guided data quality rule-set creation and publish flow |
+| `/studios/semantic` | Semantic Studio | Semantic modeling dashboard, workbench, insights, and validation runs |
+| `/studios/semantic/create` | Create Semantic Model | Guided semantic model creation and publish flow |
 | `/data-products` | Data Products | Governed product catalog |
 | `/semantic-hub` | Semantic Hub | Business meaning, metrics, and semantic assets |
 | `/admin` | Admin Home | Platform operations and governance |

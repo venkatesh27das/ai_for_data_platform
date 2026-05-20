@@ -119,6 +119,10 @@ export default function Studios() {
                       navigate("/studios/data-quality");
                       return;
                     }
+                    if (studio.name === "Semantic Studio") {
+                      navigate("/studios/semantic");
+                      return;
+                    }
                     setFlow({ title: studio.name, description: `Launches a ${studio.name} workspace using governed templates and connected platform assets.`, steps: ["Select workspace and environment.", `Choose one of ${studio.templates.toLowerCase()} or start blank.`, "Assign owners, connect assets, and begin guided execution."], primaryAction: "Launch workspace" });
                   }}
                 />

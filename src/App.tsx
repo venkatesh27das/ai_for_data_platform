@@ -10,6 +10,8 @@ import DataQualityStudio from "./pages/DataQualityStudio";
 import CreateDataQualityRuleSet from "./pages/CreateDataQualityRuleSet";
 import DataProducts from "./pages/DataProducts";
 import SemanticHub from "./pages/SemanticHub";
+import SemanticStudio from "./pages/SemanticStudio";
+import CreateSemanticModel from "./pages/CreateSemanticModel";
 import Admin from "./pages/Admin";
 
 export default function App() {
@@ -24,6 +26,8 @@ export default function App() {
         <Route path="studios/processing-extraction" element={<ProcessingExtractionStudio />} />
         <Route path="studios/data-quality" element={<DataQualityStudio />} />
         <Route path="studios/data-quality/create" element={<CreateDataQualityRuleSet />} />
+        <Route path="studios/semantic" element={<SemanticStudio />} />
+        <Route path="studios/semantic/create" element={<CreateSemanticModel />} />
         <Route path="data-products" element={<DataProducts />} />
         <Route path="semantic-hub" element={<SemanticHub />} />
         <Route path="admin" element={<Admin />} />

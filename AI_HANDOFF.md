@@ -8,7 +8,13 @@ Primary routes:
 - `/` Home / Command Centre
 - `/data-journey`
 - `/studios`
+- `/studios/ingestion`
+- `/studios/ingestion/create`
 - `/studios/processing-extraction`
+- `/studios/data-quality`
+- `/studios/data-quality/create`
+- `/studios/semantic`
+- `/studios/semantic/create`
 - `/data-products`
 - `/semantic-hub`
 - `/admin`
@@ -80,6 +86,7 @@ Important preference learned during iteration:
 - Primary action buttons open flows or drawers.
 - Studio cards, capability cards, template cards, sessions, recommendations, activity, and panel links are wired.
 - `Processing & Extraction Studio` now opens a real nested route at `/studios/processing-extraction` instead of a demo modal.
+- `Semantic Studio` now opens a real nested route at `/studios/semantic` instead of a demo modal.
 - `src/pages/ProcessingExtractionStudio.tsx` implements a four-step extraction pipeline wizard:
   - Basics
   - Source & Modality
@@ -98,6 +105,46 @@ Important preference learned during iteration:
 - The wizard header has an always-visible back action:
   - step 1: `Back to Studios`
   - steps 2-4: previous wizard step
+
+### Semantic Studio
+
+- New files:
+  - `src/pages/SemanticStudio.tsx`
+  - `src/pages/CreateSemanticModel.tsx`
+- New routes:
+  - `/studios/semantic`
+  - `/studios/semantic/create`
+- `src/pages/Studios.tsx` routes the Semantic Studio card to `/studios/semantic`.
+- `src/App.tsx` registers both Semantic Studio routes.
+- `src/styles.css` includes dedicated grid classes for the Semantic Studio dashboard and create flow:
+  - `semantic-studio-*`
+  - `semantic-create-*`
+  - `semantic-source-wire-grid`
+  - `semantic-entities-wire-grid`
+  - `semantic-governance-wire-grid`
+  - `semantic-review-wire-grid`
+- The Semantic Studio landing page follows the supplied wireframe:
+  - top feature cards
+  - Modeling Workbench
+  - Studio Insights
+  - Browse by Semantic Capability
+  - Validation & Test Runs
+- Create Semantic Model is a five-step wizard following supplied wireframes:
+  1. Model Basics
+  2. Sources & Scope
+  3. Entities & Metrics
+  4. Governance & Validation
+  5. Review & Publish
+- The create flow is a local interactive prototype:
+  - top Continue advances through steps
+  - top Publish Model opens publish confirmation on step 5
+  - Save as Draft shows feedback
+  - dropdowns open contextual options based on field value
+  - tiles, chips, source cards, entity cards, destinations, toggles, and publish-mode controls update local state
+  - selected asset pills and scope tokens can be removed
+  - action buttons such as Use, Edit, and Review warnings show a toast-style response
+- User explicitly requested duplicate bottom Back/Continue buttons be removed. Keep navigation on the top actions and stepper only.
+- User flagged 100% zoom layout issues in Review & Publish. Current accepted fix gives Publish Configuration a minimum width and uses compact destination chips.
 
 ### Data Products
 
@@ -118,21 +165,13 @@ Important preference learned during iteration:
 ## Current Files With Active Changes
 
 Expected changed files:
+- `src/App.tsx`
+- `src/pages/Studios.tsx`
+- `src/pages/SemanticStudio.tsx`
+- `src/pages/CreateSemanticModel.tsx`
+- `src/styles.css`
 - `README.md`
 - `AI_HANDOFF.md`
-- `src/components/common/DemoFlowModal.tsx`
-- `src/components/common/SearchFilterBar.tsx`
-- `src/components/layout/TopBar.tsx`
-- `src/pages/Admin.tsx`
-- `src/pages/DataJourney.tsx`
-- `src/pages/DataProducts.tsx`
-- `src/pages/Home.tsx`
-- `src/pages/SemanticHub.tsx`
-- `src/pages/ProcessingExtractionStudio.tsx`
-- `src/pages/Studios.tsx`
-- `src/styles.css`
-- `docs/screenshots/processing-extraction-studio.png`
-- `icons/*`
 
 Note: `dist/` exists from local builds and should usually not be treated as source unless the user specifically asks for built artifacts.
 
@@ -165,6 +204,10 @@ Browser smoke checks previously passed for:
 - Processing Flow Canvas / Code toggle
 - Validate Flow modal
 - Publish confirmation, progress, and success prompts
+- Semantic Studio dashboard route
+- Create Semantic Model steps 1-5
+- Semantic create flow contextual dropdowns
+- Semantic create flow Continue / Publish Model behavior
 - No browser console errors during smoke pass
 
 ## Design Guidance For Future Agents
@@ -175,6 +218,7 @@ Browser smoke checks previously passed for:
 - Avoid marketing/landing-page patterns.
 - Avoid adding new pages or backend behavior.
 - Exception: `/studios/processing-extraction` is now an accepted nested demo page for the Processing & Extraction Studio.
+- Exception: `/studios/semantic` and `/studios/semantic/create` are accepted nested demo pages for Semantic Studio and Create Semantic Model.
 - Use `DemoFlowModal` for non-backend workflows.
 - Use `EntityDrawer` for connected examples and related assets.
 - Keep changes small and demo-oriented.
@@ -185,6 +229,9 @@ Browser smoke checks previously passed for:
 - The user disliked the redesigned Home layout with grouped business goal clusters and the `Platform Coverage` replacement widget.
 - The user specifically wanted the cloud strip to use the real logos from `icons/`.
 - The Home title should remain `Command Centre`.
+- The user wants supplied wireframes followed closely, including tile density, font sizing, and section proportions.
+- The user prefers controls that look clickable to provide a visible response, even without backend behavior.
+- Avoid duplicated navigation/action controls within the create semantic model flow.
 
 ## Useful Commands
 
@@ -202,6 +249,8 @@ If continuing the work, first inspect:
 git status --short
 sed -n '1,240p' src/pages/Home.tsx
 sed -n '1,260p' src/pages/ProcessingExtractionStudio.tsx
+sed -n '1,260p' src/pages/SemanticStudio.tsx
+sed -n '1,320p' src/pages/CreateSemanticModel.tsx
 sed -n '1,180p' src/components/layout/TopBar.tsx
 sed -n '1,220p' src/components/common/DemoFlowModal.tsx
 ```
