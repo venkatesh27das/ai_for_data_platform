@@ -77,6 +77,19 @@ What to notice:
 - Active sessions show progress, state, and ownership of running work.
 - Recommendations connect studio activity back to products and semantics.
 
+#### Processing & Extraction Studio
+
+Processing & Extraction Studio is now implemented as a full create-pipeline workflow for document extraction, modality selection, processing flow design, validation, and publish readiness.
+
+<img alt="Processing and Extraction Studio" src="docs/screenshots/processing-extraction-studio.png" width="900" />
+
+What to notice:
+
+- The guided wizard covers Basics, Source & Modality, Processing Flow, and Review & Publish.
+- Processing Flow supports both a visual canvas and generated pipeline code view.
+- Validate Flow and Publish Pipeline open dedicated dialogs so the flow feels complete without a backend.
+- This nested studio route is intentionally documented as a sub-capability to keep the README focused on primary product areas.
+
 ### Data Products
 
 Data Products is the governed catalog and product management surface. It presents certified assets, drafts, product quality, consumption options, health signals, and recommendations.
@@ -133,6 +146,7 @@ Most visible controls are wired so the app feels connected during a walkthrough:
 | `/` | Command Centre | Platform overview and next best actions |
 | `/data-journey` | Data Journey | Initiative lifecycle and delivery progress |
 | `/studios` | Studios | Guided workspaces and templates |
+| `/studios/processing-extraction` | Processing & Extraction Studio | Guided extraction pipeline creation |
 | `/data-products` | Data Products | Governed product catalog |
 | `/semantic-hub` | Semantic Hub | Business meaning, metrics, and semantic assets |
 | `/admin` | Admin Home | Platform operations and governance |

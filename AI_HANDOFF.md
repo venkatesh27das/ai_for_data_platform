@@ -8,6 +8,7 @@ Primary routes:
 - `/` Home / Command Centre
 - `/data-journey`
 - `/studios`
+- `/studios/processing-extraction`
 - `/data-products`
 - `/semantic-hub`
 - `/admin`
@@ -78,6 +79,25 @@ Important preference learned during iteration:
 
 - Primary action buttons open flows or drawers.
 - Studio cards, capability cards, template cards, sessions, recommendations, activity, and panel links are wired.
+- `Processing & Extraction Studio` now opens a real nested route at `/studios/processing-extraction` instead of a demo modal.
+- `src/pages/ProcessingExtractionStudio.tsx` implements a four-step extraction pipeline wizard:
+  - Basics
+  - Source & Modality
+  - Processing Flow
+  - Review & Publish
+- The Basics and Source & Modality screens use dedicated named CSS grids in `src/styles.css` so panel placement matches supplied wireframes.
+- Processing Flow has:
+  - a compact visual canvas with aligned nodes and connectors
+  - a generated `pipeline.yml` style Code view
+  - a Validate Flow modal with validation checks, score, readiness state, and recommendation
+- Review & Publish has:
+  - publish readiness metrics and artifact checklist
+  - Publish Pipeline / Publish Now confirmation modal
+  - publishing progress modal
+  - post-publish success prompt with `Stay Here` and `Back to Studios`
+- The wizard header has an always-visible back action:
+  - step 1: `Back to Studios`
+  - steps 2-4: previous wizard step
 
 ### Data Products
 
@@ -98,6 +118,8 @@ Important preference learned during iteration:
 ## Current Files With Active Changes
 
 Expected changed files:
+- `README.md`
+- `AI_HANDOFF.md`
 - `src/components/common/DemoFlowModal.tsx`
 - `src/components/common/SearchFilterBar.tsx`
 - `src/components/layout/TopBar.tsx`
@@ -106,8 +128,10 @@ Expected changed files:
 - `src/pages/DataProducts.tsx`
 - `src/pages/Home.tsx`
 - `src/pages/SemanticHub.tsx`
+- `src/pages/ProcessingExtractionStudio.tsx`
 - `src/pages/Studios.tsx`
 - `src/styles.css`
+- `docs/screenshots/processing-extraction-studio.png`
 - `icons/*`
 
 Note: `dist/` exists from local builds and should usually not be treated as source unless the user specifically asks for built artifacts.
@@ -128,7 +152,7 @@ For local demo:
 npm run dev
 ```
 
-The prior dev server used port `5174` because `5173` was occupied. Use the URL printed by Vite.
+The dev server may use port `5174` if `5173` is occupied. Use the URL printed by Vite.
 
 Browser smoke checks previously passed for:
 - Home KPI navigation
@@ -137,6 +161,10 @@ Browser smoke checks previously passed for:
 - Data Products Create Data Product modal
 - Semantic Hub Create Metric modal
 - Admin System Health modal
+- Processing & Extraction Studio wizard navigation
+- Processing Flow Canvas / Code toggle
+- Validate Flow modal
+- Publish confirmation, progress, and success prompts
 - No browser console errors during smoke pass
 
 ## Design Guidance For Future Agents
@@ -146,6 +174,7 @@ Browser smoke checks previously passed for:
 - Prefer existing visual patterns: rounded cards, slate/orange palette, subtle borders, dense enterprise dashboards.
 - Avoid marketing/landing-page patterns.
 - Avoid adding new pages or backend behavior.
+- Exception: `/studios/processing-extraction` is now an accepted nested demo page for the Processing & Extraction Studio.
 - Use `DemoFlowModal` for non-backend workflows.
 - Use `EntityDrawer` for connected examples and related assets.
 - Keep changes small and demo-oriented.
@@ -172,6 +201,7 @@ If continuing the work, first inspect:
 ```bash
 git status --short
 sed -n '1,240p' src/pages/Home.tsx
+sed -n '1,260p' src/pages/ProcessingExtractionStudio.tsx
 sed -n '1,180p' src/components/layout/TopBar.tsx
 sed -n '1,220p' src/components/common/DemoFlowModal.tsx
 ```
