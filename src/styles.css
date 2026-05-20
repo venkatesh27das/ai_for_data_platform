@@ -176,6 +176,25 @@ button, input, select { font: inherit; }
   grid-template-columns: minmax(180px, 1.4fr) 64px 88px minmax(110px, .9fr) 64px 24px;
   column-gap: 10px;
 }
+.studio-create-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+.studio-basics-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+.studio-source-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+.studio-canvas-bg {
+  background-image: radial-gradient(#d9dee8 1px, transparent 1px);
+  background-size: 20px 20px;
+}
 .data-products-metric-grid,
 .data-products-feature-grid,
 .data-products-main-grid,
@@ -288,6 +307,38 @@ button, input, select { font: inherit; }
   .studios-feature-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .studios-mid-grid { grid-template-columns: 0.92fr 1.1fr 1.05fr; }
   .studios-bottom-grid { grid-template-columns: 1.35fr .88fr .85fr; align-items: start; }
+  .studio-create-grid { grid-template-columns: minmax(0, 1.4fr) minmax(360px, .9fr); align-items: start; }
+  .studio-area-main { grid-column: 1; }
+  .studio-basics-grid {
+    grid-template-columns: minmax(0, 1.46fr) minmax(260px, .58fr) minmax(260px, .58fr);
+    grid-template-areas:
+      "basics preview preview"
+      "basics starters starters"
+      "io summary practices";
+    align-items: stretch;
+  }
+  .studio-area-basics { grid-area: basics; }
+  .studio-area-preview { grid-area: preview; }
+  .studio-area-starters { grid-area: starters; }
+  .studio-area-io { grid-area: io; }
+  .studio-area-summary { grid-area: summary; }
+  .studio-area-practices { grid-area: practices; }
+  .studio-source-grid {
+    grid-template-columns: minmax(0, 1.46fr) minmax(360px, .96fr);
+    grid-template-areas:
+      "selection preview"
+      "modality config"
+      "rules guidance"
+      "health health";
+    align-items: stretch;
+  }
+  .studio-source-selection { grid-area: selection; }
+  .studio-source-preview { grid-area: preview; }
+  .studio-source-modality { grid-area: modality; }
+  .studio-source-config { grid-area: config; }
+  .studio-source-rules { grid-area: rules; }
+  .studio-source-guidance { grid-area: guidance; }
+  .studio-source-health { grid-area: health; }
   .data-products-metric-grid,
   .data-products-feature-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .data-products-bottom-grid { grid-template-columns: minmax(0, .9fr) minmax(0, 1.35fr); }

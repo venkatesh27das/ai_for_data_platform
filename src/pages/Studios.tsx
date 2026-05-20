@@ -102,7 +102,19 @@ export default function Studios() {
           <div className="mt-4 border-t border-slate-200 pt-4">
             <SectionTitle title="Featured Studios" action="View all studios" />
             <div className="studios-feature-grid mt-3">
-              {studios.map((studio) => <StudioCard key={studio.name} {...studio} onClick={() => setFlow({ title: studio.name, description: `Launches a ${studio.name} workspace using governed templates and connected platform assets.`, steps: ["Select workspace and environment.", `Choose one of ${studio.templates.toLowerCase()} or start blank.`, "Assign owners, connect assets, and begin guided execution."], primaryAction: "Launch workspace" })} />)}
+              {studios.map((studio) => (
+                <StudioCard
+                  key={studio.name}
+                  {...studio}
+                  onClick={() => {
+                    if (studio.name === "Processing & Extraction Studio") {
+                      navigate("/studios/processing-extraction");
+                      return;
+                    }
+                    setFlow({ title: studio.name, description: `Launches a ${studio.name} workspace using governed templates and connected platform assets.`, steps: ["Select workspace and environment.", `Choose one of ${studio.templates.toLowerCase()} or start blank.`, "Assign owners, connect assets, and begin guided execution."], primaryAction: "Launch workspace" });
+                  }}
+                />
+              ))}
             </div>
           </div>
         </section>
