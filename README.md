@@ -101,6 +101,17 @@ What to notice:
 - Major wizard choices are stateful: domain, ingestion mode, source type, starter option, connector mode, connector, target zone, schedule, publish mode, stakeholder notification, and runbook creation update the flow and summary surfaces.
 - Publish Pipeline opens a confirmation modal, Confirm & Publish opens the completion dialog, and the user can either stay in the review flow or return to the Ingestion Studio landing page.
 
+#### Data Quality Studio
+
+Data Quality Studio is implemented as a dashboard and guided create-rule-set workflow for defining reusable quality rules, scoping monitored datasets, configuring validation logic, setting alert thresholds, reviewing readiness, and publishing a governed rule set.
+
+What to notice:
+
+- The studio landing page follows the quality operations wireframe with KPIs, quality domains, active workflows, recent templates, quality insights, alert coverage, and recommendations.
+- Create Rule Set is a five-step flow: Basics, Dataset & Scope, Rule Logic, Thresholds & Alerts, and Review & Publish.
+- The create flow has local interactivity for demo realism: choice pills toggle, radio groups switch, select controls cycle values, tokens can be added or removed, assets can be included/excluded, filters and conditions can be edited or removed, thresholds can be edited, counters and toggles respond, and Save Draft gives visible feedback.
+- Publish Rule Set opens a confirmation dialog, runs a publishing progress state, shows a success confirmation, and can return the user to the Data Quality Studio landing page.
+
 ### Data Products
 
 Data Products is the governed catalog and product management surface. It presents certified assets, drafts, product quality, consumption options, health signals, and recommendations.
@@ -148,6 +159,7 @@ Most visible controls are wired so the app feels connected during a walkthrough:
 - Rows, cards, pending actions, and recommendations open related entity drawers.
 - Search and filters work locally on catalog-style screens.
 - Ingestion Studio supports a multi-step create flow with editable fields, selectable cards, toggles, local summary updates, draft feedback, review details, and publish confirmation.
+- Data Quality Studio supports a complete interactive create-rule-set and publish flow with stateful controls across all five steps.
 - Sidebar navigation switches between the six main routes.
 - Top bar workspace, environment, notification, profile, and search controls expose demo flows or navigation.
 
@@ -161,6 +173,8 @@ Most visible controls are wired so the app feels connected during a walkthrough:
 | `/studios/ingestion` | Ingestion Studio | Ingestion pipeline dashboard, connectors, templates, and activity |
 | `/studios/ingestion/create` | Create Ingestion Pipeline | Guided ingestion pipeline creation and publish flow |
 | `/studios/processing-extraction` | Processing & Extraction Studio | Guided extraction pipeline creation |
+| `/studios/data-quality` | Data Quality Studio | Quality operations dashboard, rule coverage, alerts, and recommendations |
+| `/studios/data-quality/create` | Create Data Quality Rule Set | Guided data quality rule-set creation and publish flow |
 | `/data-products` | Data Products | Governed product catalog |
 | `/semantic-hub` | Semantic Hub | Business meaning, metrics, and semantic assets |
 | `/admin` | Admin Home | Platform operations and governance |

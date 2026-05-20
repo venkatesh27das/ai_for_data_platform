@@ -6,6 +6,8 @@ import Studios from "./pages/Studios";
 import IngestionStudio from "./pages/IngestionStudio";
 import CreateIngestionPipeline from "./pages/CreateIngestionPipeline";
 import ProcessingExtractionStudio from "./pages/ProcessingExtractionStudio";
+import DataQualityStudio from "./pages/DataQualityStudio";
+import CreateDataQualityRuleSet from "./pages/CreateDataQualityRuleSet";
 import DataProducts from "./pages/DataProducts";
 import SemanticHub from "./pages/SemanticHub";
 import Admin from "./pages/Admin";
@@ -20,6 +22,8 @@ export default function App() {
         <Route path="studios/ingestion" element={<IngestionStudio />} />
         <Route path="studios/ingestion/create" element={<CreateIngestionPipeline />} />
         <Route path="studios/processing-extraction" element={<ProcessingExtractionStudio />} />
+        <Route path="studios/data-quality" element={<DataQualityStudio />} />
+        <Route path="studios/data-quality/create" element={<CreateDataQualityRuleSet />} />
         <Route path="data-products" element={<DataProducts />} />
         <Route path="semantic-hub" element={<SemanticHub />} />
         <Route path="admin" element={<Admin />} />

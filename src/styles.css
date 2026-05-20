@@ -192,6 +192,57 @@ button, input, select { font: inherit; }
     24px;
   column-gap: 12px;
 }
+.data-quality-layout,
+.data-quality-metric-grid,
+.data-quality-create-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+.data-quality-form-row {
+  grid-template-columns: 1fr;
+}
+.data-quality-workflow-row {
+  grid-template-columns:
+    minmax(210px, 1.15fr)
+    minmax(140px, .8fr)
+    104px
+    minmax(170px, .9fr)
+    90px
+    58px;
+  column-gap: 12px;
+}
+.data-quality-assets-row {
+  grid-template-columns:
+    minmax(160px, 1.2fr)
+    minmax(72px, .55fr)
+    minmax(86px, .7fr)
+    minmax(86px, .7fr)
+    74px;
+  column-gap: 10px;
+  align-items: center;
+}
+.data-quality-threshold-row {
+  grid-template-columns:
+    minmax(190px, 1.28fr)
+    minmax(150px, .9fr)
+    minmax(130px, .78fr)
+    minmax(90px, .5fr)
+    minmax(112px, .62fr)
+    38px;
+  column-gap: 10px;
+  align-items: center;
+}
+.data-quality-review-threshold-row {
+  grid-template-columns:
+    minmax(190px, 1.25fr)
+    minmax(150px, .95fr)
+    minmax(120px, .72fr)
+    minmax(90px, .52fr)
+    minmax(96px, .58fr);
+  column-gap: 10px;
+  align-items: center;
+}
 .ingestion-create-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -330,6 +381,10 @@ button, input, select { font: inherit; }
   .studios-mid-grid { grid-template-columns: 0.92fr 1.1fr 1.05fr; }
   .studios-bottom-grid { grid-template-columns: 1.35fr .88fr .85fr; align-items: start; }
   .ingestion-studio-grid { grid-template-columns: minmax(0, 1fr) minmax(360px, .45fr); }
+  .data-quality-layout { grid-template-columns: minmax(0, 1fr) minmax(360px, .32fr); }
+  .data-quality-metric-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .data-quality-create-grid { grid-template-columns: minmax(0, 1fr) minmax(390px, .52fr); }
+  .data-quality-form-row { grid-template-columns: 210px minmax(0, 1fr); align-items: start; }
   .ingestion-create-grid { grid-template-columns: minmax(0, 1fr) minmax(360px, .42fr); }
   .studio-create-grid { grid-template-columns: minmax(0, 1.4fr) minmax(360px, .9fr); align-items: start; }
   .studio-area-main { grid-column: 1; }
@@ -392,6 +447,7 @@ button, input, select { font: inherit; }
   .semantic-main-grid { grid-template-columns: minmax(0, 1.9fr) minmax(360px, .95fr); }
   .semantic-bottom-grid { grid-template-columns: minmax(0, 1.9fr) minmax(360px, .95fr); }
   .semantic-domain-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .data-quality-metric-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .admin-mid-grid { grid-template-columns: minmax(0, 1.15fr) minmax(360px, .9fr) minmax(420px, 1.04fr); }
   .admin-bottom-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.07fr) minmax(430px, 1.05fr); }
 }

@@ -115,6 +115,10 @@ export default function Studios() {
                       navigate("/studios/processing-extraction");
                       return;
                     }
+                    if (studio.name === "Data Quality Studio") {
+                      navigate("/studios/data-quality");
+                      return;
+                    }
                     setFlow({ title: studio.name, description: `Launches a ${studio.name} workspace using governed templates and connected platform assets.`, steps: ["Select workspace and environment.", `Choose one of ${studio.templates.toLowerCase()} or start blank.`, "Assign owners, connect assets, and begin guided execution."], primaryAction: "Launch workspace" });
                   }}
                 />
