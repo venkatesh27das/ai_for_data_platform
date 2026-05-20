@@ -90,6 +90,17 @@ What to notice:
 - Validate Flow and Publish Pipeline open dedicated dialogs so the flow feels complete without a backend.
 - This nested studio route is intentionally documented as a sub-capability to keep the README focused on primary product areas.
 
+#### Ingestion Studio
+
+Ingestion Studio is implemented as a dedicated guided workflow for designing, configuring, validating, scheduling, and publishing ingestion pipelines for cloud storage, databases, SaaS apps, APIs, file uploads, and streaming sources.
+
+What to notice:
+
+- The studio landing page includes functional entry points for creating a pipeline, browsing connectors, resuming drafts, importing configs, opening source-type starts, inspecting pipelines, viewing templates, and drilling into activity/health/connectors.
+- The create pipeline wizard covers Pipeline Basics, Source & Connection, Mapping & Validation, Target & Schedule, and Review & Publish.
+- Major wizard choices are stateful: domain, ingestion mode, source type, starter option, connector mode, connector, target zone, schedule, publish mode, stakeholder notification, and runbook creation update the flow and summary surfaces.
+- Publish Pipeline opens a confirmation modal, Confirm & Publish opens the completion dialog, and the user can either stay in the review flow or return to the Ingestion Studio landing page.
+
 ### Data Products
 
 Data Products is the governed catalog and product management surface. It presents certified assets, drafts, product quality, consumption options, health signals, and recommendations.
@@ -136,6 +147,7 @@ Most visible controls are wired so the app feels connected during a walkthrough:
 - Primary actions open contextual demo modals.
 - Rows, cards, pending actions, and recommendations open related entity drawers.
 - Search and filters work locally on catalog-style screens.
+- Ingestion Studio supports a multi-step create flow with editable fields, selectable cards, toggles, local summary updates, draft feedback, review details, and publish confirmation.
 - Sidebar navigation switches between the six main routes.
 - Top bar workspace, environment, notification, profile, and search controls expose demo flows or navigation.
 
@@ -146,6 +158,8 @@ Most visible controls are wired so the app feels connected during a walkthrough:
 | `/` | Command Centre | Platform overview and next best actions |
 | `/data-journey` | Data Journey | Initiative lifecycle and delivery progress |
 | `/studios` | Studios | Guided workspaces and templates |
+| `/studios/ingestion` | Ingestion Studio | Ingestion pipeline dashboard, connectors, templates, and activity |
+| `/studios/ingestion/create` | Create Ingestion Pipeline | Guided ingestion pipeline creation and publish flow |
 | `/studios/processing-extraction` | Processing & Extraction Studio | Guided extraction pipeline creation |
 | `/data-products` | Data Products | Governed product catalog |
 | `/semantic-hub` | Semantic Hub | Business meaning, metrics, and semantic assets |

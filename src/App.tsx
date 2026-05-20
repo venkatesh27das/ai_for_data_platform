@@ -3,6 +3,8 @@ import AppShell from "./components/layout/AppShell";
 import Home from "./pages/Home";
 import DataJourney from "./pages/DataJourney";
 import Studios from "./pages/Studios";
+import IngestionStudio from "./pages/IngestionStudio";
+import CreateIngestionPipeline from "./pages/CreateIngestionPipeline";
 import ProcessingExtractionStudio from "./pages/ProcessingExtractionStudio";
 import DataProducts from "./pages/DataProducts";
 import SemanticHub from "./pages/SemanticHub";
@@ -15,6 +17,8 @@ export default function App() {
         <Route index element={<Home />} />
         <Route path="data-journey" element={<DataJourney />} />
         <Route path="studios" element={<Studios />} />
+        <Route path="studios/ingestion" element={<IngestionStudio />} />
+        <Route path="studios/ingestion/create" element={<CreateIngestionPipeline />} />
         <Route path="studios/processing-extraction" element={<ProcessingExtractionStudio />} />
         <Route path="data-products" element={<DataProducts />} />
         <Route path="semantic-hub" element={<SemanticHub />} />

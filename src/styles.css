@@ -176,6 +176,28 @@ button, input, select { font: inherit; }
   grid-template-columns: minmax(180px, 1.4fr) 64px 88px minmax(110px, .9fr) 64px 24px;
   column-gap: 10px;
 }
+.ingestion-studio-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+.ingestion-pipeline-row {
+  grid-template-columns:
+    minmax(190px, 1.35fr)
+    minmax(110px, .78fr)
+    minmax(100px, .74fr)
+    104px
+    100px
+    86px
+    24px;
+  column-gap: 12px;
+}
+.ingestion-create-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  align-items: start;
+}
 .studio-create-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -307,6 +329,8 @@ button, input, select { font: inherit; }
   .studios-feature-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .studios-mid-grid { grid-template-columns: 0.92fr 1.1fr 1.05fr; }
   .studios-bottom-grid { grid-template-columns: 1.35fr .88fr .85fr; align-items: start; }
+  .ingestion-studio-grid { grid-template-columns: minmax(0, 1fr) minmax(360px, .45fr); }
+  .ingestion-create-grid { grid-template-columns: minmax(0, 1fr) minmax(360px, .42fr); }
   .studio-create-grid { grid-template-columns: minmax(0, 1.4fr) minmax(360px, .9fr); align-items: start; }
   .studio-area-main { grid-column: 1; }
   .studio-basics-grid {

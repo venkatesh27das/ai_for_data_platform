@@ -107,6 +107,10 @@ export default function Studios() {
                   key={studio.name}
                   {...studio}
                   onClick={() => {
+                    if (studio.name === "Ingestion Studio") {
+                      navigate("/studios/ingestion");
+                      return;
+                    }
                     if (studio.name === "Processing & Extraction Studio") {
                       navigate("/studios/processing-extraction");
                       return;
