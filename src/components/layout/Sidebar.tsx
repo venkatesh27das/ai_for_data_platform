@@ -1,4 +1,4 @@
-import { Box, Cuboid, GitFork, Grid2X2, Home, Network, Settings } from "lucide-react";
+import { Box, Cuboid, GitFork, Grid2X2, Home, Settings } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 const nav = [
@@ -6,7 +6,6 @@ const nav = [
   { label: "Data Journey", to: "/data-journey", icon: GitFork },
   { label: "Studios", to: "/studios", icon: Grid2X2 },
   { label: "Data Products", to: "/data-products", icon: Cuboid },
-  { label: "Semantic Hub", to: "/semantic-hub", icon: Network },
   { label: "Admin", to: "/admin", icon: Settings },
 ];
 

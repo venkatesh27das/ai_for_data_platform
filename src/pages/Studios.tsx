@@ -183,7 +183,7 @@ export default function Studios() {
           <DashboardPanel title="AI Recommendations">
             <div className="space-y-2">
               {recommendations.slice(0, 3).map((recommendation) => (
-                <button key={recommendation.id} onClick={() => navigate(recommendation.relatedEntityType === "product" ? "/data-products" : "/semantic-hub")} className="flex w-full items-center gap-3 rounded-[10px] border border-slate-100 bg-white px-3 py-2 text-left shadow-sm transition hover:border-orange-200">
+                <button key={recommendation.id} onClick={() => navigate(recommendation.relatedEntityType === "product" ? "/data-products" : "/studios/semantic")} className="flex w-full items-center gap-3 rounded-[10px] border border-slate-100 bg-white px-3 py-2 text-left shadow-sm transition hover:border-orange-200">
                   <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-orange-50 text-orange-600"><Sparkles className="h-[18px] w-[18px]" /></span>
                   <span className="min-w-0 flex-1">
                     <b className="block truncate text-[12px] text-slate-900">{recommendation.title}</b>

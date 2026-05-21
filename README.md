@@ -25,7 +25,7 @@ npm run build
 
 ## What This Demo Shows
 
-DataNexus is designed around a common enterprise problem: data teams have tools for ingestion, transformation, quality, catalogs, semantic models, BI, and AI, but the work is often fragmented. This demo presents a unified operating layer where those workflows are connected by journeys, products, semantics, governance, and platform telemetry.
+DataNexus is designed around a common enterprise problem: data teams have tools for ingestion, transformation, quality, catalogs, semantic models, BI, and AI, but the work is often fragmented. This demo presents a unified operating layer where those workflows are connected by journeys, products, studios, governance, and platform telemetry.
 
 Use it to tell this story:
 
@@ -33,7 +33,7 @@ Use it to tell this story:
 2. Open Data Journey to show how a business data initiative moves through source onboarding, processing, modeling, validation, publishing, semantic enablement, and consumption.
 3. Use Studios to show guided workspaces and reusable templates for specialized work.
 4. Use Data Products to show certified, reusable, governed data assets.
-5. Use Semantic Hub to connect technical assets to business meaning, metrics, and domains.
+5. Use Semantic Studio to connect technical assets to business meaning, metrics, domains, and governed semantic models.
 6. Use Admin Home to show operational governance, auditability, cost, and platform control.
 
 ## Screens
@@ -114,7 +114,7 @@ What to notice:
 
 #### Semantic Studio
 
-Semantic Studio is implemented as a dedicated studio dashboard and guided create-model workflow for building business-ready semantic models, metrics, glossary mappings, governed NLQ behavior, and publish-ready semantic assets.
+Semantic Studio is implemented as part of Studios. It provides the semantic dashboard and guided create-model workflow for building business-ready semantic models, metrics, glossary mappings, governed NLQ behavior, and publish-ready semantic assets.
 
 What to notice:
 
@@ -137,19 +137,6 @@ What to notice:
 - The catalog supports local search and filters for demo exploration.
 - Governance tiles show contract compliance, SLA adherence, access requests, alerts, and certification queue.
 - This is the main screen for explaining reusable data-as-a-product.
-
-### Semantic Hub
-
-Semantic Hub manages trusted business meaning across terms, metrics, semantic models, domains, and linked data products.
-
-<img alt="Semantic Hub" src="docs/screenshots/semantic-hub.png" width="900" />
-
-What to notice:
-
-- Summary cards show semantic coverage and governance gaps.
-- The asset table connects terms, metrics, models, ownership, and linked assets.
-- Semantic Health and Action Queue show where stewardship work is needed.
-- Domain Overview explains how business context is organized.
 
 ### Admin Home
 
@@ -174,7 +161,7 @@ Most visible controls are wired so the app feels connected during a walkthrough:
 - Ingestion Studio supports a multi-step create flow with editable fields, selectable cards, toggles, local summary updates, draft feedback, review details, and publish confirmation.
 - Data Quality Studio supports a complete interactive create-rule-set and publish flow with stateful controls across all five steps.
 - Semantic Studio supports a complete create-semantic-model flow with contextual dropdowns, selectable tiles/chips, removable tokens, toggles, publish warning review, and publish confirmation.
-- Sidebar navigation switches between the six main routes.
+- Sidebar navigation switches between the five main routes.
 - Top bar workspace, environment, notification, profile, and search controls expose demo flows or navigation.
 
 ## Routes
@@ -192,7 +179,6 @@ Most visible controls are wired so the app feels connected during a walkthrough:
 | `/studios/semantic` | Semantic Studio | Semantic modeling dashboard, workbench, insights, and validation runs |
 | `/studios/semantic/create` | Create Semantic Model | Guided semantic model creation and publish flow |
 | `/data-products` | Data Products | Governed product catalog |
-| `/semantic-hub` | Semantic Hub | Business meaning, metrics, and semantic assets |
 | `/admin` | Admin Home | Platform operations and governance |
 
 ## Tech Stack

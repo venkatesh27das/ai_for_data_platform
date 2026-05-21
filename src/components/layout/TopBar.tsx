@@ -22,7 +22,7 @@ type TopPanel = "workspace" | "environment" | "notifications" | "profile" | null
 const searchItems = [
   { title: "Claims Gold Dataset", detail: "Certified data product · Claims", route: "/data-products", icon: Database, tone: "text-purple-600 bg-purple-50" },
   { title: "Provider 360 Ingestion", detail: "Running journey · Due in 5 days", route: "/data-journey", icon: Sparkles, tone: "text-emerald-600 bg-emerald-50" },
-  { title: "Customer 360 Semantic Model", detail: "Semantic Hub · 89% coverage", route: "/semantic-hub", icon: ShieldCheck, tone: "text-blue-600 bg-blue-50" },
+  { title: "Customer 360 Semantic Model", detail: "Semantic Studio · 89% coverage", route: "/studios/semantic", icon: ShieldCheck, tone: "text-blue-600 bg-blue-50" },
   { title: "Approve contract schema changes", detail: "Pending approval · Governance", route: "/admin", icon: FileText, tone: "text-orange-600 bg-orange-50" },
 ] as const;
 

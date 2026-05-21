@@ -16,7 +16,6 @@ Primary routes:
 - `/studios/semantic`
 - `/studios/semantic/create`
 - `/data-products`
-- `/semantic-hub`
 - `/admin`
 
 Main app shell:
@@ -51,6 +50,7 @@ Important preference learned during iteration:
 - Updated `src/components/layout/TopBar.tsx`.
   - Workspace, Environment, Notifications, and Profile controls open demo flows.
   - Search Enter navigates to `/data-products`.
+  - Semantic search results route to `/studios/semantic`; the standalone Semantic Hub route/tab was removed after Semantic Studio became the accepted semantic surface.
   - User avatar was changed from a dark illustrated avatar to a light initials badge: `PN`.
 
 ### Home
@@ -145,18 +145,13 @@ Important preference learned during iteration:
   - action buttons such as Use, Edit, and Review warnings show a toast-style response
 - User explicitly requested duplicate bottom Back/Continue buttons be removed. Keep navigation on the top actions and stepper only.
 - User flagged 100% zoom layout issues in Review & Publish. Current accepted fix gives Publish Configuration a minimum width and uses compact destination chips.
+- Semantic Hub is no longer a separate sidebar tab or route. Keep semantic workflows under Semantic Studio unless the user explicitly asks to restore a separate hub.
 
 ### Data Products
 
 - Primary actions open flows.
 - Search and filters work locally.
 - Metrics, governance cards, pagination, rows-per-page, recommendations, activity, and table rows are wired.
-
-### Semantic Hub
-
-- Primary actions open flows.
-- Search and filters work locally.
-- Summary metrics, pagination, rows-per-page, health cards, domain cards, queue rows, asset table rows, and recent updates are wired.
 
 ### Admin
 
@@ -169,6 +164,8 @@ Expected changed files:
 - `src/pages/Studios.tsx`
 - `src/pages/SemanticStudio.tsx`
 - `src/pages/CreateSemanticModel.tsx`
+- `src/components/layout/Sidebar.tsx`
+- `src/components/layout/TopBar.tsx`
 - `src/styles.css`
 - `README.md`
 - `AI_HANDOFF.md`
@@ -198,7 +195,6 @@ Browser smoke checks previously passed for:
 - Data Journey New Journey modal
 - Studios Browse Templates modal
 - Data Products Create Data Product modal
-- Semantic Hub Create Metric modal
 - Admin System Health modal
 - Processing & Extraction Studio wizard navigation
 - Processing Flow Canvas / Code toggle
@@ -219,6 +215,7 @@ Browser smoke checks previously passed for:
 - Avoid adding new pages or backend behavior.
 - Exception: `/studios/processing-extraction` is now an accepted nested demo page for the Processing & Extraction Studio.
 - Exception: `/studios/semantic` and `/studios/semantic/create` are accepted nested demo pages for Semantic Studio and Create Semantic Model.
+- Semantic Hub should not be restored as a separate tab/route unless explicitly requested; Semantic Studio now owns those semantics workflows.
 - Use `DemoFlowModal` for non-backend workflows.
 - Use `EntityDrawer` for connected examples and related assets.
 - Keep changes small and demo-oriented.
