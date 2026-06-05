@@ -1,0 +1,154 @@
+{
+  "description": "Richer synthetic fixtures with varied layouts, embedded images, charts, forms, and multi-page structures.",
+  "generated_by": "scripts/generate_rich_sample_documents.py",
+  "page_count_target": "10-15 pages per document",
+  "count": 8,
+  "samples": [
+    {
+      "domain": "contracts",
+      "slug": "facilities_msa_packet",
+      "file_type": "docx",
+      "path": "samples/rich_generated/contracts/facilities_msa_packet.docx",
+      "title": "Facilities Analytics MSA Packet",
+      "features": [
+        "multi_page",
+        "images",
+        "tables",
+        "signatures",
+        "obligations"
+      ],
+      "expected_markers": [
+        "MSA-ALD-2026-044",
+        "Alder Grid Systems LLC",
+        "99.7%",
+        "security@example.test"
+      ]
+    },
+    {
+      "domain": "contracts",
+      "slug": "supplier_audit_report",
+      "file_type": "pdf",
+      "path": "samples/rich_generated/contracts/supplier_audit_report.pdf",
+      "title": "Supplier Audit Report",
+      "features": [
+        "multi_page",
+        "photo",
+        "findings",
+        "corrective_actions"
+      ],
+      "expected_markers": [
+        "AUD-ROB-2026-017",
+        "Riverbend Robotics Co.",
+        "Calibration certificate expired"
+      ]
+    },
+    {
+      "domain": "finance",
+      "slug": "board_finance_pack",
+      "file_type": "pdf",
+      "path": "samples/rich_generated/finance/board_finance_pack.pdf",
+      "title": "Q2 Board Finance Pack",
+      "features": [
+        "dashboard",
+        "chart",
+        "scenario_table",
+        "receivables"
+      ],
+      "expected_markers": [
+        "FP&A-2026-Q2",
+        "$412,800",
+        "Cedar Valley Health Network"
+      ]
+    },
+    {
+      "domain": "finance",
+      "slug": "vendor_invoice_dispute_packet",
+      "file_type": "docx",
+      "path": "samples/rich_generated/finance/vendor_invoice_dispute_packet.docx",
+      "title": "Vendor Invoice Dispute Packet",
+      "features": [
+        "chart",
+        "receipt_image",
+        "emails",
+        "approval_form"
+      ],
+      "expected_markers": [
+        "FIN-DISP-2026-088",
+        "North Pier Logistics",
+        "$18,420.50"
+      ]
+    },
+    {
+      "domain": "policy",
+      "slug": "incident_response_playbook",
+      "file_type": "docx",
+      "path": "samples/rich_generated/policy/incident_response_playbook.docx",
+      "title": "Incident Response Playbook",
+      "features": [
+        "flowchart",
+        "severity_matrix",
+        "checklist",
+        "policy"
+      ],
+      "expected_markers": [
+        "SEC-PLAY-2026-IR",
+        "soc@example.test",
+        "P1 Critical"
+      ]
+    },
+    {
+      "domain": "policy",
+      "slug": "benefits_enrollment_packet",
+      "file_type": "pdf",
+      "path": "samples/rich_generated/policy/benefits_enrollment_packet.pdf",
+      "title": "Benefits Enrollment Packet",
+      "features": [
+        "form",
+        "image",
+        "checkboxes",
+        "plan_comparison"
+      ],
+      "expected_markers": [
+        "BEN-PACKET-2026",
+        "Silver Local PPO",
+        "benefits@example.test"
+      ]
+    },
+    {
+      "domain": "research",
+      "slug": "field_study_report",
+      "file_type": "pdf",
+      "path": "samples/rich_generated/research/field_study_report.pdf",
+      "title": "Water Quality Field Study Report",
+      "features": [
+        "map",
+        "chart",
+        "lab_results",
+        "measurements"
+      ],
+      "expected_markers": [
+        "LAB-FIELD-2026-044",
+        "0.015 mg/L",
+        "COC-2026-889"
+      ]
+    },
+    {
+      "domain": "research",
+      "slug": "protocol_amendment_packet",
+      "file_type": "docx",
+      "path": "samples/rich_generated/research/protocol_amendment_packet.docx",
+      "title": "Protocol Amendment Packet",
+      "features": [
+        "flowchart",
+        "visit_schedule",
+        "consent_excerpt",
+        "adverse_events"
+      ],
+      "expected_markers": [
+        "CP-NEURO-117",
+        "NCT00000001",
+        "safety@example.test"
+      ]
+    }
+  ]
+}

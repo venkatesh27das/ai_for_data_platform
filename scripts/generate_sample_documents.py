@@ -7,7 +7,6 @@ from textwrap import wrap
 from typing import Literal
 
 from docx import Document
-from docx.enum.section import WD_SECTION
 from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT, WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
@@ -148,6 +147,62 @@ def _style_docx_table(table) -> None:
                         run.bold = True
 
 
+def _append_docx_fixture_pages(document: Document, spec: SampleSpec, total_pages: int = 12) -> None:
+    """Append explicit synthetic pages so DOCX fixtures render to a stable size."""
+
+    page_topics = [
+        "Source Evidence Ledger",
+        "Entity and Relationship Hints",
+        "Review Queue Notes",
+        "Quality Warnings",
+        "Chunking Boundary Stress",
+        "Table Continuation Evidence",
+        "Contact Directory",
+        "Timeline and Event Evidence",
+        "Validation Rules",
+        "Prompt-Injection Canary",
+        "Reprocessing Notes",
+    ]
+    for page_number in range(2, total_pages + 1):
+        document.add_page_break()
+        topic = page_topics[(page_number - 2) % len(page_topics)]
+        document.add_heading(f"Appendix {page_number - 1}: {topic}", level=1)
+        document.add_paragraph(
+            f"{spec.title} synthetic appendix page {page_number}. Domain={spec.domain}; "
+            f"slug={spec.slug}; fixture markers include {', '.join(spec.expected_markers[:2])}."
+        )
+        if page_number == 11:
+            document.add_paragraph(COMMON_CANARY)
+        else:
+            document.add_paragraph(
+                "This page intentionally repeats realistic extraction cues such as dates, amounts, "
+                "entities, review statuses, and source notes so downstream tests can exercise page "
+                "references and evidence lineage across a longer document."
+            )
+        for idx in range(1, 4):
+            document.add_paragraph(
+                f"Evidence item {page_number}.{idx}: page={page_number}; "
+                f"review_status=PROPOSED; confidence_hint=0.{80 + idx}; "
+                f"synthetic_owner={spec.domain}-owner-{idx}@example.test.",
+                style="List Bullet",
+            )
+        table = document.add_table(rows=1, cols=4)
+        for idx, header in enumerate(["Record", "Type", "Value", "Evidence"]):
+            table.rows[0].cells[idx].text = header
+        for row_idx in range(1, 5):
+            cells = table.add_row().cells
+            cells[0].text = f"{spec.slug.upper()}-{page_number:02d}-{row_idx}"
+            cells[1].text = ["Date", "Entity", "Amount", "Status"][row_idx - 1]
+            cells[2].text = [
+                f"2026-{min(page_number, 12):02d}-{10 + row_idx:02d}",
+                spec.expected_markers[(row_idx - 1) % len(spec.expected_markers)],
+                f"${page_number * row_idx * 137:,}.00",
+                "PROPOSED",
+            ][row_idx - 1]
+            cells[3].text = f"Appendix {page_number - 1}, row {row_idx}"
+        _style_docx_table(table)
+
+
 def write_docx(spec: SampleSpec) -> None:
     document = Document()
     _set_docx_styles(document)
@@ -210,12 +265,7 @@ def write_docx(spec: SampleSpec) -> None:
             _style_docx_table(table)
             document.add_paragraph()
 
-    document.add_section(WD_SECTION.NEW_PAGE)
-    document.add_heading("Appendix: Extraction Cues", level=1)
-    document.add_paragraph(COMMON_CANARY)
-    document.add_paragraph(
-        "Fixture note: all people, organizations, numbers, and addresses are synthetic."
-    )
+    _append_docx_fixture_pages(document, spec)
 
     spec.output_path.parent.mkdir(parents=True, exist_ok=True)
     document.save(spec.output_path)
@@ -303,6 +353,74 @@ def _pdf_table(table_data: TableData, styles: dict[str, ParagraphStyle]) -> list
     return [_paragraph(f"<b>{table_data.title}</b>", styles["body"]), table, Spacer(1, 8)]
 
 
+def _append_pdf_fixture_pages(
+    story: list[object],
+    spec: SampleSpec,
+    styles: dict[str, ParagraphStyle],
+    total_pages: int = 12,
+) -> None:
+    """Append explicit pages so generated PDFs have stable multi-page coverage."""
+
+    page_topics = [
+        "Source Evidence Ledger",
+        "Entity and Relationship Hints",
+        "Review Queue Notes",
+        "Quality Warnings",
+        "Chunking Boundary Stress",
+        "Table Continuation Evidence",
+        "Contact Directory",
+        "Timeline and Event Evidence",
+        "Validation Rules",
+        "Prompt-Injection Canary",
+        "Reprocessing Notes",
+    ]
+    for page_number in range(2, total_pages + 1):
+        story.append(PageBreak())
+        topic = page_topics[(page_number - 2) % len(page_topics)]
+        story.append(_paragraph(f"Appendix {page_number - 1}: {topic}", styles["h1"]))
+        story.append(
+            _paragraph(
+                f"{spec.title} synthetic appendix page {page_number}. Domain={spec.domain}; "
+                f"slug={spec.slug}; fixture markers include {', '.join(spec.expected_markers[:2])}.",
+                styles["body"],
+            )
+        )
+        story.append(
+            _paragraph(
+                COMMON_CANARY
+                if page_number == 11
+                else "This page intentionally repeats realistic extraction cues such as dates, "
+                "amounts, entities, review statuses, and source notes so downstream tests can "
+                "exercise page references and evidence lineage across a longer document.",
+                styles["body"],
+            )
+        )
+        rows = []
+        for row_idx in range(1, 6):
+            rows.append(
+                [
+                    f"{spec.slug.upper()}-{page_number:02d}-{row_idx}",
+                    ["Date", "Entity", "Amount", "Status", "Contact"][row_idx - 1],
+                    [
+                        f"2026-{min(page_number, 12):02d}-{10 + row_idx:02d}",
+                        spec.expected_markers[(row_idx - 1) % len(spec.expected_markers)],
+                        f"${page_number * row_idx * 137:,}.00",
+                        "PROPOSED",
+                        f"{spec.domain}-owner-{row_idx}@example.test",
+                    ][row_idx - 1],
+                    f"Appendix {page_number - 1}, row {row_idx}",
+                ]
+            )
+        story.extend(
+            _pdf_table(
+                TableData(
+                    "Evidence Ledger Fragment", ["Record", "Type", "Value", "Evidence"], rows
+                ),
+                styles,
+            )
+        )
+
+
 def write_pdf(spec: SampleSpec) -> None:
     spec.output_path.parent.mkdir(parents=True, exist_ok=True)
     if spec.image_only:
@@ -354,21 +472,12 @@ def write_pdf(spec: SampleSpec) -> None:
         for table_data in section.tables:
             story.extend(_pdf_table(table_data, styles))
 
-    story.append(PageBreak())
-    story.append(_paragraph("Appendix: Extraction Cues", styles["h1"]))
-    story.append(_paragraph(COMMON_CANARY, styles["body"]))
-    story.append(
-        _paragraph(
-            "Fixture note: all people, organizations, numbers, and addresses are synthetic.",
-            styles["body"],
-        )
-    )
+    _append_pdf_fixture_pages(story, spec, styles)
 
     document.build(story)
 
 
-def write_image_only_pdf(spec: SampleSpec) -> None:
-    image_path = spec.output_path.with_suffix(".png")
+def _draw_scanned_page(spec: SampleSpec, page_number: int, image_path: Path) -> None:
     width, height = 1700, 2200
     image = Image.new("RGB", (width, height), "white")
     draw = ImageDraw.Draw(image)
@@ -382,7 +491,7 @@ def write_image_only_pdf(spec: SampleSpec) -> None:
         small_font = ImageFont.load_default()
 
     y = 110
-    draw.text((110, y), spec.title, fill=(12, 37, 69), font=title_font)
+    draw.text((110, y), f"{spec.title} - Page {page_number}", fill=(12, 37, 69), font=title_font)
     y += 80
     draw.text((110, y), spec.subtitle, fill=(80, 80, 80), font=small_font)
     y += 80
@@ -409,13 +518,27 @@ def write_image_only_pdf(spec: SampleSpec) -> None:
             y += 12
         if y > 1950:
             break
+    y += 30
+    draw.text(
+        (110, min(y, 2030)),
+        f"Scanned appendix marker: {spec.slug.upper()}-{page_number:02d}; "
+        f"review_status=PROPOSED; OCR required.",
+        fill=(0, 0, 0),
+        font=small_font,
+    )
 
     image.save(image_path)
 
+
+def write_image_only_pdf(spec: SampleSpec) -> None:
+    image_path = spec.output_path.with_suffix(".png")
+
     pdf = canvas.Canvas(str(spec.output_path), pagesize=LETTER)
     pdf.setTitle(spec.title)
-    pdf.drawImage(str(image_path), 0, 0, width=8.5 * inch, height=11 * inch)
-    pdf.showPage()
+    for page_number in range(1, 13):
+        _draw_scanned_page(spec, page_number, image_path)
+        pdf.drawImage(str(image_path), 0, 0, width=8.5 * inch, height=11 * inch)
+        pdf.showPage()
     pdf.save()
     image_path.unlink()
 
@@ -1073,6 +1196,7 @@ def write_manifest(samples: list[SampleSpec]) -> None:
     manifest = {
         "description": "Synthetic PDF and DOCX fixtures for local document intelligence testing.",
         "generated_by": "scripts/generate_sample_documents.py",
+        "page_count_target": "10-15 pages per document",
         "count": len(samples),
         "samples": [
             {

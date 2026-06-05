@@ -1,6 +1,7 @@
 {
   "description": "Synthetic PDF and DOCX fixtures for local document intelligence testing.",
   "generated_by": "scripts/generate_sample_documents.py",
+  "page_count_target": "10-15 pages per document",
   "count": 12,
   "samples": [
     {
