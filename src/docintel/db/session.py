@@ -2,6 +2,7 @@ from collections.abc import Iterator
 
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from docintel.config import Settings
 
@@ -9,6 +10,12 @@ from docintel.config import Settings
 def create_db_engine(settings: Settings) -> Engine:
     """Create a SQLAlchemy engine from application settings."""
 
+    if settings.database_url.startswith("sqlite"):
+        return create_engine(
+            settings.database_url,
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
     return create_engine(settings.database_url, pool_pre_ping=True)
 
 

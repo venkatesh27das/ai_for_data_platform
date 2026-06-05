@@ -124,6 +124,25 @@ OpenAPI docs are available at:
 http://localhost:8000/docs
 ```
 
+## React Console
+
+Install and start the local test console:
+
+```bash
+make ui-install
+make ui-dev
+```
+
+Open:
+
+```text
+http://localhost:5173
+```
+
+The console can upload PDF/DOCX files, list registered documents, and trigger
+the current processing endpoint. Vector, graph, and structured extraction panels
+show explicit unavailable states until the later pipeline phases are implemented.
+
 ## Worker
 
 The worker entry point is scaffolded for later processing tasks:

@@ -1,4 +1,4 @@
-.PHONY: bootstrap services-up services-down services-logs install migrate api worker test test-unit test-integration lint format typecheck smoke-test clean
+.PHONY: bootstrap services-up services-down services-logs install migrate api worker ui-install ui-dev ui-build test test-unit test-integration lint format typecheck smoke-test clean
 
 export UV_CACHE_DIR ?= .uv-cache
 export PYTHONPATH ?= src
@@ -26,6 +26,15 @@ api:
 
 worker:
 	uv run celery -A docintel.workers.celery_app:celery_app worker --loglevel=$${LOG_LEVEL:-INFO}
+
+ui-install:
+	cd ui && npm install
+
+ui-dev:
+	cd ui && npm run dev
+
+ui-build:
+	cd ui && npm run build
 
 test:
 	uv run pytest

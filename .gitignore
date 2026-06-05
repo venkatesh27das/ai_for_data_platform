@@ -12,6 +12,10 @@ __pycache__/
 htmlcov/
 dist/
 build/
+ui/node_modules/
+ui/dist/
+ui/*.tsbuildinfo
+data/*.db
 data/uploads/*
 data/artifacts/*
 !data/uploads/.gitkeep

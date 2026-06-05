@@ -1,5 +1,7 @@
 from collections.abc import Iterator
+from typing import Annotated
 
+from fastapi import Depends
 from sqlalchemy.orm import Session
 
 from docintel.config import Settings
@@ -12,7 +14,7 @@ def get_settings() -> Settings:
     return Settings()
 
 
-def get_db_session(settings: Settings | None = None) -> Iterator[Session]:
+def get_db_session(settings: Annotated[Settings, Depends(get_settings)]) -> Iterator[Session]:
     """Yield a SQLAlchemy session dependency."""
 
-    yield from session_scope(settings or get_settings())
+    yield from session_scope(settings)
