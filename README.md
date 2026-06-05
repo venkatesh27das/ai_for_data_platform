@@ -2,7 +2,7 @@
 
 Local Document Intelligence is a Mac-first application for processing PDF and DOCX files into reusable document intelligence assets. The full roadmap includes vector search assets, structured extraction records, and knowledge graph projections generated from one canonical document representation.
 
-Phase 0 is intentionally small: it provides the repository scaffold, local service definitions, configuration, logging, database migration plumbing, and a FastAPI app with `/health` and `/ready`.
+The current implementation covers Phase 0 through Phase 2: repository scaffold, document upload and registry, processing trace records, and Docling parsing into canonical JSON, Markdown, parser-native, and table artifacts.
 
 ## Architecture
 
@@ -37,7 +37,7 @@ brew install uv
 
 ## LM Studio
 
-LM Studio runs on the host machine, outside Docker. Phase 0 does not call LM Studio. Before later phases, start the LM Studio OpenAI-compatible server on port `1234` and set:
+LM Studio runs on the host machine, outside Docker. The current phases do not call LM Studio. Before later phases, start the LM Studio OpenAI-compatible server on port `1234` and set:
 
 ```bash
 LM_STUDIO_LLM_MODEL=<set-your-loaded-gemma-4-model-id>
@@ -139,9 +139,10 @@ Open:
 http://localhost:5173
 ```
 
-The console can upload PDF/DOCX files, list registered documents, and trigger
-the current processing endpoint. Vector, graph, and structured extraction panels
-show explicit unavailable states until the later pipeline phases are implemented.
+The console can upload PDF/DOCX files, list registered documents, trigger
+Docling processing, and show generated artifact records. Vector, graph, and
+structured extraction panels show explicit unavailable states until later phases
+are implemented.
 
 ## Worker
 
@@ -151,17 +152,23 @@ The worker entry point is scaffolded for later processing tasks:
 make worker
 ```
 
-Phase 0 only includes a simple `docintel.ping` task.
+The worker entry point is still scaffolded. Phase 1 and 2 processing currently
+runs synchronously through the API or CLI so the local development loop stays
+simple.
 
 ## CLI
 
-The CLI is minimal in Phase 0:
+The CLI uses local services directly:
 
 ```bash
 uv run docintel health
+uv run docintel ingest ./samples/generated/contracts/vendor_services_agreement.pdf
+uv run docintel process <document-id>
+uv run docintel status <document-id>
+uv run docintel artifacts <document-id>
 ```
 
-Ingestion, processing, vector search, graph search, and rebuild commands begin in later phases.
+Vector search, graph search, and rebuild commands begin in later phases.
 
 ## Tests And Checks
 
@@ -176,21 +183,20 @@ Integration tests that require Docker services should use the `integration` mark
 
 ## Current Limitations
 
-- No upload endpoint yet.
-- No document parsing, Docling adapter, OCR fallback, chunking, embeddings, extraction, entity resolution, or graph projection yet.
-- MinIO is available in Docker Compose, but Phase 0 uses local filesystem directories only.
+- Docling is the default parser for PDF and DOCX. Its local layout model artifacts may download on first use, then run locally.
+- OCR fallback is not implemented yet. Low-text pages are marked with warnings.
+- No chunking, embeddings, Qdrant upsert, generic extraction, entity resolution, or Neo4j graph projection yet.
+- MinIO is available in Docker Compose, but the current phases use local filesystem directories only.
 - olmOCR is optional and independently configured. It is not installed into this Python environment.
 
 ## Roadmap
 
-1. Phase 1: ingestion and document registry.
-2. Phase 2: Docling parsing and canonical document IR.
-3. Phase 3: layout-aware chunking and Qdrant.
-4. Phase 4: generic structured extraction.
-5. Phase 5: entity resolution and Neo4j projection.
-6. Phase 6: OCR fallback through an isolated olmOCR adapter.
-7. Phase 7: domain profiles and ontology drafts.
-8. Phase 8: lightweight Streamlit review UI.
+1. Phase 3: layout-aware chunking and Qdrant.
+2. Phase 4: generic structured extraction.
+3. Phase 5: entity resolution and Neo4j projection.
+4. Phase 6: OCR fallback through an isolated olmOCR adapter.
+5. Phase 7: domain profiles and ontology drafts.
+6. Phase 8: lightweight review UI.
 
 ## Troubleshooting
 

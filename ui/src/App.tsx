@@ -14,7 +14,14 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, ReactNode } from "react";
 
-import { api, DocumentRecord, ProjectionResponse, SearchResponse, StatusResponse } from "./api";
+import {
+  api,
+  ArtifactsResponse,
+  DocumentRecord,
+  ProjectionResponse,
+  SearchResponse,
+  StatusResponse,
+} from "./api";
 
 type HealthState = "checking" | "ok" | "error";
 
@@ -47,7 +54,7 @@ function ProjectionPanel({
 }: {
   icon: ReactNode;
   title: string;
-  projection: ProjectionResponse | SearchResponse | null;
+  projection: ArtifactsResponse | ProjectionResponse | SearchResponse | null;
 }) {
   return (
     <section className="panel">
@@ -57,9 +64,15 @@ function ProjectionPanel({
       </div>
       {projection ? (
         <div className="projection">
-          <div className="phase">{projection.required_phase}</div>
+          {"required_phase" in projection ? (
+            <div className="phase">{projection.required_phase}</div>
+          ) : (
+            <div className="phase">{projection.status}</div>
+          )}
           <p>{projection.message}</p>
-          {"data" in projection ? (
+          {"artifacts" in projection ? (
+            <pre>{JSON.stringify(projection.artifacts, null, 2)}</pre>
+          ) : "data" in projection ? (
             <pre>{JSON.stringify(projection.data, null, 2)}</pre>
           ) : (
             <pre>{JSON.stringify(projection.results, null, 2)}</pre>
@@ -78,7 +91,7 @@ export default function App() {
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [status, setStatus] = useState<StatusResponse | null>(null);
-  const [artifacts, setArtifacts] = useState<ProjectionResponse | null>(null);
+  const [artifacts, setArtifacts] = useState<ArtifactsResponse | null>(null);
   const [extractions, setExtractions] = useState<ProjectionResponse | null>(null);
   const [graph, setGraph] = useState<ProjectionResponse | null>(null);
   const [vector, setVector] = useState<SearchResponse | null>(null);

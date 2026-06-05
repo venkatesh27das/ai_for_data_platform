@@ -17,4 +17,5 @@ def get_settings() -> Settings:
 def get_db_session(settings: Annotated[Settings, Depends(get_settings)]) -> Iterator[Session]:
     """Yield a SQLAlchemy session dependency."""
 
-    yield from session_scope(settings)
+    with session_scope(settings) as session:
+        yield session

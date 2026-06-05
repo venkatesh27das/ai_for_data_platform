@@ -5,7 +5,7 @@ from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
 from docintel.api.dependencies import get_db_session, get_settings
@@ -13,6 +13,7 @@ from docintel.config import Settings
 from docintel.db.models import Document
 from docintel.db.repositories.documents import DocumentRepository
 from docintel.services.ingestion.files import UploadValidationError, store_upload
+from docintel.services.processing import DocumentProcessingService
 
 router = APIRouter(prefix="/api/v1/documents", tags=["documents"])
 
@@ -40,6 +41,20 @@ class UploadResponse(BaseModel):
     duplicate: bool
 
 
+class ProcessingEventResponse(BaseModel):
+    """Processing event response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    processing_run_id: UUID
+    stage: str
+    status: str
+    message: str | None
+    metadata_json: dict[str, object]
+    created_at: datetime
+
+
 class StatusResponse(BaseModel):
     """Document processing status response."""
 
@@ -48,6 +63,31 @@ class StatusResponse(BaseModel):
     message: str
     available_projections: list[str]
     unavailable_projections: list[str]
+    latest_run_id: UUID | None = None
+    events: list[ProcessingEventResponse] = Field(default_factory=list)
+
+
+class ArtifactResponse(BaseModel):
+    """Document artifact response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    processing_run_id: UUID | None
+    artifact_type: str
+    uri: str
+    media_type: str
+    metadata_json: dict[str, object]
+    created_at: datetime
+
+
+class ArtifactsResponse(BaseModel):
+    """Document artifact listing response."""
+
+    document_id: UUID
+    status: Literal["available", "unavailable"]
+    message: str
+    artifacts: list[ArtifactResponse]
 
 
 class ProjectionUnavailableResponse(BaseModel):
@@ -66,6 +106,7 @@ class ProcessResponse(BaseModel):
     document: DocumentResponse
     status: str
     message: str
+    processing_run_id: UUID | None = None
 
 
 def _get_document_or_404(repository: DocumentRepository, document_id: UUID) -> Document:
@@ -121,26 +162,21 @@ def get_document(
 
 
 @router.post("/{document_id}/process", response_model=ProcessResponse)
-def process_document(
+async def process_document(
     document_id: UUID,
+    settings: Annotated[Settings, Depends(get_settings)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> ProcessResponse:
-    """Trigger processing for a document.
-
-    The parser/model pipeline is not implemented yet, so this endpoint records a
-    review-required state instead of fabricating projections.
-    """
+    """Trigger Phase 1/2 processing for a document."""
 
     repository = DocumentRepository(session)
     document = _get_document_or_404(repository, document_id)
-    document = repository.update_status(document, "REQUIRES_REVIEW")
+    result = await DocumentProcessingService(session, settings).process(document)
     return ProcessResponse(
-        document=DocumentResponse.model_validate(document),
-        status="not_implemented",
-        message=(
-            "Document registered successfully. Parsing, vector indexing, structured extraction, "
-            "and graph projection start in later phases."
-        ),
+        document=DocumentResponse.model_validate(result.document),
+        status=result.run.status,
+        message=result.message,
+        processing_run_id=result.run.id,
     )
 
 
@@ -153,33 +189,56 @@ def get_document_status(
 
     repository = DocumentRepository(session)
     document = _get_document_or_404(repository, document_id)
+    latest_run = repository.latest_processing_run(document_id)
+    events = [
+        ProcessingEventResponse.model_validate(event)
+        for event in repository.list_events(document_id)
+    ]
+    has_artifacts = bool(repository.list_artifacts(document_id))
+    available = ["document_registry"]
+    unavailable = ["vector_store", "structured_extraction", "graph"]
+    if has_artifacts:
+        available.extend(["canonical_ir", "markdown_artifact", "parser_native_artifact"])
+    else:
+        unavailable.insert(0, "canonical_ir")
     return StatusResponse(
         document_id=document.id,
         status=document.status,
-        message="Original file is registered. Processing projections are not implemented yet.",
-        available_projections=["document_registry"],
-        unavailable_projections=["canonical_ir", "vector_store", "structured_extraction", "graph"],
+        message=(
+            "Document registry is available. Canonical artifacts are available after processing."
+        ),
+        available_projections=available,
+        unavailable_projections=unavailable,
+        latest_run_id=latest_run.id if latest_run else None,
+        events=events,
     )
 
 
-@router.get("/{document_id}/artifacts", response_model=ProjectionUnavailableResponse)
+@router.get("/{document_id}/artifacts", response_model=ArtifactsResponse)
 def get_document_artifacts(
     document_id: UUID,
     session: Annotated[Session, Depends(get_db_session)],
-) -> ProjectionUnavailableResponse:
-    """Return artifact projection placeholder."""
+) -> ArtifactsResponse:
+    """Return persisted artifacts for a processed document."""
 
     repository = DocumentRepository(session)
     _get_document_or_404(repository, document_id)
-    return ProjectionUnavailableResponse(
+    artifacts = [
+        ArtifactResponse.model_validate(artifact)
+        for artifact in repository.list_artifacts(document_id)
+    ]
+    if not artifacts:
+        return ArtifactsResponse(
+            document_id=document_id,
+            status="unavailable",
+            message="No canonical artifacts are available yet. Trigger processing first.",
+            artifacts=[],
+        )
+    return ArtifactsResponse(
         document_id=document_id,
-        status="unavailable",
-        required_phase="Phase 2",
-        message=(
-            "Canonical JSON, Markdown, parser-native, table, and image artifacts are not "
-            "available until parsing is implemented."
-        ),
-        data={"artifacts": []},
+        status="available",
+        message=f"{len(artifacts)} artifact(s) are available.",
+        artifacts=artifacts,
     )
 
 

@@ -37,6 +37,23 @@ export type ProjectionResponse = {
   data: Record<string, unknown>;
 };
 
+export type ArtifactRecord = {
+  id: string;
+  processing_run_id: string | null;
+  artifact_type: string;
+  uri: string;
+  media_type: string;
+  metadata_json: Record<string, unknown>;
+  created_at: string;
+};
+
+export type ArtifactsResponse = {
+  document_id: string;
+  status: "available" | "unavailable";
+  message: string;
+  artifacts: ArtifactRecord[];
+};
+
 export type SearchResponse = {
   status: string;
   required_phase: string;
@@ -80,7 +97,7 @@ export const api = {
     return request<StatusResponse>(apiBase, `/api/v1/documents/${documentId}/status`);
   },
   artifacts(apiBase: string, documentId: string) {
-    return request<ProjectionResponse>(apiBase, `/api/v1/documents/${documentId}/artifacts`);
+    return request<ArtifactsResponse>(apiBase, `/api/v1/documents/${documentId}/artifacts`);
   },
   extractions(apiBase: string, documentId: string) {
     return request<ProjectionResponse>(apiBase, `/api/v1/documents/${documentId}/extractions`);

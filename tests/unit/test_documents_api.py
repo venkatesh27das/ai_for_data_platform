@@ -3,6 +3,8 @@ from uuid import UUID
 
 from fastapi.testclient import TestClient
 
+from docintel.domain.canonical_ir import CanonicalDocument, CanonicalPage, DocumentElement
+
 
 def _sample_pdf_bytes() -> bytes:
     return (
@@ -42,7 +44,43 @@ def test_upload_pdf_lists_and_marks_duplicate(client: TestClient) -> None:
     assert len(listed.json()) == 1
 
 
-def test_process_sets_honest_placeholder_status(client: TestClient) -> None:
+def test_process_builds_canonical_artifacts(client: TestClient, monkeypatch) -> None:
+    async def fake_parse(self, file_path: str, document_id: str) -> CanonicalDocument:
+        _ = self, file_path
+        return CanonicalDocument(
+            document_id=UUID(document_id),
+            file_name="sample.pdf",
+            file_type="pdf",
+            checksum_sha256="a" * 64,
+            pages=[
+                CanonicalPage(
+                    page_number=1,
+                    parser_route="docling",
+                    text_quality_score=1.0,
+                    elements=[
+                        DocumentElement(
+                            element_id="e000001",
+                            element_type="title",
+                            text="Sample",
+                            markdown="# Sample",
+                            page_number=1,
+                            parser_name="docling",
+                        ),
+                        DocumentElement(
+                            element_id="e000002",
+                            element_type="table",
+                            markdown="| A | B |\n|---|---|\n| 1 | 2 |",
+                            table_data={"rows": [["A", "B"], ["1", "2"]]},
+                            page_number=1,
+                            parser_name="docling",
+                        ),
+                    ],
+                )
+            ],
+            metadata={"parser_native_json": '{"ok": true}', "docling_markdown": "# Sample"},
+        )
+
+    monkeypatch.setattr("docintel.services.parsing.docling_parser.DoclingParser.parse", fake_parse)
     upload = client.post(
         "/api/v1/documents/upload",
         files={"file": ("sample.pdf", _sample_pdf_bytes(), "application/pdf")},
@@ -51,12 +89,28 @@ def test_process_sets_honest_placeholder_status(client: TestClient) -> None:
 
     process = client.post(f"/api/v1/documents/{document_id}/process")
     assert process.status_code == 200
-    assert process.json()["status"] == "not_implemented"
-    assert process.json()["document"]["status"] == "REQUIRES_REVIEW"
+    assert process.json()["status"] == "SUCCEEDED"
+    assert process.json()["document"]["status"] == "SUCCEEDED"
+    assert process.json()["processing_run_id"]
 
     status = client.get(f"/api/v1/documents/{document_id}/status")
     assert status.status_code == 200
+    assert "canonical_ir" in status.json()["available_projections"]
     assert "vector_store" in status.json()["unavailable_projections"]
+    assert len(status.json()["events"]) >= 3
+
+    artifacts = client.get(f"/api/v1/documents/{document_id}/artifacts")
+    assert artifacts.status_code == 200
+    artifact_payload = artifacts.json()
+    assert artifact_payload["status"] == "available"
+    artifact_types = {artifact["artifact_type"] for artifact in artifact_payload["artifacts"]}
+    assert {
+        "canonical_json",
+        "markdown",
+        "parser_native_json",
+        "table_markdown",
+        "table_json",
+    } <= artifact_types
 
     extractions = client.get(f"/api/v1/documents/{document_id}/extractions")
     assert extractions.status_code == 200

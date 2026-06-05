@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from contextlib import contextmanager
 
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -25,6 +26,7 @@ def create_session_factory(settings: Settings) -> sessionmaker[Session]:
     return sessionmaker(bind=create_db_engine(settings), autoflush=False, expire_on_commit=False)
 
 
+@contextmanager
 def session_scope(settings: Settings) -> Iterator[Session]:
     """Yield a database session and ensure it is closed."""
 
