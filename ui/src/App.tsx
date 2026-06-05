@@ -252,6 +252,585 @@ function StructuredTable({ extractions }: { extractions: ExtractionsResponse | n
   );
 }
 
+function VectorStoreDetailTab({ chunks }: { chunks: ChunksResponse | null }) {
+  const [filterText, setFilterText] = useState("");
+  const allChunks = chunks?.chunks ?? [];
+  const filteredChunks = allChunks.filter(
+    (chunk) =>
+      chunk.text.toLowerCase().includes(filterText.toLowerCase()) ||
+      chunk.chunk_type.toLowerCase().includes(filterText.toLowerCase()) ||
+      (chunk.markdown && chunk.markdown.toLowerCase().includes(filterText.toLowerCase()))
+  );
+
+  const avgQualityScore = useMemo(() => {
+    if (allChunks.length === 0) return 0;
+    const scores = allChunks.map((c) => c.quality_score ?? 1.0);
+    return scores.reduce((a, b) => a + b, 0) / scores.length;
+  }, [allChunks]);
+
+  return (
+    <div className="tab-detail-content">
+      <header className="tab-detail-header">
+        <div className="tab-detail-summary">
+          <h3>Vector Store Chunks</h3>
+          <span className="summary-meta">
+            Total Chunks: <strong>{allChunks.length}</strong> | Average Quality: <strong>{avgQualityScore.toFixed(2)}</strong>
+          </span>
+        </div>
+        <div className="tab-detail-search">
+          <Search size={16} />
+          <input
+            type="text"
+            placeholder="Search chunks..."
+            value={filterText}
+            onChange={(e) => setFilterText(e.target.value)}
+          />
+        </div>
+      </header>
+
+      {filteredChunks.length === 0 ? (
+        <EmptyState>No chunks match your search or no chunks are available.</EmptyState>
+      ) : (
+        <div className="chunk-list-detailed">
+          {filteredChunks.map((chunk) => {
+            const pageNums = chunk.page_numbers_json || [];
+            const path = chunk.section_path_json || [];
+            const quality = chunk.quality_score ?? 1.0;
+            const qualityClass = quality >= 0.85 ? "good" : quality >= 0.7 ? "warning" : "error";
+
+            return (
+              <div className="chunk-detail-card" key={chunk.chunk_id}>
+                <div className="chunk-card-header">
+                  <span className="chunk-card-id">{chunk.chunk_id}</span>
+                  <div className="chunk-card-badges">
+                    <span className="badge-type">{humanize(chunk.chunk_type)}</span>
+                    {pageNums.length > 0 && (
+                      <span className="badge-page">Page {pageNums.join(", ")}</span>
+                    )}
+                    <span className={`badge-quality ${qualityClass}`}>
+                      Quality: {quality.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+                {path.length > 0 && (
+                  <div className="chunk-section-path">
+                    {path.map((p, idx) => (
+                      <span key={idx}>
+                        {idx > 0 && <span className="path-separator"> &gt; </span>}
+                        {p}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div className="chunk-text-box">
+                  <pre>{chunk.text}</pre>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GraphDetailTab({
+  document,
+  graph,
+  extractions,
+}: {
+  document: DocumentRecord | null;
+  graph: GraphResponse | null;
+  extractions: ExtractionsResponse | null;
+}) {
+  const [subTab, setSubTab] = useState<"entities" | "relationships">("entities");
+  const [searchText, setSearchText] = useState("");
+
+  const entitiesList = useMemo(() => {
+    const nodes = graph?.nodes ?? [];
+    if (nodes.length > 0) {
+      return nodes
+        .filter((n) => {
+          const labels = (n.labels as string[]) || [];
+          return !labels.includes("Document");
+        })
+        .map((n) => {
+          const props = (n.properties ?? {}) as Record<string, unknown>;
+          const labels = (n.labels as string[]) || [];
+          return {
+            id: String(n.id),
+            name: String(props.name ?? props.canonical_name ?? "Unknown"),
+            type: String(props.entity_type ?? labels[1] ?? "Entity"),
+            confidence: typeof props.confidence === "number" ? props.confidence : 1.0,
+            reviewStatus: String(props.review_status ?? "PROPOSED"),
+          };
+        });
+    }
+    return (extractions?.entities ?? []).map((e) => ({
+      id: e.id,
+      name: e.canonical_name,
+      type: e.entity_type,
+      confidence: e.confidence,
+      reviewStatus: e.review_status,
+    }));
+  }, [graph, extractions]);
+
+  const relationshipsList = useMemo(() => {
+    const edges = graph?.edges ?? [];
+    const nodes = graph?.nodes ?? [];
+    const nodeLookup = new Map<string, string>();
+    for (const node of nodes) {
+      const props = (node.properties ?? {}) as Record<string, unknown>;
+      nodeLookup.set(String(node.id), String(props.name ?? props.canonical_name ?? ""));
+    }
+
+    if (edges.length > 0) {
+      return edges
+        .filter((e) => !String(e.source).startsWith("document:"))
+        .map((e) => {
+          const props = (e.properties ?? {}) as Record<string, unknown>;
+          const srcName = nodeLookup.get(String(e.source)) || String(e.source);
+          const tgtName = nodeLookup.get(String(e.target)) || String(e.target);
+          const evidenceList = (props.evidence as any[]) || [];
+          return {
+            id: `${e.source}-${e.target}-${e.type}`,
+            source: srcName,
+            type: String(e.type),
+            target: tgtName,
+            confidence: typeof props.confidence === "number" ? props.confidence : 1.0,
+            evidence: evidenceList.map((ev) => ev.source_text).filter(Boolean).join(" | ") || null,
+          };
+        });
+    }
+    return (extractions?.relationships ?? []).map((r) => ({
+      id: r.id,
+      source: r.source_entity,
+      type: r.relationship_type,
+      target: r.target_entity,
+      confidence: r.confidence,
+      evidence: r.source_evidence_json.map((ev) => ev.source_text).filter(Boolean).join(" | ") || null,
+    }));
+  }, [graph, extractions]);
+
+  const filteredEntities = entitiesList.filter(
+    (e) =>
+      e.name.toLowerCase().includes(searchText.toLowerCase()) ||
+      e.type.toLowerCase().includes(searchText.toLowerCase())
+  );
+
+  const filteredRelationships = relationshipsList.filter(
+    (r) =>
+      r.source.toLowerCase().includes(searchText.toLowerCase()) ||
+      r.type.toLowerCase().includes(searchText.toLowerCase()) ||
+      r.target.toLowerCase().includes(searchText.toLowerCase())
+  );
+
+  return (
+    <div className="tab-detail-content">
+      <header className="tab-detail-header">
+        <div className="tab-detail-summary">
+          <h3>Knowledge Graph</h3>
+          <div className="detail-sub-navigation">
+            <button
+              className={`sub-nav-item ${subTab === "entities" ? "active" : ""}`}
+              onClick={() => {
+                setSubTab("entities");
+                setSearchText("");
+              }}
+              type="button"
+            >
+              Entities ({entitiesList.length})
+            </button>
+            <button
+              className={`sub-nav-item ${subTab === "relationships" ? "active" : ""}`}
+              onClick={() => {
+                setSubTab("relationships");
+                setSearchText("");
+              }}
+              type="button"
+            >
+              Relationships ({relationshipsList.length})
+            </button>
+          </div>
+        </div>
+        <div className="tab-detail-search">
+          <Search size={16} />
+          <input
+            type="text"
+            placeholder={subTab === "entities" ? "Search entities..." : "Search relationships..."}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+          />
+        </div>
+      </header>
+
+      <div className="graph-split-layout">
+        <div className="graph-lists-panel">
+          {subTab === "entities" && (
+            <div className="table-container-scrolling">
+              <table className="structured-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Confidence</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredEntities.map((e) => (
+                    <tr key={e.id}>
+                      <td className="entity-name-highlight">{e.name}</td>
+                      <td>
+                        <span className="badge-type">{humanize(e.type)}</span>
+                      </td>
+                      <td>{(e.confidence * 100).toFixed(0)}%</td>
+                      <td>
+                        <span className={`review-badge ${e.reviewStatus.toLowerCase()}`}>
+                          {e.reviewStatus}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredEntities.length === 0 && (
+                    <tr>
+                      <td colSpan={4}>
+                        <EmptyState>No entities found.</EmptyState>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {subTab === "relationships" && (
+            <div className="table-container-scrolling">
+              <table className="structured-table">
+                <thead>
+                  <tr>
+                    <th>Source</th>
+                    <th>Type</th>
+                    <th>Target</th>
+                    <th>Confidence</th>
+                    <th>Evidence</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredRelationships.map((r) => (
+                    <tr key={r.id}>
+                      <td className="entity-name-highlight">{r.source}</td>
+                      <td>
+                        <span className="badge-relationship">{r.type}</span>
+                      </td>
+                      <td className="entity-name-highlight">{r.target}</td>
+                      <td>{(r.confidence * 100).toFixed(0)}%</td>
+                      <td className="evidence-cell" title={r.evidence || ""}>
+                        {r.evidence || <span className="muted-text">None</span>}
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredRelationships.length === 0 && (
+                    <tr>
+                      <td colSpan={5}>
+                        <EmptyState>No relationships found.</EmptyState>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        <div className="graph-visual-sidebar">
+          <h4>Graph Topology</h4>
+          <GraphPreview document={document} extractions={extractions} graph={graph} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type StructuredCategory = "fields" | "entities" | "relationships" | "claims" | "obligations" | "events";
+
+function StructuredTableDetailTab({ extractions }: { extractions: ExtractionsResponse | null }) {
+  const [category, setCategory] = useState<StructuredCategory>("fields");
+  const [searchText, setSearchText] = useState("");
+
+  const categories: { key: StructuredCategory; label: string; count: number }[] = useMemo(() => {
+    return [
+      { key: "fields", label: "Fields", count: extractions?.fields.length ?? 0 },
+      { key: "entities", label: "Entities", count: extractions?.entities.length ?? 0 },
+      { key: "relationships", label: "Relationships", count: extractions?.relationships.length ?? 0 },
+      { key: "claims", label: "Claims", count: extractions?.claims.length ?? 0 },
+      { key: "obligations", label: "Obligations", count: extractions?.obligations.length ?? 0 },
+      { key: "events", label: "Events", count: extractions?.events.length ?? 0 },
+    ];
+  }, [extractions]);
+
+  const renderedTable = () => {
+    const queryLower = searchText.toLowerCase();
+    switch (category) {
+      case "fields": {
+        const list = (extractions?.fields ?? []).filter(
+          (f) =>
+            f.field_name.toLowerCase().includes(queryLower) ||
+            f.value.toLowerCase().includes(queryLower)
+        );
+        return (
+          <table className="structured-table">
+            <thead>
+              <tr>
+                <th>Field Name</th>
+                <th>Value</th>
+                <th>Normalized Value</th>
+                <th>Type</th>
+                <th>Confidence</th>
+                <th>Extractor</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.map((f) => (
+                <tr key={f.id}>
+                  <td><strong>{humanize(f.field_name)}</strong></td>
+                  <td>{f.value}</td>
+                  <td>{f.normalized_value || <span className="muted-text">-</span>}</td>
+                  <td>{f.field_type}</td>
+                  <td>{(f.confidence * 100).toFixed(0)}%</td>
+                  <td><span className="badge-extractor">{f.extractor_name}</span></td>
+                </tr>
+              ))}
+              {list.length === 0 && (
+                <tr>
+                  <td colSpan={6}><EmptyState>No fields found.</EmptyState></td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        );
+      }
+      case "entities": {
+        const list = (extractions?.entities ?? []).filter(
+          (e) =>
+            e.canonical_name.toLowerCase().includes(queryLower) ||
+            e.entity_type.toLowerCase().includes(queryLower)
+        );
+        return (
+          <table className="structured-table">
+            <thead>
+              <tr>
+                <th>Canonical Name</th>
+                <th>Type</th>
+                <th>Normalized Key</th>
+                <th>Confidence</th>
+                <th>Extractor</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.map((e) => (
+                <tr key={e.id}>
+                  <td><strong>{e.canonical_name}</strong></td>
+                  <td><span className="badge-type">{humanize(e.entity_type)}</span></td>
+                  <td><code>{e.normalized_key}</code></td>
+                  <td>{(e.confidence * 100).toFixed(0)}%</td>
+                  <td><span className="badge-extractor">{e.extractor_name}</span></td>
+                </tr>
+              ))}
+              {list.length === 0 && (
+                <tr>
+                  <td colSpan={5}><EmptyState>No entities found.</EmptyState></td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        );
+      }
+      case "relationships": {
+        const list = (extractions?.relationships ?? []).filter(
+          (r) =>
+            r.source_entity.toLowerCase().includes(queryLower) ||
+            r.relationship_type.toLowerCase().includes(queryLower) ||
+            r.target_entity.toLowerCase().includes(queryLower)
+        );
+        return (
+          <table className="structured-table">
+            <thead>
+              <tr>
+                <th>Source Entity</th>
+                <th>Relationship</th>
+                <th>Target Entity</th>
+                <th>Confidence</th>
+                <th>Extractor</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.map((r) => (
+                <tr key={r.id}>
+                  <td><strong>{r.source_entity}</strong></td>
+                  <td><span className="badge-relationship">{r.relationship_type}</span></td>
+                  <td><strong>{r.target_entity}</strong></td>
+                  <td>{(r.confidence * 100).toFixed(0)}%</td>
+                  <td><span className="badge-extractor">{r.extractor_name}</span></td>
+                </tr>
+              ))}
+              {list.length === 0 && (
+                <tr>
+                  <td colSpan={5}><EmptyState>No relationships found.</EmptyState></td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        );
+      }
+      case "claims": {
+        const list = (extractions?.claims ?? []).filter((c) =>
+          c.claim_text.toLowerCase().includes(queryLower)
+        );
+        return (
+          <table className="structured-table">
+            <thead>
+              <tr>
+                <th>Claim Text</th>
+                <th>Confidence</th>
+                <th>Extractor</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.map((c) => (
+                <tr key={c.id}>
+                  <td>{c.claim_text}</td>
+                  <td>{(c.confidence * 100).toFixed(0)}%</td>
+                  <td><span className="badge-extractor">{c.extractor_name}</span></td>
+                </tr>
+              ))}
+              {list.length === 0 && (
+                <tr>
+                  <td colSpan={3}><EmptyState>No claims found.</EmptyState></td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        );
+      }
+      case "obligations": {
+        const list = (extractions?.obligations ?? []).filter(
+          (o) =>
+            o.obligation_text.toLowerCase().includes(queryLower) ||
+            (o.obligated_party && o.obligated_party.toLowerCase().includes(queryLower))
+        );
+        return (
+          <table className="structured-table">
+            <thead>
+              <tr>
+                <th>Obligation Text</th>
+                <th>Obligated Party</th>
+                <th>Confidence</th>
+                <th>Extractor</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.map((o) => (
+                <tr key={o.id}>
+                  <td>{o.obligation_text}</td>
+                  <td>
+                    {o.obligated_party ? (
+                      <strong>{o.obligated_party}</strong>
+                    ) : (
+                      <span className="muted-text">-</span>
+                    )}
+                  </td>
+                  <td>{(o.confidence * 100).toFixed(0)}%</td>
+                  <td><span className="badge-extractor">{o.extractor_name}</span></td>
+                </tr>
+              ))}
+              {list.length === 0 && (
+                <tr>
+                  <td colSpan={4}><EmptyState>No obligations found.</EmptyState></td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        );
+      }
+      case "events": {
+        const list = (extractions?.events ?? []).filter(
+          (e) =>
+            e.name.toLowerCase().includes(queryLower) ||
+            e.event_type.toLowerCase().includes(queryLower)
+        );
+        return (
+          <table className="structured-table">
+            <thead>
+              <tr>
+                <th>Event Name</th>
+                <th>Type</th>
+                <th>Confidence</th>
+                <th>Extractor</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.map((e) => (
+                <tr key={e.id}>
+                  <td><strong>{e.name}</strong></td>
+                  <td><span className="badge-type">{humanize(e.event_type)}</span></td>
+                  <td>{(e.confidence * 100).toFixed(0)}%</td>
+                  <td><span className="badge-extractor">{e.extractor_name}</span></td>
+                </tr>
+              ))}
+              {list.length === 0 && (
+                <tr>
+                  <td colSpan={4}><EmptyState>No events found.</EmptyState></td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        );
+      }
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="tab-detail-content">
+      <header className="tab-detail-header">
+        <div className="tab-detail-summary">
+          <h3>Structured Extractions</h3>
+          <div className="detail-sub-navigation">
+            {categories.map((c) => (
+              <button
+                key={c.key}
+                className={`sub-nav-item ${category === c.key ? "active" : ""}`}
+                onClick={() => {
+                  setCategory(c.key);
+                  setSearchText("");
+                }}
+                type="button"
+              >
+                {c.label} ({c.count})
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="tab-detail-search">
+          <Search size={16} />
+          <input
+            type="text"
+            placeholder="Search extractions..."
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+          />
+        </div>
+      </header>
+
+      <div className="table-container-scrolling">
+        {renderedTable()}
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [apiBase, setApiBase] = useState(defaultApiBase);
   const [health, setHealth] = useState<HealthState>("checking");
@@ -393,6 +972,7 @@ export default function App() {
       ]);
       setVector(nextVector);
       setGraphSearch(nextGraph);
+      setView("query");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Query failed");
     } finally {
@@ -606,46 +1186,16 @@ export default function App() {
                 ))}
               </nav>
 
-              <section className="asset-grid">
-                <article className={`asset-card ${assetView === "vector" ? "featured" : ""}`}>
-                  <header>
-                    <h3>
-                      <Database size={22} />
-                      Vector Store
-                    </h3>
-                    <span className="mini-badge">Top Matches</span>
-                  </header>
-                  <VectorMatches chunks={chunks} vector={vector} />
-                  <button className="link-button" onClick={() => setView("query")} type="button">
-                    View all matches <ArrowRight size={16} />
-                  </button>
-                </article>
-
-                <article className={`asset-card ${assetView === "graph" ? "featured" : ""}`}>
-                  <header>
-                    <h3>
-                      <Link2 size={22} />
-                      Graph Preview
-                    </h3>
-                  </header>
-                  <GraphPreview document={selected} extractions={extractions} graph={graph} />
-                  <button className="link-button" onClick={() => setView("query")} type="button">
-                    Open full graph <ArrowRight size={16} />
-                  </button>
-                </article>
-
-                <article className={`asset-card ${assetView === "table" ? "featured" : ""}`}>
-                  <header>
-                    <h3>
-                      <TableProperties size={22} />
-                      Structured Table
-                    </h3>
-                  </header>
-                  <StructuredTable extractions={extractions} />
-                  <button className="link-button" onClick={() => setView("query")} type="button">
-                    View full table <ArrowRight size={16} />
-                  </button>
-                </article>
+              <section className="asset-detail-container">
+                {assetView === "vector" && (
+                  <VectorStoreDetailTab chunks={chunks} />
+                )}
+                {assetView === "graph" && (
+                  <GraphDetailTab document={selected} graph={graph} extractions={extractions} />
+                )}
+                {assetView === "table" && (
+                  <StructuredTableDetailTab extractions={extractions} />
+                )}
               </section>
 
               <section className="stats-row">

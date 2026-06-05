@@ -799,6 +799,271 @@ h4 {
   font-weight: 700;
 }
 
+/* New styles for functional asset tabs */
+.tab-detail-content {
+  background: #ffffff;
+  border: 1px solid #d8e0eb;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 24px;
+}
+
+.tab-detail-header {
+  align-items: center;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  padding-bottom: 18px;
+}
+
+.tab-detail-summary h3 {
+  color: #1e293b;
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.summary-meta {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.tab-detail-search {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  display: flex;
+  gap: 10px;
+  height: 38px;
+  padding: 0 12px;
+  width: 280px;
+}
+
+.tab-detail-search input {
+  background: transparent;
+  border: 0;
+  color: #1e293b;
+  font-size: 14px;
+  outline: none;
+  padding: 0;
+  width: 100%;
+}
+
+.tab-detail-search svg {
+  color: #94a3b8;
+}
+
+/* Vector Chunks Detailed View */
+.chunk-list-detailed {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 600px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.chunk-detail-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.chunk-card-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.chunk-card-id {
+  color: #475569;
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.chunk-card-badges {
+  display: flex;
+  gap: 8px;
+}
+
+.badge-type,
+.badge-page,
+.badge-quality,
+.badge-extractor,
+.badge-relationship {
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+}
+
+.badge-type {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+}
+
+.badge-page {
+  background: #e0f2fe;
+  border: 1px solid #bae6fd;
+  color: #0369a1;
+}
+
+.badge-quality.good {
+  background: #dcfce7;
+  border: 1px solid #bbf7d0;
+  color: #15803d;
+}
+
+.badge-quality.warning {
+  background: #fef9c3;
+  border: 1px solid #fef08a;
+  color: #a16207;
+}
+
+.badge-quality.error {
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+}
+
+.badge-extractor {
+  background: #faf5ff;
+  border: 1px solid #e9d5ff;
+  color: #6b21a8;
+}
+
+.badge-relationship {
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  color: #be123c;
+}
+
+.chunk-section-path {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.path-separator {
+  color: #94a3b8;
+}
+
+.chunk-text-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 12px;
+}
+
+.chunk-text-box pre {
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* Detail sub tabs */
+.detail-sub-navigation {
+  display: inline-flex;
+  gap: 4px;
+  margin-top: 10px;
+}
+
+.sub-nav-item {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 12px;
+}
+
+.sub-nav-item.active {
+  background: #e0f2fe;
+  border-color: #0284c7;
+  color: #0369a1;
+}
+
+/* Graph Tab Split Layout */
+.graph-split-layout {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: minmax(0, 1fr) 320px;
+}
+
+.graph-visual-sidebar {
+  border-left: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-left: 20px;
+}
+
+.graph-visual-sidebar h4 {
+  color: #334155;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.entity-name-highlight {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.review-badge {
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  text-transform: uppercase;
+}
+
+.review-badge.proposed {
+  background: #fffbeb;
+  color: #d97706;
+}
+
+.review-badge.approved {
+  background: #f0fdf4;
+  color: #16a34a;
+}
+
+.review-badge.rejected {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.table-container-scrolling {
+  max-height: 520px;
+  overflow-y: auto;
+}
+
+.evidence-cell {
+  color: #64748b;
+  font-size: 13px;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.muted-text {
+  color: #94a3b8;
+  font-style: italic;
+}
+
 .settings-panel .primary-button {
   justify-self: start;
 }
