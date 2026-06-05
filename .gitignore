@@ -1,8 +1,0 @@
-node_modules/
-dist/
-.vite/
-.turbo/
-.cache/
-*.tsbuildinfo
-vite.config.js
-vite.config.d.ts
