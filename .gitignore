@@ -16,6 +16,12 @@ ui/node_modules/
 ui/dist/
 ui/*.tsbuildinfo
 data/*.db
+data/*.sqlite
+data/*.sqlite3
+data/*.sqlite-shm
+data/*.sqlite-wal
+data/*.db-shm
+data/*.db-wal
 data/uploads/*
 data/artifacts/*
 !data/uploads/.gitkeep
