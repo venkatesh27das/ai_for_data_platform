@@ -2,10 +2,13 @@
 
 Local Document Intelligence is a Mac-first application for processing PDF and DOCX files into reusable document intelligence assets. The full roadmap includes vector search assets, structured extraction records, and knowledge graph projections generated from one canonical document representation.
 
-The current implementation covers Phase 0 through Phase 3: repository scaffold,
+The current implementation covers Phase 0 through Phase 6: repository scaffold,
 document upload and registry, processing trace records, Docling parsing into
 canonical artifacts, layout-aware chunks, LM Studio embeddings, Qdrant vector
-upsert, and vector search.
+upsert, vector search, deterministic generic extraction, LM Studio structured
+output extraction, persisted structured extraction records, exact-match entity
+resolution, Neo4j graph projection, and feature-flagged OCR fallback through an
+isolated olmOCR adapter.
 
 ## Architecture
 
@@ -18,8 +21,8 @@ flowchart LR
     D --> F["Structured Extraction (PostgreSQL)"]
     D --> G["Graph Projection (Neo4j)"]
     C --> H["Artifacts (Filesystem / MinIO adapter later)"]
-    I["LM Studio on host"] -. "later phases" .-> C
-    J["olmOCR service"] -. "optional later phase" .-> C
+    I["LM Studio on host"] -. "embeddings + structured output" .-> C
+    J["olmOCR service"] -. "optional OCR fallback" .-> C
 ```
 
 ## Prerequisites
@@ -30,7 +33,7 @@ flowchart LR
 - Docker Desktop
 - Git
 - `uv`
-- LM Studio for later model-backed phases
+- LM Studio for embeddings and optional model-enriched extraction
 
 Install `uv` if needed:
 
@@ -40,9 +43,10 @@ brew install uv
 
 ## LM Studio
 
-LM Studio runs on the host machine, outside Docker. Phase 3 calls the
-OpenAI-compatible embeddings endpoint. Start the LM Studio server on port `1234`
-and set:
+LM Studio runs on the host machine, outside Docker. Vector search calls the
+OpenAI-compatible embeddings endpoint. Generic extraction can call the
+OpenAI-compatible chat completions endpoint for Gemma structured output. Start
+the LM Studio server on port `1234` and set:
 
 ```bash
 LM_STUDIO_LLM_MODEL=<set-your-loaded-gemma-4-model-id>
@@ -129,9 +133,9 @@ OpenAPI docs are available at:
 http://localhost:8000/docs
 ```
 
-## React Console
+## Doc Test Lab UI
 
-Install and start the local test console:
+Install and start the local React test app:
 
 ```bash
 make ui-install
@@ -144,22 +148,25 @@ Open:
 http://localhost:5173
 ```
 
-The console can upload PDF/DOCX files, list registered documents, trigger
-Docling processing, show generated artifact records, and run vector search when
-LM Studio embeddings and Qdrant are available. Graph and structured extraction
-panels still show explicit unavailable states until later phases are implemented.
+Doc Test Lab can upload PDF/DOCX files, trigger processing, browse document
+assets, inspect vector matches, preview local graph context, view structured
+extraction fields, and run a query workspace that combines available vector,
+graph, and table projections. Structured extraction works deterministically
+without a loaded model and is model-enriched when `LM_STUDIO_LLM_MODEL` is
+configured. Neo4j projection is marked partial/retryable when Neo4j is not
+running, while local graph nodes and edges remain visible from PostgreSQL.
 
 ## Worker
 
-The worker entry point is scaffolded for later processing tasks:
+The worker entry point is scaffolded for future asynchronous processing:
 
 ```bash
 make worker
 ```
 
-The worker entry point is still scaffolded. Phase 1 and 2 processing currently
-runs synchronously through the API or CLI so the local development loop stays
-simple.
+Processing currently runs synchronously through the API or CLI so the local
+development loop stays simple. Celery/Redis remain available for a later task
+graph implementation.
 
 ## CLI
 
@@ -171,11 +178,12 @@ uv run docintel ingest ./samples/generated/contracts/vendor_services_agreement.p
 uv run docintel process <document-id>
 uv run docintel status <document-id>
 uv run docintel artifacts <document-id>
+uv run docintel extract <document-id>
 uv run docintel rebuild-vectors <document-id>
 uv run docintel vector-search "payment terms"
+uv run docintel rebuild-graph <document-id>
+uv run docintel graph-search "Acme"
 ```
-
-Graph search and graph rebuild commands begin in later phases.
 
 ## Tests And Checks
 
@@ -184,33 +192,63 @@ make format
 make lint
 make typecheck
 make test
+make ui-build
 ```
 
 Integration tests that require Docker services should use the `integration` marker. Live local model tests should use the `live_model` marker.
 
+If the machine is offline and `uv run` attempts to resolve build dependencies,
+use the existing virtual environment directly after `make install` has already
+completed:
+
+```bash
+.venv/bin/ruff format .
+.venv/bin/ruff check .
+PYTHONPATH=src .venv/bin/mypy
+PYTHONPATH=src .venv/bin/pytest
+```
+
 ## Current Limitations
 
 - Docling is the default parser for PDF and DOCX. Its local layout model artifacts may download on first use, then run locally.
-- OCR fallback is not implemented yet. Low-text pages are marked with warnings.
+- OCR fallback is feature-flagged through an isolated olmOCR HTTP adapter.
+  With OCR disabled, low-text or scanned pages are marked retryable with page
+  warnings and can be reprocessed after enabling `OCR_PROVIDER=olmocr` and
+  `OLMOCR_ENABLED=true`.
 - Vector search requires LM Studio embeddings and Qdrant to be running locally.
   If either service is unavailable, chunk artifacts remain persisted and vector
   projection runs are marked retryable.
-- No generic extraction, entity resolution, or Neo4j graph projection yet.
+- Generic extraction always runs deterministic local patterns first. Gemma 4
+  structured-output enrichment requires LM Studio to be running with
+  `LM_STUDIO_LLM_MODEL` configured; if unavailable or invalid, deterministic
+  results are preserved and the extraction run is marked partial/retryable.
+- Entity resolution currently uses exact normalized type/name matching. Aliases
+  are persisted for exact matches; fuzzy, embedding, and LLM adjudication are
+  later enhancements.
+- Neo4j is a serving projection. If Neo4j or its Python driver is unavailable,
+  local graph nodes and edges remain available from the relational source and
+  projection runs are marked partial/retryable.
+  Install the optional driver with `uv add neo4j` when you want live Neo4j
+  projection from the local API/CLI.
 - MinIO is available in Docker Compose, but the current phases use local filesystem directories only.
 - olmOCR is optional and independently configured. It is not installed into this Python environment.
+  When enabled, the app posts PDFs to `${OLMOCR_BASE_URL}/ocr` and accepts either
+  canonical IR JSON or page-level OCR text/Markdown.
 
 ## Roadmap
 
-1. Phase 4: generic structured extraction.
-2. Phase 5: entity resolution and Neo4j projection.
-3. Phase 6: OCR fallback through an isolated olmOCR adapter.
-4. Phase 7: domain profiles and ontology drafts.
-5. Phase 8: lightweight review UI.
+1. Phase 7: domain profiles and ontology drafts.
+2. Phase 8: lightweight review UI.
 
 ## Troubleshooting
 
 - If `make bootstrap` cannot find `uv`, run `brew install uv`.
 - If Docker commands fail, start Docker Desktop and wait until it reports ready.
 - If `/ready` returns `503`, check that PostgreSQL is running and `DATABASE_URL` matches `.env`.
+- For temporary local smoke testing when PostgreSQL is unavailable, the app can
+  run against SQLite with `DATABASE_URL=sqlite+pysqlite:///data/dev.sqlite`.
+  PostgreSQL remains the intended source of truth.
 - If migrations fail, run `docker compose ps` and confirm the `postgres` service is healthy.
 - If a later model-backed command fails, confirm LM Studio is running on `http://localhost:1234/v1` with the configured local model IDs.
+- If scanned PDFs stay partial, confirm `OCR_PROVIDER=olmocr`, `OLMOCR_ENABLED=true`,
+  and a separate olmOCR service is reachable at `OLMOCR_BASE_URL`.

@@ -7,6 +7,7 @@ import typer
 from docintel.config import Settings
 from docintel.db.repositories.documents import DocumentRepository
 from docintel.db.session import session_scope
+from docintel.services.extraction.generic import GenericExtractionService
 from docintel.services.ingestion.files import UploadValidationError, store_upload
 from docintel.services.processing import DocumentProcessingService
 
@@ -136,6 +137,36 @@ def artifacts(document_id: UUID) -> None:
         )
 
 
+@app.command()
+def extract(document_id: UUID) -> None:
+    """Run generic structured extraction for a processed document."""
+
+    import asyncio
+
+    settings = Settings()
+    with session_scope(settings) as session:
+        repository = DocumentRepository(session)
+        document = repository.get(document_id)
+        if document is None:
+            raise typer.BadParameter("document not found")
+        result = asyncio.run(GenericExtractionService(session, settings).run(document))
+        typer.echo(
+            json.dumps(
+                {
+                    "document_id": str(document.id),
+                    "status": result.status,
+                    "message": result.message,
+                    "extraction_run_id": result.extraction_run_id,
+                    "field_count": result.field_count,
+                    "entity_count": result.entity_count,
+                    "relationship_count": result.relationship_count,
+                    "obligation_count": result.obligation_count,
+                },
+                indent=2,
+            )
+        )
+
+
 @app.command("rebuild-vectors")
 def rebuild_vectors(document_id: UUID | None = None) -> None:
     """Build chunks and rebuild Qdrant vectors for one or all processed documents."""
@@ -185,6 +216,53 @@ def vector_search(query: str, limit: int = 8) -> None:
         typer.echo(
             json.dumps(
                 {"status": result.status, "message": result.message, "results": result.results},
+                indent=2,
+            )
+        )
+
+
+@app.command("rebuild-graph")
+def rebuild_graph(document_id: UUID | None = None) -> None:
+    """Resolve entities and rebuild graph projection for one or all documents."""
+
+    from docintel.services.graph.projection import DocumentGraphProjectionService
+
+    settings = Settings()
+    with session_scope(settings) as session:
+        repository = DocumentRepository(session)
+        documents = [repository.get(document_id)] if document_id else list(repository.list())
+        results: list[dict[str, object]] = []
+        for document in documents:
+            if document is None:
+                continue
+            result = DocumentGraphProjectionService(session, settings).rebuild_document_graph(
+                document
+            )
+            results.append(
+                {
+                    "document_id": str(document.id),
+                    "status": result.status,
+                    "message": result.message,
+                    "projection_run_id": result.projection_run_id,
+                    "node_count": len(result.nodes),
+                    "edge_count": len(result.edges),
+                }
+            )
+        typer.echo(json.dumps(results, indent=2))
+
+
+@app.command("graph-search")
+def graph_search(query: str, limit: int = 8) -> None:
+    """Search resolved graph nodes locally."""
+
+    from docintel.services.graph.projection import DocumentGraphProjectionService
+
+    settings = Settings()
+    with session_scope(settings) as session:
+        result = DocumentGraphProjectionService(session, settings).search(query, limit)
+        typer.echo(
+            json.dumps(
+                {"status": result.status, "message": result.message, "results": result.nodes},
                 indent=2,
             )
         )

@@ -3,6 +3,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy.exc import OperationalError
 
 from docintel import __version__
 from docintel.api.routes import api_router
@@ -42,5 +44,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    @app.exception_handler(OperationalError)
+    async def database_operational_error_handler(
+        _request: object, exc: OperationalError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "detail": "Database is unavailable. Start PostgreSQL and run migrations.",
+                "error": str(exc),
+            },
+        )
+
     app.include_router(api_router)
     return app

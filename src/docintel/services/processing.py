@@ -12,9 +12,17 @@ from docintel.db.models import Document, ProcessingRun
 from docintel.db.repositories.documents import DocumentRepository
 from docintel.domain.canonical_ir import CanonicalDocument
 from docintel.logging import get_logger
+from docintel.services.extraction.generic import (
+    GenericExtractionService,
+    GenericExtractionServiceResult,
+)
+from docintel.services.graph.projection import (
+    DocumentGraphProjectionService,
+    GraphProjectionResult,
+)
 from docintel.services.ingestion.files import storage_path_for_document
 from docintel.services.parsing.docling_parser import DoclingParser
-from docintel.services.parsing.olmocr_parser import OlmocrParser
+from docintel.services.parsing.ocr_fallback import OcrFallbackService
 from docintel.services.parsing.router import CompositeParserRouter
 from docintel.services.vector_projection import (
     DocumentVectorProjectionService,
@@ -66,12 +74,30 @@ class DocumentProcessingService:
             vector_result = await DocumentVectorProjectionService(
                 self.session, self.settings
             ).project_from_canonical(document, run, canonical)
+            extraction_result = await GenericExtractionService(self.session, self.settings).run(
+                document, run
+            )
+            graph_result = DocumentGraphProjectionService(
+                self.session, self.settings
+            ).rebuild_document_graph(document, run)
             final_status = (
                 "PARTIAL"
-                if canonical.warnings or vector_result.status != "available"
+                if (
+                    canonical.warnings
+                    or vector_result.status != "available"
+                    or extraction_result.status == "failed"
+                    or graph_result.status not in {"available", "partial"}
+                )
                 else "SUCCEEDED"
             )
-            message = self._success_message(final_status, canonical, len(artifacts), vector_result)
+            message = self._success_message(
+                final_status,
+                canonical,
+                len(artifacts),
+                vector_result,
+                extraction_result,
+                graph_result,
+            )
             self.repository.add_event(
                 document.id,
                 run.id,
@@ -83,6 +109,11 @@ class DocumentProcessingService:
                     "artifact_count": len(artifacts),
                     "chunk_count": vector_result.chunk_count,
                     "indexed_count": vector_result.indexed_count,
+                    "field_count": extraction_result.field_count,
+                    "entity_count": extraction_result.entity_count,
+                    "relationship_count": extraction_result.relationship_count,
+                    "graph_node_count": len(graph_result.nodes),
+                    "graph_edge_count": len(graph_result.edges),
                 },
             )
             run = self.repository.finish_processing_run(document, run, final_status)
@@ -111,7 +142,7 @@ class DocumentProcessingService:
             file_type=document.file_type,
             checksum_sha256=document.checksum_sha256,
         )
-        router = CompositeParserRouter([parser, OlmocrParser()])
+        router = CompositeParserRouter([parser])
         selected = router.select(str(file_path))
         canonical = await selected.parse(str(file_path), str(document.id))
         self.repository.add_event(
@@ -125,7 +156,22 @@ class DocumentProcessingService:
                 "element_count": sum(len(page.elements) for page in canonical.pages),
             },
         )
-        return canonical
+        ocr_result = await OcrFallbackService(self.settings).apply(canonical, file_path)
+        if ocr_result.status != "not_required":
+            self.repository.add_event(
+                document.id,
+                run.id,
+                "ocr_fallback",
+                "SUCCEEDED" if ocr_result.status == "applied" else "RETRYABLE",
+                ocr_result.message,
+                {
+                    "ocr_status": ocr_result.status,
+                    "ocr_provider": self.settings.ocr_provider,
+                    "ocr_required_pages": ocr_result.required_pages,
+                    "olmocr_enabled": self.settings.olmocr_enabled,
+                },
+            )
+        return ocr_result.canonical
 
     def _persist_artifacts(self, canonical: CanonicalDocument, run: ProcessingRun) -> list[Path]:
         artifact_dir = self.settings.artifacts_dir / str(canonical.document_id) / str(run.id)
@@ -236,6 +282,8 @@ class DocumentProcessingService:
         canonical: CanonicalDocument,
         artifact_count: int,
         vector_result: VectorProjectionResult,
+        extraction_result: GenericExtractionServiceResult,
+        graph_result: GraphProjectionResult,
     ) -> str:
         element_count = sum(len(page.elements) for page in canonical.pages)
         warning_suffix = " with warnings" if canonical.warnings else ""
@@ -243,5 +291,8 @@ class DocumentProcessingService:
             f"Processing {status.lower()}{warning_suffix}: parsed {len(canonical.pages)} pages, "
             f"{element_count} elements, wrote {artifact_count} artifacts, built "
             f"{vector_result.chunk_count} chunks, and indexed "
-            f"{vector_result.indexed_count} vectors."
+            f"{vector_result.indexed_count} vectors. Extracted "
+            f"{extraction_result.field_count} fields, {extraction_result.entity_count} entities, "
+            f"and {extraction_result.relationship_count} relationships. Built "
+            f"{len(graph_result.nodes)} graph nodes and {len(graph_result.edges)} graph edges."
         )

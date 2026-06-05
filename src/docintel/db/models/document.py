@@ -254,3 +254,292 @@ class VectorIndexRecord(Base):
         onupdate=lambda: datetime.now(UTC),
         nullable=False,
     )
+
+
+class ExtractionRun(Base):
+    """One generic extraction attempt for a document."""
+
+    __tablename__ = "extraction_runs"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    document_id: Mapped[UUID] = mapped_column(
+        ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    processing_run_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("processing_runs.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="PENDING")
+    extractor_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    model_id: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    prompt_version: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    error_details: Mapped[str | None] = mapped_column(Text, nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+
+class ExtractedFieldRecord(Base):
+    """Persisted generic extracted field."""
+
+    __tablename__ = "extracted_fields"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    document_id: Mapped[UUID] = mapped_column(
+        ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    extraction_run_id: Mapped[UUID] = mapped_column(
+        ForeignKey("extraction_runs.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    field_name: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    field_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    value: Mapped[str] = mapped_column(Text, nullable=False)
+    normalized_value: Mapped[str | None] = mapped_column(Text, nullable=True)
+    confidence: Mapped[float] = mapped_column(nullable=False)
+    review_status: Mapped[str] = mapped_column(String(32), nullable=False, default="PROPOSED")
+    source_evidence_json: Mapped[list[dict[str, object]]] = mapped_column(
+        JSON, nullable=False, default=list
+    )
+    extractor_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    model_id: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    prompt_version: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+
+class EntityRecord(Base):
+    """Persisted generic entity."""
+
+    __tablename__ = "entities"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    document_id: Mapped[UUID] = mapped_column(
+        ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    extraction_run_id: Mapped[UUID] = mapped_column(
+        ForeignKey("extraction_runs.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    entity_type: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    canonical_name: Mapped[str] = mapped_column(Text, nullable=False)
+    normalized_key: Mapped[str] = mapped_column(String(512), nullable=False, index=True)
+    canonical_entity_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("entities.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    resolution_status: Mapped[str] = mapped_column(String(32), nullable=False, default="UNRESOLVED")
+    resolution_method: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    attributes_json: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    confidence: Mapped[float] = mapped_column(nullable=False)
+    review_status: Mapped[str] = mapped_column(String(32), nullable=False, default="PROPOSED")
+    source_evidence_json: Mapped[list[dict[str, object]]] = mapped_column(
+        JSON, nullable=False, default=list
+    )
+    extractor_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    model_id: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    prompt_version: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+
+class EntityAliasRecord(Base):
+    """Persisted alias for a resolved entity."""
+
+    __tablename__ = "entity_aliases"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    entity_id: Mapped[UUID] = mapped_column(
+        ForeignKey("entities.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    alias: Mapped[str] = mapped_column(Text, nullable=False)
+    normalized_alias: Mapped[str] = mapped_column(String(512), nullable=False, index=True)
+    confidence: Mapped[float] = mapped_column(nullable=False, default=1.0)
+    source: Mapped[str] = mapped_column(String(80), nullable=False, default="exact_match")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class EntityMentionRecord(Base):
+    """Persisted generic entity mention evidence."""
+
+    __tablename__ = "entity_mentions"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    document_id: Mapped[UUID] = mapped_column(
+        ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    entity_id: Mapped[UUID] = mapped_column(
+        ForeignKey("entities.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    extraction_run_id: Mapped[UUID] = mapped_column(
+        ForeignKey("extraction_runs.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    raw_mention: Mapped[str] = mapped_column(Text, nullable=False)
+    source_evidence_json: Mapped[list[dict[str, object]]] = mapped_column(
+        JSON, nullable=False, default=list
+    )
+    confidence: Mapped[float] = mapped_column(nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class RelationshipRecord(Base):
+    """Persisted generic relationship."""
+
+    __tablename__ = "relationships"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    document_id: Mapped[UUID] = mapped_column(
+        ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    extraction_run_id: Mapped[UUID] = mapped_column(
+        ForeignKey("extraction_runs.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    relationship_type: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    source_entity: Mapped[str] = mapped_column(Text, nullable=False)
+    target_entity: Mapped[str] = mapped_column(Text, nullable=False)
+    attributes_json: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    confidence: Mapped[float] = mapped_column(nullable=False)
+    review_status: Mapped[str] = mapped_column(String(32), nullable=False, default="PROPOSED")
+    source_evidence_json: Mapped[list[dict[str, object]]] = mapped_column(
+        JSON, nullable=False, default=list
+    )
+    extractor_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    model_id: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    prompt_version: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+
+class EventRecord(Base):
+    """Persisted generic extracted event."""
+
+    __tablename__ = "events"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    document_id: Mapped[UUID] = mapped_column(
+        ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    extraction_run_id: Mapped[UUID] = mapped_column(
+        ForeignKey("extraction_runs.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    event_type: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    attributes_json: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    confidence: Mapped[float] = mapped_column(nullable=False)
+    review_status: Mapped[str] = mapped_column(String(32), nullable=False, default="PROPOSED")
+    source_evidence_json: Mapped[list[dict[str, object]]] = mapped_column(
+        JSON, nullable=False, default=list
+    )
+    extractor_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class ClaimRecord(Base):
+    """Persisted generic claim."""
+
+    __tablename__ = "claims"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    document_id: Mapped[UUID] = mapped_column(
+        ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    extraction_run_id: Mapped[UUID] = mapped_column(
+        ForeignKey("extraction_runs.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    claim_text: Mapped[str] = mapped_column(Text, nullable=False)
+    attributes_json: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    confidence: Mapped[float] = mapped_column(nullable=False)
+    review_status: Mapped[str] = mapped_column(String(32), nullable=False, default="PROPOSED")
+    source_evidence_json: Mapped[list[dict[str, object]]] = mapped_column(
+        JSON, nullable=False, default=list
+    )
+    extractor_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class ObligationRecord(Base):
+    """Persisted generic obligation."""
+
+    __tablename__ = "obligations"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    document_id: Mapped[UUID] = mapped_column(
+        ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    extraction_run_id: Mapped[UUID] = mapped_column(
+        ForeignKey("extraction_runs.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    obligation_text: Mapped[str] = mapped_column(Text, nullable=False)
+    obligated_party: Mapped[str | None] = mapped_column(Text, nullable=True)
+    attributes_json: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    confidence: Mapped[float] = mapped_column(nullable=False)
+    review_status: Mapped[str] = mapped_column(String(32), nullable=False, default="PROPOSED")
+    source_evidence_json: Mapped[list[dict[str, object]]] = mapped_column(
+        JSON, nullable=False, default=list
+    )
+    extractor_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class GraphProjectionRun(Base):
+    """One attempt to project resolved records into Neo4j."""
+
+    __tablename__ = "graph_projection_runs"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    document_id: Mapped[UUID] = mapped_column(
+        ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    processing_run_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("processing_runs.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="PENDING")
+    node_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    edge_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    error_details: Mapped[str | None] = mapped_column(Text, nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )

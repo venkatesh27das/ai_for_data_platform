@@ -68,6 +68,20 @@ def test_process_builds_canonical_artifacts(client: TestClient, monkeypatch) -> 
                         ),
                         DocumentElement(
                             element_id="e000002",
+                            element_type="paragraph",
+                            text=(
+                                "Contact support@example.com by March 12, 2026. "
+                                "The team must pay $1,200.00 for SLA-2026-A."
+                            ),
+                            markdown=(
+                                "Contact support@example.com by March 12, 2026. "
+                                "The team must pay $1,200.00 for SLA-2026-A."
+                            ),
+                            page_number=1,
+                            parser_name="docling",
+                        ),
+                        DocumentElement(
+                            element_id="e000003",
                             element_type="table",
                             markdown="| A | B |\n|---|---|\n| 1 | 2 |",
                             table_data={"rows": [["A", "B"], ["1", "2"]]},
@@ -137,7 +151,23 @@ def test_process_builds_canonical_artifacts(client: TestClient, monkeypatch) -> 
 
     extractions = client.get(f"/api/v1/documents/{document_id}/extractions")
     assert extractions.status_code == 200
-    assert extractions.json()["required_phase"] == "Phase 4"
+    extraction_payload = extractions.json()
+    assert extraction_payload["status"] == "available"
+    assert len(extraction_payload["fields"]) >= 4
+    assert len(extraction_payload["entities"]) >= 4
+    assert len(extraction_payload["relationships"]) >= 4
+    assert extraction_payload["obligations"]
+
+    status_after_extraction = client.get(f"/api/v1/documents/{document_id}/status")
+    assert "structured_extraction" in status_after_extraction.json()["available_projections"]
+    assert "graph" in status_after_extraction.json()["available_projections"]
+
+    graph = client.get(f"/api/v1/documents/{document_id}/graph")
+    assert graph.status_code == 200
+    graph_payload = graph.json()
+    assert graph_payload["status"] in {"available", "partial"}
+    assert len(graph_payload["nodes"]) >= 2
+    assert len(graph_payload["edges"]) >= 1
 
 
 def test_rejects_invalid_file_type(client: TestClient) -> None:

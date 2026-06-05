@@ -10,16 +10,27 @@ from sqlalchemy.orm import Session
 from docintel.db.models import (
     Chunk,
     ChunkProjectionRun,
+    ClaimRecord,
     Document,
     DocumentArtifact,
     DocumentElementRecord,
     DocumentPage,
     DocumentVersion,
+    EntityAliasRecord,
+    EntityMentionRecord,
+    EntityRecord,
+    EventRecord,
+    ExtractedFieldRecord,
+    ExtractionRun,
+    GraphProjectionRun,
+    ObligationRecord,
     ProcessingEvent,
     ProcessingRun,
+    RelationshipRecord,
     VectorIndexRecord,
 )
 from docintel.domain.canonical_ir import CanonicalDocument
+from docintel.domain.extraction import GenericExtractionResult
 from docintel.services.chunking.layout import LayoutAwareChunk
 from docintel.services.ingestion.files import StoredUpload
 
@@ -185,6 +196,55 @@ class DocumentRepository:
             .order_by(ChunkProjectionRun.created_at.desc())
         )
 
+    def create_extraction_run(
+        self,
+        document_id: UUID,
+        processing_run_id: UUID | None,
+        extractor_name: str,
+        model_id: str | None = None,
+        prompt_version: str | None = None,
+    ) -> ExtractionRun:
+        """Create a generic extraction run."""
+
+        run = ExtractionRun(
+            document_id=document_id,
+            processing_run_id=processing_run_id,
+            status="RUNNING",
+            extractor_name=extractor_name,
+            model_id=model_id,
+            prompt_version=prompt_version,
+            started_at=datetime.now(UTC),
+        )
+        self.session.add(run)
+        self.session.commit()
+        self.session.refresh(run)
+        return run
+
+    def finish_extraction_run(
+        self,
+        run: ExtractionRun,
+        status: str,
+        error_details: str | None = None,
+    ) -> ExtractionRun:
+        """Finalize a generic extraction run."""
+
+        run.status = status
+        run.error_details = error_details
+        run.ended_at = datetime.now(UTC)
+        self.session.add(run)
+        self.session.commit()
+        self.session.refresh(run)
+        return run
+
+    def latest_extraction_run(self, document_id: UUID) -> ExtractionRun | None:
+        """Return the newest extraction run for a document."""
+
+        return self.session.scalar(
+            select(ExtractionRun)
+            .where(ExtractionRun.document_id == document_id)
+            .order_by(ExtractionRun.created_at.desc())
+        )
+
     def persist_vector_records(
         self,
         document_id: UUID,
@@ -219,6 +279,306 @@ class DocumentRepository:
         for record in persisted:
             self.session.refresh(record)
         return persisted
+
+    def persist_extraction_result(
+        self, result: GenericExtractionResult, extraction_run: ExtractionRun
+    ) -> None:
+        """Persist a generic extraction result for one run."""
+
+        existing_models = (
+            ExtractedFieldRecord,
+            EntityMentionRecord,
+            EntityRecord,
+            RelationshipRecord,
+            EventRecord,
+            ClaimRecord,
+            ObligationRecord,
+        )
+        for model in existing_models:
+            existing = self.session.scalars(
+                select(model).where(model.extraction_run_id == extraction_run.id)
+            ).all()
+            for record in existing:
+                self.session.delete(record)
+        self.session.flush()
+
+        for field in result.fields:
+            self.session.add(
+                ExtractedFieldRecord(
+                    document_id=result.document_id,
+                    extraction_run_id=extraction_run.id,
+                    field_name=field.field_name,
+                    field_type=field.field_type,
+                    value=field.value,
+                    normalized_value=field.normalized_value,
+                    confidence=field.confidence,
+                    source_evidence_json=[
+                        evidence.model_dump(mode="json") for evidence in field.evidence
+                    ],
+                    extractor_name=field.extractor_name,
+                    model_id=extraction_run.model_id,
+                    prompt_version=extraction_run.prompt_version,
+                )
+            )
+
+        for entity in result.entities:
+            entity_record = EntityRecord(
+                document_id=result.document_id,
+                extraction_run_id=extraction_run.id,
+                entity_type=entity.entity_type,
+                canonical_name=entity.canonical_name,
+                normalized_key=_normalized_key(entity.canonical_name),
+                attributes_json=entity.attributes,
+                confidence=entity.confidence,
+                source_evidence_json=[
+                    evidence.model_dump(mode="json") for evidence in entity.evidence
+                ],
+                extractor_name=entity.extractor_name,
+                model_id=extraction_run.model_id,
+                prompt_version=extraction_run.prompt_version,
+            )
+            self.session.add(entity_record)
+            self.session.flush()
+            self.session.add(
+                EntityMentionRecord(
+                    document_id=result.document_id,
+                    entity_id=entity_record.id,
+                    extraction_run_id=extraction_run.id,
+                    raw_mention=entity.raw_mention,
+                    source_evidence_json=[
+                        evidence.model_dump(mode="json") for evidence in entity.evidence
+                    ],
+                    confidence=entity.confidence,
+                )
+            )
+
+        for relationship in result.relationships:
+            self.session.add(
+                RelationshipRecord(
+                    document_id=result.document_id,
+                    extraction_run_id=extraction_run.id,
+                    relationship_type=relationship.relationship_type,
+                    source_entity=relationship.source_entity,
+                    target_entity=relationship.target_entity,
+                    attributes_json=relationship.attributes,
+                    confidence=relationship.confidence,
+                    source_evidence_json=[
+                        evidence.model_dump(mode="json") for evidence in relationship.evidence
+                    ],
+                    extractor_name=relationship.extractor_name,
+                    model_id=extraction_run.model_id,
+                    prompt_version=extraction_run.prompt_version,
+                )
+            )
+
+        for event in result.events:
+            self.session.add(
+                EventRecord(
+                    document_id=result.document_id,
+                    extraction_run_id=extraction_run.id,
+                    event_type=event.event_type,
+                    name=event.name,
+                    attributes_json=event.attributes,
+                    confidence=event.confidence,
+                    source_evidence_json=[
+                        evidence.model_dump(mode="json") for evidence in event.evidence
+                    ],
+                    extractor_name=event.extractor_name,
+                )
+            )
+
+        for claim in result.claims:
+            self.session.add(
+                ClaimRecord(
+                    document_id=result.document_id,
+                    extraction_run_id=extraction_run.id,
+                    claim_text=claim.claim_text,
+                    attributes_json=claim.attributes,
+                    confidence=claim.confidence,
+                    source_evidence_json=[
+                        evidence.model_dump(mode="json") for evidence in claim.evidence
+                    ],
+                    extractor_name=claim.extractor_name,
+                )
+            )
+
+        for obligation in result.obligations:
+            self.session.add(
+                ObligationRecord(
+                    document_id=result.document_id,
+                    extraction_run_id=extraction_run.id,
+                    obligation_text=obligation.obligation_text,
+                    obligated_party=obligation.obligated_party,
+                    attributes_json=obligation.attributes,
+                    confidence=obligation.confidence,
+                    source_evidence_json=[
+                        evidence.model_dump(mode="json") for evidence in obligation.evidence
+                    ],
+                    extractor_name=obligation.extractor_name,
+                )
+            )
+
+        self.session.commit()
+
+    def list_extracted_fields(self, document_id: UUID) -> Sequence[ExtractedFieldRecord]:
+        """Return extracted fields ordered by newest first."""
+
+        return self.session.scalars(
+            select(ExtractedFieldRecord)
+            .where(ExtractedFieldRecord.document_id == document_id)
+            .order_by(ExtractedFieldRecord.created_at.desc())
+        ).all()
+
+    def list_entities(self, document_id: UUID) -> Sequence[EntityRecord]:
+        """Return extracted entities ordered by newest first."""
+
+        return self.session.scalars(
+            select(EntityRecord)
+            .where(EntityRecord.document_id == document_id)
+            .order_by(EntityRecord.created_at.desc())
+        ).all()
+
+    def replace_entity_aliases(
+        self, aliases: Sequence[tuple[UUID, str, str, float, str]]
+    ) -> Sequence[EntityAliasRecord]:
+        """Replace aliases for resolved entities and persist the supplied set."""
+
+        entity_ids = {entity_id for entity_id, *_ in aliases}
+        if entity_ids:
+            existing = self.session.scalars(
+                select(EntityAliasRecord).where(EntityAliasRecord.entity_id.in_(entity_ids))
+            ).all()
+            for record in existing:
+                self.session.delete(record)
+            self.session.flush()
+        records: list[EntityAliasRecord] = []
+        for entity_id, alias, normalized_alias, confidence, source in aliases:
+            record = EntityAliasRecord(
+                entity_id=entity_id,
+                alias=alias,
+                normalized_alias=normalized_alias,
+                confidence=confidence,
+                source=source,
+            )
+            self.session.add(record)
+            records.append(record)
+        self.session.commit()
+        for record in records:
+            self.session.refresh(record)
+        return records
+
+    def update_entity_resolution(
+        self,
+        entity: EntityRecord,
+        canonical_entity_id: UUID,
+        resolution_status: str,
+        resolution_method: str,
+    ) -> EntityRecord:
+        """Persist resolution state for one entity."""
+
+        entity.canonical_entity_id = canonical_entity_id
+        entity.resolution_status = resolution_status
+        entity.resolution_method = resolution_method
+        self.session.add(entity)
+        return entity
+
+    def commit_entity_resolution(self) -> None:
+        """Commit batched entity resolution updates."""
+
+        self.session.commit()
+
+    def list_resolved_entities(self, document_id: UUID) -> Sequence[EntityRecord]:
+        """Return entities that have been resolved or marked canonical."""
+
+        return self.session.scalars(
+            select(EntityRecord)
+            .where(
+                EntityRecord.document_id == document_id,
+                EntityRecord.resolution_status.in_(["CANONICAL", "RESOLVED"]),
+            )
+            .order_by(EntityRecord.created_at.asc())
+        ).all()
+
+    def list_relationships(self, document_id: UUID) -> Sequence[RelationshipRecord]:
+        """Return extracted relationships ordered by newest first."""
+
+        return self.session.scalars(
+            select(RelationshipRecord)
+            .where(RelationshipRecord.document_id == document_id)
+            .order_by(RelationshipRecord.created_at.desc())
+        ).all()
+
+    def create_graph_projection_run(
+        self, document_id: UUID, processing_run_id: UUID | None = None
+    ) -> GraphProjectionRun:
+        """Create a graph projection run."""
+
+        run = GraphProjectionRun(
+            document_id=document_id,
+            processing_run_id=processing_run_id,
+            status="RUNNING",
+            started_at=datetime.now(UTC),
+        )
+        self.session.add(run)
+        self.session.commit()
+        self.session.refresh(run)
+        return run
+
+    def finish_graph_projection_run(
+        self,
+        run: GraphProjectionRun,
+        status: str,
+        node_count: int = 0,
+        edge_count: int = 0,
+        error_details: str | None = None,
+    ) -> GraphProjectionRun:
+        """Finalize a graph projection run."""
+
+        run.status = status
+        run.node_count = node_count
+        run.edge_count = edge_count
+        run.error_details = error_details
+        run.ended_at = datetime.now(UTC)
+        self.session.add(run)
+        self.session.commit()
+        self.session.refresh(run)
+        return run
+
+    def latest_graph_projection_run(self, document_id: UUID) -> GraphProjectionRun | None:
+        """Return the newest graph projection run for a document."""
+
+        return self.session.scalar(
+            select(GraphProjectionRun)
+            .where(GraphProjectionRun.document_id == document_id)
+            .order_by(GraphProjectionRun.created_at.desc())
+        )
+
+    def list_extracted_events(self, document_id: UUID) -> Sequence[EventRecord]:
+        """Return extracted events ordered by newest first."""
+
+        return self.session.scalars(
+            select(EventRecord)
+            .where(EventRecord.document_id == document_id)
+            .order_by(EventRecord.created_at.desc())
+        ).all()
+
+    def list_claims(self, document_id: UUID) -> Sequence[ClaimRecord]:
+        """Return extracted claims ordered by newest first."""
+
+        return self.session.scalars(
+            select(ClaimRecord)
+            .where(ClaimRecord.document_id == document_id)
+            .order_by(ClaimRecord.created_at.desc())
+        ).all()
+
+    def list_obligations(self, document_id: UUID) -> Sequence[ObligationRecord]:
+        """Return extracted obligations ordered by newest first."""
+
+        return self.session.scalars(
+            select(ObligationRecord)
+            .where(ObligationRecord.document_id == document_id)
+            .order_by(ObligationRecord.created_at.desc())
+        ).all()
 
     def finish_processing_run(
         self,
@@ -346,3 +706,9 @@ class DocumentRepository:
                     )
                 )
         self.session.commit()
+
+
+def _normalized_key(value: str) -> str:
+    """Normalize entity names for early exact-match style lookups."""
+
+    return " ".join(value.casefold().strip().split())[:512]

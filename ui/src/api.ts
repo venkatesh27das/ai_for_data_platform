@@ -50,6 +50,103 @@ export type ProjectionResponse = {
   data: Record<string, unknown>;
 };
 
+export type GraphResponse = {
+  document_id: string;
+  status: "available" | "partial" | "unavailable";
+  message: string;
+  projection_run_id: string | null;
+  nodes: Record<string, unknown>[];
+  edges: Record<string, unknown>[];
+};
+
+export type Evidence = {
+  document_id: string;
+  page_number: number | null;
+  element_id: string | null;
+  source_text: string | null;
+};
+
+export type ExtractedField = {
+  id: string;
+  field_name: string;
+  field_type: string;
+  value: string;
+  normalized_value: string | null;
+  confidence: number;
+  review_status: string;
+  source_evidence_json: Evidence[];
+  extractor_name: string;
+};
+
+export type ExtractedEntity = {
+  id: string;
+  entity_type: string;
+  canonical_name: string;
+  normalized_key: string;
+  attributes_json: Record<string, unknown>;
+  confidence: number;
+  review_status: string;
+  source_evidence_json: Evidence[];
+  extractor_name: string;
+};
+
+export type ExtractedRelationship = {
+  id: string;
+  relationship_type: string;
+  source_entity: string;
+  target_entity: string;
+  attributes_json: Record<string, unknown>;
+  confidence: number;
+  review_status: string;
+  source_evidence_json: Evidence[];
+  extractor_name: string;
+};
+
+export type ExtractedEvent = {
+  id: string;
+  event_type: string;
+  name: string;
+  attributes_json: Record<string, unknown>;
+  confidence: number;
+  review_status: string;
+  source_evidence_json: Evidence[];
+  extractor_name: string;
+};
+
+export type ExtractedClaim = {
+  id: string;
+  claim_text: string;
+  attributes_json: Record<string, unknown>;
+  confidence: number;
+  review_status: string;
+  source_evidence_json: Evidence[];
+  extractor_name: string;
+};
+
+export type ExtractedObligation = {
+  id: string;
+  obligation_text: string;
+  obligated_party: string | null;
+  attributes_json: Record<string, unknown>;
+  confidence: number;
+  review_status: string;
+  source_evidence_json: Evidence[];
+  extractor_name: string;
+};
+
+export type ExtractionsResponse = {
+  document_id: string;
+  status: "available" | "unavailable";
+  message: string;
+  latest_run_id: string | null;
+  fields: ExtractedField[];
+  entities: ExtractedEntity[];
+  relationships: ExtractedRelationship[];
+  events: ExtractedEvent[];
+  claims: ExtractedClaim[];
+  obligations: ExtractedObligation[];
+};
+
 export type ArtifactRecord = {
   id: string;
   processing_run_id: string | null;
@@ -97,9 +194,20 @@ async function request<T>(apiBase: string, path: string, init?: RequestInit): Pr
   const response = await fetch(`${apiBase}${path}`, init);
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(text || `${response.status} ${response.statusText}`);
+    throw new Error(errorMessageFromResponse(text, response.status, response.statusText));
   }
   return (await response.json()) as T;
+}
+
+function errorMessageFromResponse(text: string, status: number, statusText: string) {
+  if (!text) return `${status} ${statusText}`;
+  try {
+    const payload = JSON.parse(text) as { detail?: unknown; error?: unknown };
+    if (typeof payload.detail === "string") return payload.detail;
+  } catch {
+    return text;
+  }
+  return text;
 }
 
 export const api = {
@@ -135,13 +243,20 @@ export const api = {
     return request<ChunksResponse>(apiBase, `/api/v1/documents/${documentId}/chunks`);
   },
   extractions(apiBase: string, documentId: string) {
-    return request<ProjectionResponse>(apiBase, `/api/v1/documents/${documentId}/extractions`);
+    return request<ExtractionsResponse>(apiBase, `/api/v1/documents/${documentId}/extractions`);
   },
   graph(apiBase: string, documentId: string) {
-    return request<ProjectionResponse>(apiBase, `/api/v1/documents/${documentId}/graph`);
+    return request<GraphResponse>(apiBase, `/api/v1/documents/${documentId}/graph`);
   },
   vectorSearch(apiBase: string, query: string) {
     return request<SearchResponse>(apiBase, "/api/v1/search/vector", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query, limit: 8 }),
+    });
+  },
+  graphSearch(apiBase: string, query: string) {
+    return request<SearchResponse>(apiBase, "/api/v1/search/graph", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query, limit: 8 }),

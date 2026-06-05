@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from docintel.api.dependencies import get_db_session, get_settings
 from docintel.config import Settings
+from docintel.services.graph.projection import DocumentGraphProjectionService
 from docintel.services.vector_projection import DocumentVectorProjectionService
 
 router = APIRouter(prefix="/api/v1/search", tags=["search"])
@@ -47,15 +48,17 @@ async def vector_search(
 
 
 @router.post("/graph", response_model=SearchUnavailableResponse)
-def graph_search(_: VectorSearchRequest) -> SearchUnavailableResponse:
-    """Return a clear placeholder until Neo4j projection exists."""
+def graph_search(
+    request: VectorSearchRequest,
+    settings: Annotated[Settings, Depends(get_settings)],
+    session: Annotated[Session, Depends(get_db_session)],
+) -> SearchUnavailableResponse:
+    """Search local resolved graph nodes."""
 
+    result = DocumentGraphProjectionService(session, settings).search(request.query, request.limit)
     return SearchUnavailableResponse(
-        status="unavailable",
-        required_phase="Phase 5",
-        message=(
-            "Graph search is not available until entity resolution and Neo4j projection are "
-            "implemented."
-        ),
-        results=[],
+        status=result.status,
+        required_phase=None,
+        message=result.message,
+        results=result.nodes,
     )

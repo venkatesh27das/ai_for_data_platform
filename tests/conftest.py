@@ -30,3 +30,21 @@ def client(test_settings: Settings) -> Iterator[TestClient]:
         yield test_client
     Base.metadata.drop_all(engine)
     engine.dispose()
+
+
+@pytest.fixture()
+def test_session(test_settings: Settings):
+    import docintel.db.models  # noqa: F401
+
+    engine = create_db_engine(test_settings)
+    Base.metadata.create_all(engine)
+    from sqlalchemy.orm import sessionmaker
+
+    session_factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    session = session_factory()
+    try:
+        yield session
+    finally:
+        session.close()
+        Base.metadata.drop_all(engine)
+        engine.dispose()
