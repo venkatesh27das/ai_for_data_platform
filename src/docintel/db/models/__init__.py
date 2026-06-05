@@ -1,4 +1,6 @@
 from docintel.db.models.document import (
+    Chunk,
+    ChunkProjectionRun,
     Document,
     DocumentArtifact,
     DocumentElementRecord,
@@ -6,9 +8,12 @@ from docintel.db.models.document import (
     DocumentVersion,
     ProcessingEvent,
     ProcessingRun,
+    VectorIndexRecord,
 )
 
 __all__ = [
+    "Chunk",
+    "ChunkProjectionRun",
     "Document",
     "DocumentArtifact",
     "DocumentElementRecord",
@@ -16,4 +21,5 @@ __all__ = [
     "DocumentVersion",
     "ProcessingEvent",
     "ProcessingRun",
+    "VectorIndexRecord",
 ]

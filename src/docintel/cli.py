@@ -134,3 +134,57 @@ def artifacts(document_id: UUID) -> None:
                 indent=2,
             )
         )
+
+
+@app.command("rebuild-vectors")
+def rebuild_vectors(document_id: UUID | None = None) -> None:
+    """Build chunks and rebuild Qdrant vectors for one or all processed documents."""
+
+    import asyncio
+
+    from docintel.services.vector_projection import DocumentVectorProjectionService
+
+    settings = Settings()
+    with session_scope(settings) as session:
+        repository = DocumentRepository(session)
+        documents = [repository.get(document_id)] if document_id else list(repository.list())
+        results: list[dict[str, object]] = []
+        for document in documents:
+            if document is None:
+                continue
+            result = asyncio.run(
+                DocumentVectorProjectionService(session, settings).rebuild_document_vectors(
+                    document
+                )
+            )
+            results.append(
+                {
+                    "document_id": str(document.id),
+                    "status": result.status,
+                    "chunk_count": result.chunk_count,
+                    "indexed_count": result.indexed_count,
+                    "message": result.message,
+                }
+            )
+        typer.echo(json.dumps(results, indent=2))
+
+
+@app.command("vector-search")
+def vector_search(query: str, limit: int = 8) -> None:
+    """Search chunk vectors in Qdrant."""
+
+    import asyncio
+
+    from docintel.services.vector_projection import DocumentVectorProjectionService
+
+    settings = Settings()
+    with session_scope(settings) as session:
+        result = asyncio.run(
+            DocumentVectorProjectionService(session, settings).search(query, limit)
+        )
+        typer.echo(
+            json.dumps(
+                {"status": result.status, "message": result.message, "results": result.results},
+                indent=2,
+            )
+        )

@@ -15,18 +15,31 @@ export type UploadResponse = {
   duplicate: boolean;
 };
 
+export type ProcessingEvent = {
+  id: string;
+  processing_run_id: string;
+  stage: string;
+  status: string;
+  message: string | null;
+  metadata_json: Record<string, unknown>;
+  created_at: string;
+};
+
 export type StatusResponse = {
   document_id: string;
   status: string;
   message: string;
   available_projections: string[];
   unavailable_projections: string[];
+  latest_run_id: string | null;
+  events: ProcessingEvent[];
 };
 
 export type ProcessResponse = {
   document: DocumentRecord;
   status: string;
   message: string;
+  processing_run_id: string | null;
 };
 
 export type ProjectionResponse = {
@@ -54,9 +67,28 @@ export type ArtifactsResponse = {
   artifacts: ArtifactRecord[];
 };
 
+export type ChunkRecord = {
+  chunk_id: string;
+  chunk_type: string;
+  text: string;
+  markdown: string | null;
+  section_path_json: string[];
+  page_numbers_json: number[];
+  source_element_ids_json: string[];
+  quality_score: number | null;
+  metadata_json: Record<string, unknown>;
+};
+
+export type ChunksResponse = {
+  document_id: string;
+  status: "available" | "unavailable";
+  message: string;
+  chunks: ChunkRecord[];
+};
+
 export type SearchResponse = {
   status: string;
-  required_phase: string;
+  required_phase: string | null;
   message: string;
   results: Record<string, unknown>[];
 };
@@ -98,6 +130,9 @@ export const api = {
   },
   artifacts(apiBase: string, documentId: string) {
     return request<ArtifactsResponse>(apiBase, `/api/v1/documents/${documentId}/artifacts`);
+  },
+  chunks(apiBase: string, documentId: string) {
+    return request<ChunksResponse>(apiBase, `/api/v1/documents/${documentId}/chunks`);
   },
   extractions(apiBase: string, documentId: string) {
     return request<ProjectionResponse>(apiBase, `/api/v1/documents/${documentId}/extractions`);

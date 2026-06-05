@@ -16,6 +16,10 @@ from docintel.services.ingestion.files import storage_path_for_document
 from docintel.services.parsing.docling_parser import DoclingParser
 from docintel.services.parsing.olmocr_parser import OlmocrParser
 from docintel.services.parsing.router import CompositeParserRouter
+from docintel.services.vector_projection import (
+    DocumentVectorProjectionService,
+    VectorProjectionResult,
+)
 
 logger = get_logger(__name__)
 
@@ -59,15 +63,27 @@ class DocumentProcessingService:
             )
             artifacts = self._persist_artifacts(canonical, run)
             self.repository.persist_canonical_document(canonical, run.id)
-            final_status = "PARTIAL" if canonical.warnings else "SUCCEEDED"
-            message = self._success_message(final_status, canonical, len(artifacts))
+            vector_result = await DocumentVectorProjectionService(
+                self.session, self.settings
+            ).project_from_canonical(document, run, canonical)
+            final_status = (
+                "PARTIAL"
+                if canonical.warnings or vector_result.status != "available"
+                else "SUCCEEDED"
+            )
+            message = self._success_message(final_status, canonical, len(artifacts), vector_result)
             self.repository.add_event(
                 document.id,
                 run.id,
                 "finalize_quality_report",
                 final_status,
                 message,
-                {"warnings": canonical.warnings, "artifact_count": len(artifacts)},
+                {
+                    "warnings": canonical.warnings,
+                    "artifact_count": len(artifacts),
+                    "chunk_count": vector_result.chunk_count,
+                    "indexed_count": vector_result.indexed_count,
+                },
             )
             run = self.repository.finish_processing_run(document, run, final_status)
             logger.info(
@@ -215,11 +231,17 @@ class DocumentProcessingService:
         return path
 
     def _success_message(
-        self, status: str, canonical: CanonicalDocument, artifact_count: int
+        self,
+        status: str,
+        canonical: CanonicalDocument,
+        artifact_count: int,
+        vector_result: VectorProjectionResult,
     ) -> str:
         element_count = sum(len(page.elements) for page in canonical.pages)
         warning_suffix = " with warnings" if canonical.warnings else ""
         return (
             f"Processing {status.lower()}{warning_suffix}: parsed {len(canonical.pages)} pages, "
-            f"{element_count} elements, and wrote {artifact_count} artifacts."
+            f"{element_count} elements, wrote {artifact_count} artifacts, built "
+            f"{vector_result.chunk_count} chunks, and indexed "
+            f"{vector_result.indexed_count} vectors."
         )

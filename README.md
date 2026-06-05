@@ -2,7 +2,10 @@
 
 Local Document Intelligence is a Mac-first application for processing PDF and DOCX files into reusable document intelligence assets. The full roadmap includes vector search assets, structured extraction records, and knowledge graph projections generated from one canonical document representation.
 
-The current implementation covers Phase 0 through Phase 2: repository scaffold, document upload and registry, processing trace records, and Docling parsing into canonical JSON, Markdown, parser-native, and table artifacts.
+The current implementation covers Phase 0 through Phase 3: repository scaffold,
+document upload and registry, processing trace records, Docling parsing into
+canonical artifacts, layout-aware chunks, LM Studio embeddings, Qdrant vector
+upsert, and vector search.
 
 ## Architecture
 
@@ -37,7 +40,9 @@ brew install uv
 
 ## LM Studio
 
-LM Studio runs on the host machine, outside Docker. The current phases do not call LM Studio. Before later phases, start the LM Studio OpenAI-compatible server on port `1234` and set:
+LM Studio runs on the host machine, outside Docker. Phase 3 calls the
+OpenAI-compatible embeddings endpoint. Start the LM Studio server on port `1234`
+and set:
 
 ```bash
 LM_STUDIO_LLM_MODEL=<set-your-loaded-gemma-4-model-id>
@@ -140,9 +145,9 @@ http://localhost:5173
 ```
 
 The console can upload PDF/DOCX files, list registered documents, trigger
-Docling processing, and show generated artifact records. Vector, graph, and
-structured extraction panels show explicit unavailable states until later phases
-are implemented.
+Docling processing, show generated artifact records, and run vector search when
+LM Studio embeddings and Qdrant are available. Graph and structured extraction
+panels still show explicit unavailable states until later phases are implemented.
 
 ## Worker
 
@@ -166,9 +171,11 @@ uv run docintel ingest ./samples/generated/contracts/vendor_services_agreement.p
 uv run docintel process <document-id>
 uv run docintel status <document-id>
 uv run docintel artifacts <document-id>
+uv run docintel rebuild-vectors <document-id>
+uv run docintel vector-search "payment terms"
 ```
 
-Vector search, graph search, and rebuild commands begin in later phases.
+Graph search and graph rebuild commands begin in later phases.
 
 ## Tests And Checks
 
@@ -185,18 +192,20 @@ Integration tests that require Docker services should use the `integration` mark
 
 - Docling is the default parser for PDF and DOCX. Its local layout model artifacts may download on first use, then run locally.
 - OCR fallback is not implemented yet. Low-text pages are marked with warnings.
-- No chunking, embeddings, Qdrant upsert, generic extraction, entity resolution, or Neo4j graph projection yet.
+- Vector search requires LM Studio embeddings and Qdrant to be running locally.
+  If either service is unavailable, chunk artifacts remain persisted and vector
+  projection runs are marked retryable.
+- No generic extraction, entity resolution, or Neo4j graph projection yet.
 - MinIO is available in Docker Compose, but the current phases use local filesystem directories only.
 - olmOCR is optional and independently configured. It is not installed into this Python environment.
 
 ## Roadmap
 
-1. Phase 3: layout-aware chunking and Qdrant.
-2. Phase 4: generic structured extraction.
-3. Phase 5: entity resolution and Neo4j projection.
-4. Phase 6: OCR fallback through an isolated olmOCR adapter.
-5. Phase 7: domain profiles and ontology drafts.
-6. Phase 8: lightweight review UI.
+1. Phase 4: generic structured extraction.
+2. Phase 5: entity resolution and Neo4j projection.
+3. Phase 6: OCR fallback through an isolated olmOCR adapter.
+4. Phase 7: domain profiles and ontology drafts.
+5. Phase 8: lightweight review UI.
 
 ## Troubleshooting
 

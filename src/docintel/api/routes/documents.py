@@ -90,6 +90,31 @@ class ArtifactsResponse(BaseModel):
     artifacts: list[ArtifactResponse]
 
 
+class ChunkResponse(BaseModel):
+    """Layout-aware chunk response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    chunk_id: str
+    chunk_type: str
+    text: str
+    markdown: str | None
+    section_path_json: list[str]
+    page_numbers_json: list[int]
+    source_element_ids_json: list[str]
+    quality_score: float | None
+    metadata_json: dict[str, object]
+
+
+class ChunksResponse(BaseModel):
+    """Document chunk listing response."""
+
+    document_id: UUID
+    status: Literal["available", "unavailable"]
+    message: str
+    chunks: list[ChunkResponse]
+
+
 class ProjectionUnavailableResponse(BaseModel):
     """Projection placeholder response for future phases."""
 
@@ -195,12 +220,22 @@ def get_document_status(
         for event in repository.list_events(document_id)
     ]
     has_artifacts = bool(repository.list_artifacts(document_id))
+    has_chunks = bool(repository.list_chunks(document_id))
+    vector_run = repository.latest_chunk_projection_run(document_id)
     available = ["document_registry"]
-    unavailable = ["vector_store", "structured_extraction", "graph"]
+    unavailable = ["structured_extraction", "graph"]
     if has_artifacts:
         available.extend(["canonical_ir", "markdown_artifact", "parser_native_artifact"])
     else:
         unavailable.insert(0, "canonical_ir")
+    if has_chunks:
+        available.append("chunks")
+    else:
+        unavailable.append("chunks")
+    if vector_run and vector_run.status == "SUCCEEDED":
+        available.append("vector_store")
+    else:
+        unavailable.append("vector_store")
     return StatusResponse(
         document_id=document.id,
         status=document.status,
@@ -239,6 +274,31 @@ def get_document_artifacts(
         status="available",
         message=f"{len(artifacts)} artifact(s) are available.",
         artifacts=artifacts,
+    )
+
+
+@router.get("/{document_id}/chunks", response_model=ChunksResponse)
+def get_document_chunks(
+    document_id: UUID,
+    session: Annotated[Session, Depends(get_db_session)],
+) -> ChunksResponse:
+    """Return persisted layout-aware chunks for a processed document."""
+
+    repository = DocumentRepository(session)
+    _get_document_or_404(repository, document_id)
+    chunks = [ChunkResponse.model_validate(chunk) for chunk in repository.list_chunks(document_id)]
+    if not chunks:
+        return ChunksResponse(
+            document_id=document_id,
+            status="unavailable",
+            message="No chunks are available yet. Process the document first.",
+            chunks=[],
+        )
+    return ChunksResponse(
+        document_id=document_id,
+        status="available",
+        message=f"{len(chunks)} chunk(s) are available.",
+        chunks=chunks,
     )
 
 

@@ -81,6 +81,23 @@ def test_process_builds_canonical_artifacts(client: TestClient, monkeypatch) -> 
         )
 
     monkeypatch.setattr("docintel.services.parsing.docling_parser.DoclingParser.parse", fake_parse)
+
+    async def fake_embed_documents(self, texts: list[str]) -> list[list[float]]:
+        _ = self
+        return [[0.1, 0.2, 0.3] for _text in texts]
+
+    monkeypatch.setattr(
+        "docintel.services.embeddings.lmstudio.LMStudioEmbeddingProvider.embed_documents",
+        fake_embed_documents,
+    )
+
+    async def fake_upsert_points(self, points) -> None:
+        _ = self, points
+
+    monkeypatch.setattr(
+        "docintel.services.vector_store.qdrant.QdrantVectorStore.upsert_points",
+        fake_upsert_points,
+    )
     upload = client.post(
         "/api/v1/documents/upload",
         files={"file": ("sample.pdf", _sample_pdf_bytes(), "application/pdf")},
@@ -96,7 +113,8 @@ def test_process_builds_canonical_artifacts(client: TestClient, monkeypatch) -> 
     status = client.get(f"/api/v1/documents/{document_id}/status")
     assert status.status_code == 200
     assert "canonical_ir" in status.json()["available_projections"]
-    assert "vector_store" in status.json()["unavailable_projections"]
+    assert "chunks" in status.json()["available_projections"]
+    assert "vector_store" in status.json()["available_projections"]
     assert len(status.json()["events"]) >= 3
 
     artifacts = client.get(f"/api/v1/documents/{document_id}/artifacts")
@@ -111,6 +129,11 @@ def test_process_builds_canonical_artifacts(client: TestClient, monkeypatch) -> 
         "table_markdown",
         "table_json",
     } <= artifact_types
+
+    chunks = client.get(f"/api/v1/documents/{document_id}/chunks")
+    assert chunks.status_code == 200
+    assert chunks.json()["status"] == "available"
+    assert len(chunks.json()["chunks"]) == 2
 
     extractions = client.get(f"/api/v1/documents/{document_id}/extractions")
     assert extractions.status_code == 200

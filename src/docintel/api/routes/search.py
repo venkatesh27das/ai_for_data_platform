@@ -1,5 +1,12 @@
-from fastapi import APIRouter
+from typing import Annotated
+
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from docintel.api.dependencies import get_db_session, get_settings
+from docintel.config import Settings
+from docintel.services.vector_projection import DocumentVectorProjectionService
 
 router = APIRouter(prefix="/api/v1/search", tags=["search"])
 
@@ -15,23 +22,27 @@ class SearchUnavailableResponse(BaseModel):
     """Search placeholder response for future vector/graph phases."""
 
     status: str
-    required_phase: str
+    required_phase: str | None = None
     message: str
     results: list[dict[str, object]]
 
 
 @router.post("/vector", response_model=SearchUnavailableResponse)
-def vector_search(_: VectorSearchRequest) -> SearchUnavailableResponse:
-    """Return a clear placeholder until Qdrant indexing exists."""
+async def vector_search(
+    request: VectorSearchRequest,
+    settings: Annotated[Settings, Depends(get_settings)],
+    session: Annotated[Session, Depends(get_db_session)],
+) -> SearchUnavailableResponse:
+    """Search chunk vectors in Qdrant."""
 
+    result = await DocumentVectorProjectionService(session, settings).search(
+        request.query, request.limit
+    )
     return SearchUnavailableResponse(
-        status="unavailable",
-        required_phase="Phase 3",
-        message=(
-            "Vector search is not available until chunking, embeddings, and Qdrant upsert "
-            "are implemented."
-        ),
-        results=[],
+        status=result.status,
+        required_phase=None if result.status == "available" else "Phase 3",
+        message=result.message,
+        results=result.results,
     )
 
 

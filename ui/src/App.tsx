@@ -1,9 +1,12 @@
 import {
   AlertCircle,
+  Boxes,
   CheckCircle2,
+  Clock3,
   Database,
   FileText,
   GitFork,
+  Layers3,
   Loader2,
   Play,
   RefreshCcw,
@@ -16,7 +19,9 @@ import type { ChangeEvent, ReactNode } from "react";
 
 import {
   api,
+  ArtifactRecord,
   ArtifactsResponse,
+  ChunksResponse,
   DocumentRecord,
   ProjectionResponse,
   SearchResponse,
@@ -24,6 +29,7 @@ import {
 } from "./api";
 
 type HealthState = "checking" | "ok" | "error";
+type AssetTab = "overview" | "artifacts" | "chunks" | "search" | "trace";
 
 const defaultApiBase = "http://localhost:8000";
 
@@ -33,54 +39,132 @@ function formatBytes(value: number) {
   return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
+
+function shortId(value: string) {
+  return value.slice(0, 8);
+}
+
+function humanize(value: string) {
+  return value.replace(/_/g, " ");
+}
+
+function fileNameFromUri(value: string) {
+  const parts = value.split("/");
+  return parts[parts.length - 1] ?? value;
+}
+
 function StatusPill({ status }: { status: string }) {
   const normalized = status.toLowerCase();
   return <span className={`pill ${normalized}`}>{status}</span>;
 }
 
-function EmptyPanel({ title, children }: { title: string; children: ReactNode }) {
+function EmptyState({ children }: { children: ReactNode }) {
+  return <div className="empty-state">{children}</div>;
+}
+
+function MetricCard({
+  icon,
+  label,
+  value,
+  state,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  state?: "good" | "muted" | "warn";
+}) {
   return (
-    <section className="panel">
-      <div className="panel-title">{title}</div>
-      <div className="empty">{children}</div>
+    <section className={`metric-card ${state ?? ""}`}>
+      <span className="metric-icon">{icon}</span>
+      <span className="metric-label">{label}</span>
+      <strong>{value}</strong>
     </section>
   );
 }
 
-function ProjectionPanel({
-  icon,
-  title,
-  projection,
-}: {
-  icon: ReactNode;
-  title: string;
-  projection: ArtifactsResponse | ProjectionResponse | SearchResponse | null;
-}) {
+function ArtifactList({ artifacts }: { artifacts: ArtifactsResponse | null }) {
+  if (!artifacts || artifacts.artifacts.length === 0) {
+    return <EmptyState>No artifacts are available for this document.</EmptyState>;
+  }
+
+  const grouped = artifacts.artifacts.reduce<Record<string, ArtifactRecord[]>>((groups, artifact) => {
+    groups[artifact.artifact_type] = [...(groups[artifact.artifact_type] ?? []), artifact];
+    return groups;
+  }, {});
+
   return (
-    <section className="panel">
-      <div className="panel-title">
-        <span className="title-icon">{icon}</span>
-        {title}
+    <div className="asset-groups">
+      {Object.entries(grouped).map(([type, records]) => (
+        <section className="asset-group" key={type}>
+          <div className="group-head">
+            <strong>{humanize(type)}</strong>
+            <span>{records.length}</span>
+          </div>
+          <div className="asset-rows">
+            {records.map((artifact) => (
+              <div className="asset-row" key={artifact.id}>
+                <div>
+                  <strong>{fileNameFromUri(artifact.uri)}</strong>
+                  <span>{artifact.media_type}</span>
+                </div>
+                <code>{artifact.uri}</code>
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function ChunkExplorer({ chunks }: { chunks: ChunksResponse | null }) {
+  if (!chunks || chunks.chunks.length === 0) {
+    return <EmptyState>No chunks have been generated yet.</EmptyState>;
+  }
+
+  return (
+    <div className="chunk-list">
+      {chunks.chunks.map((chunk) => (
+        <article className="chunk-card" key={chunk.chunk_id}>
+          <header>
+            <div>
+              <strong>{chunk.chunk_id}</strong>
+              <span>{chunk.chunk_type}</span>
+            </div>
+            <div className="page-list">
+              {chunk.page_numbers_json.map((page) => (
+                <span key={page}>p.{page}</span>
+              ))}
+            </div>
+          </header>
+          {chunk.section_path_json.length > 0 && (
+            <div className="section-path">{chunk.section_path_json.join(" / ")}</div>
+          )}
+          <p>{chunk.text}</p>
+          <footer>
+            <span>{chunk.source_element_ids_json.length} source element(s)</span>
+            {chunk.quality_score !== null && <span>quality {chunk.quality_score}</span>}
+          </footer>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function ProjectionNotice({ projection }: { projection: ProjectionResponse | null }) {
+  if (!projection) return null;
+  return (
+    <section className="notice-panel">
+      <div>
+        <strong>{projection.required_phase}</strong>
+        <p>{projection.message}</p>
       </div>
-      {projection ? (
-        <div className="projection">
-          {"required_phase" in projection ? (
-            <div className="phase">{projection.required_phase}</div>
-          ) : (
-            <div className="phase">{projection.status}</div>
-          )}
-          <p>{projection.message}</p>
-          {"artifacts" in projection ? (
-            <pre>{JSON.stringify(projection.artifacts, null, 2)}</pre>
-          ) : "data" in projection ? (
-            <pre>{JSON.stringify(projection.data, null, 2)}</pre>
-          ) : (
-            <pre>{JSON.stringify(projection.results, null, 2)}</pre>
-          )}
-        </div>
-      ) : (
-        <div className="empty">Select a document.</div>
-      )}
     </section>
   );
 }
@@ -92,9 +176,11 @@ export default function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [artifacts, setArtifacts] = useState<ArtifactsResponse | null>(null);
+  const [chunks, setChunks] = useState<ChunksResponse | null>(null);
   const [extractions, setExtractions] = useState<ProjectionResponse | null>(null);
   const [graph, setGraph] = useState<ProjectionResponse | null>(null);
   const [vector, setVector] = useState<SearchResponse | null>(null);
+  const [activeTab, setActiveTab] = useState<AssetTab>("overview");
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -104,11 +190,17 @@ export default function App() {
     [documents, selectedId],
   );
 
+  const available = new Set(status?.available_projections ?? []);
+  const unavailable = new Set(status?.unavailable_projections ?? []);
+
   async function refresh() {
     setBusy(true);
     setMessage("");
     try {
-      const [healthResult, docs] = await Promise.all([api.health(apiBase), api.listDocuments(apiBase)]);
+      const [healthResult, docs] = await Promise.all([
+        api.health(apiBase),
+        api.listDocuments(apiBase),
+      ]);
       setHealth(healthResult.status === "ok" ? "ok" : "error");
       setDocuments(docs);
       if (!selectedId && docs.length > 0) setSelectedId(docs[0].id);
@@ -124,14 +216,17 @@ export default function App() {
     setBusy(true);
     setMessage("");
     try {
-      const [nextStatus, nextArtifacts, nextExtractions, nextGraph] = await Promise.all([
-        api.status(apiBase, documentId),
-        api.artifacts(apiBase, documentId),
-        api.extractions(apiBase, documentId),
-        api.graph(apiBase, documentId),
-      ]);
+      const [nextStatus, nextArtifacts, nextChunks, nextExtractions, nextGraph] =
+        await Promise.all([
+          api.status(apiBase, documentId),
+          api.artifacts(apiBase, documentId),
+          api.chunks(apiBase, documentId),
+          api.extractions(apiBase, documentId),
+          api.graph(apiBase, documentId),
+        ]);
       setStatus(nextStatus);
       setArtifacts(nextArtifacts);
+      setChunks(nextChunks);
       setExtractions(nextExtractions);
       setGraph(nextGraph);
     } catch (error) {
@@ -175,6 +270,7 @@ export default function App() {
       setMessage(result.message);
       await refresh();
       await loadProjection(selected.id);
+      setActiveTab("overview");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Process request failed");
     } finally {
@@ -207,7 +303,7 @@ export default function App() {
     <main className="app-shell">
       <header className="topbar">
         <div>
-          <h1>DocIntel Console</h1>
+          <h1>DocIntel</h1>
           <div className="subline">
             <span className={`health ${health}`}>
               {health === "ok" ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
@@ -222,10 +318,10 @@ export default function App() {
         </div>
         <div className="top-actions">
           <input
-            className="api-input"
-            value={apiBase}
-            onChange={(event) => setApiBase(event.target.value)}
             aria-label="API base URL"
+            className="api-input"
+            onChange={(event) => setApiBase(event.target.value)}
+            value={apiBase}
           />
           <button onClick={refresh} title="Refresh" type="button">
             <RefreshCcw size={17} />
@@ -234,34 +330,40 @@ export default function App() {
             <Upload size={17} />
             <input accept=".pdf,.docx" multiple onChange={uploadFiles} type="file" />
           </label>
-          <button disabled={!selected} onClick={runSelected} title="Run" type="button">
+          <button disabled={!selected || busy} onClick={runSelected} title="Run" type="button">
             <Play size={17} />
           </button>
         </div>
       </header>
 
-      {message && <div className="notice">{message}</div>}
+      {message && <div className="toast">{message}</div>}
 
       <section className="workspace">
-        <aside className="document-list">
-          <div className="section-head">
-            <FileText size={17} />
-            Documents
+        <aside className="document-rail">
+          <div className="rail-head">
+            <div>
+              <strong>Documents</strong>
+              <span>{documents.length} total</span>
+            </div>
           </div>
           {documents.length === 0 ? (
-            <div className="empty">No documents.</div>
+            <EmptyState>No documents uploaded.</EmptyState>
           ) : (
-            <div className="rows">
+            <div className="document-rows">
               {documents.map((document) => (
                 <button
                   className={`doc-row ${selectedId === document.id ? "selected" : ""}`}
                   key={document.id}
-                  onClick={() => setSelectedId(document.id)}
+                  onClick={() => {
+                    setSelectedId(document.id);
+                    setActiveTab("overview");
+                  }}
                   type="button"
                 >
                   <span className="doc-name">{document.file_name}</span>
                   <span className="doc-meta">
-                    {document.file_type.toUpperCase()} · {formatBytes(document.size_bytes)}
+                    {document.file_type.toUpperCase()} · {formatBytes(document.size_bytes)} ·{" "}
+                    {shortId(document.id)}
                   </span>
                   <StatusPill status={document.status} />
                 </button>
@@ -271,84 +373,165 @@ export default function App() {
         </aside>
 
         <section className="detail">
-          {selected ? (
+          {!selected ? (
+            <section className="empty-document">
+              <FileText size={28} />
+              <strong>No document selected</strong>
+            </section>
+          ) : (
             <>
-              <section className="summary">
+              <section className="document-header">
                 <div>
-                  <div className="eyebrow">Selected</div>
+                  <span className="eyebrow">Selected document</span>
                   <h2>{selected.file_name}</h2>
-                  <div className="checksum">{selected.checksum_sha256}</div>
+                  <div className="doc-id">{selected.checksum_sha256}</div>
                 </div>
                 <StatusPill status={selected.status} />
               </section>
 
-              <section className="status-grid">
-                <div className="status-card">
-                  <div className="metric-label">Registry</div>
-                  <div className="metric-value">Available</div>
-                </div>
-                <div className="status-card">
-                  <div className="metric-label">Canonical IR</div>
-                  <div className="metric-value muted">Phase 2</div>
-                </div>
-                <div className="status-card">
-                  <div className="metric-label">Vector Store</div>
-                  <div className="metric-value muted">Phase 3</div>
-                </div>
-                <div className="status-card">
-                  <div className="metric-label">Graph</div>
-                  <div className="metric-value muted">Phase 5</div>
-                </div>
+              <section className="metric-grid">
+                <MetricCard
+                  icon={<Database size={18} />}
+                  label="Artifacts"
+                  state={artifacts?.status === "available" ? "good" : "muted"}
+                  value={`${artifacts?.artifacts.length ?? 0}`}
+                />
+                <MetricCard
+                  icon={<Boxes size={18} />}
+                  label="Chunks"
+                  state={chunks?.status === "available" ? "good" : "muted"}
+                  value={`${chunks?.chunks.length ?? 0}`}
+                />
+                <MetricCard
+                  icon={<Search size={18} />}
+                  label="Vector Store"
+                  state={available.has("vector_store") ? "good" : "warn"}
+                  value={available.has("vector_store") ? "Indexed" : "Pending"}
+                />
+                <MetricCard
+                  icon={<GitFork size={18} />}
+                  label="Graph"
+                  state={unavailable.has("graph") ? "muted" : "good"}
+                  value={unavailable.has("graph") ? "Later" : "Ready"}
+                />
               </section>
 
-              {status && <div className="status-message">{status.message}</div>}
+              <nav className="tabs" aria-label="Asset views">
+                {[
+                  ["overview", "Overview", <Layers3 size={16} />],
+                  ["artifacts", "Artifacts", <Database size={16} />],
+                  ["chunks", "Chunks", <Boxes size={16} />],
+                  ["search", "Search", <Search size={16} />],
+                  ["trace", "Trace", <Clock3 size={16} />],
+                ].map(([tab, label, icon]) => (
+                  <button
+                    className={activeTab === tab ? "active" : ""}
+                    key={tab as string}
+                    onClick={() => setActiveTab(tab as AssetTab)}
+                    type="button"
+                  >
+                    {icon}
+                    {label}
+                  </button>
+                ))}
+              </nav>
 
-              <div className="projection-grid">
-                <ProjectionPanel
-                  icon={<Database size={17} />}
-                  projection={artifacts}
-                  title="Artifacts"
-                />
-                <ProjectionPanel
-                  icon={<TableProperties size={17} />}
-                  projection={extractions}
-                  title="Structured"
-                />
-                <section className="panel">
-                  <div className="panel-title">
-                    <span className="title-icon">
-                      <Search size={17} />
-                    </span>
-                    Vector Search
+              <section className="tab-surface">
+                {activeTab === "overview" && (
+                  <div className="overview-grid">
+                    <section className="insight-panel">
+                      <h3>Projection Status</h3>
+                      <div className="projection-list">
+                        {(status?.available_projections ?? []).map((item) => (
+                          <span className="projection-chip available" key={item}>
+                            {humanize(item)}
+                          </span>
+                        ))}
+                        {(status?.unavailable_projections ?? []).map((item) => (
+                          <span className="projection-chip pending" key={item}>
+                            {humanize(item)}
+                          </span>
+                        ))}
+                      </div>
+                    </section>
+                    <section className="insight-panel">
+                      <h3>Structured Extraction</h3>
+                      <ProjectionNotice projection={extractions} />
+                    </section>
+                    <section className="insight-panel">
+                      <h3>Graph</h3>
+                      <ProjectionNotice projection={graph} />
+                    </section>
                   </div>
-                  <div className="search-line">
-                    <input
-                      onChange={(event) => setQuery(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") void runVectorSearch();
-                      }}
-                      placeholder="semantic query"
-                      value={query}
-                    />
-                    <button onClick={runVectorSearch} type="button">
-                      <Search size={16} />
-                    </button>
-                  </div>
-                  {vector ? (
-                    <div className="projection">
-                      <div className="phase">{vector.required_phase}</div>
-                      <p>{vector.message}</p>
-                      <pre>{JSON.stringify(vector.results, null, 2)}</pre>
+                )}
+
+                {activeTab === "artifacts" && <ArtifactList artifacts={artifacts} />}
+
+                {activeTab === "chunks" && <ChunkExplorer chunks={chunks} />}
+
+                {activeTab === "search" && (
+                  <section className="search-panel">
+                    <div className="search-line">
+                      <input
+                        onChange={(event) => setQuery(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") void runVectorSearch();
+                        }}
+                        placeholder="Search generated chunk vectors"
+                        value={query}
+                      />
+                      <button onClick={runVectorSearch} type="button">
+                        <Search size={16} />
+                      </button>
                     </div>
-                  ) : (
-                    <div className="empty">No query.</div>
-                  )}
-                </section>
-                <ProjectionPanel icon={<GitFork size={17} />} projection={graph} title="Graph" />
-              </div>
+                    {vector ? (
+                      <div className="result-list">
+                        <div className={`search-status ${vector.status}`}>
+                          <strong>{vector.status}</strong>
+                          <span>{vector.message}</span>
+                        </div>
+                        {vector.results.map((result, index) => (
+                          <article className="result-card" key={`${result.point_id}-${index}`}>
+                            <header>
+                              <strong>{String(result.chunk_id ?? result.point_id ?? "Result")}</strong>
+                              <span>{Number(result.score ?? 0).toFixed(3)}</span>
+                            </header>
+                            <p>{String(result.text ?? "")}</p>
+                            <footer>
+                              <span>{String(result.file_name ?? "")}</span>
+                              <span>{JSON.stringify(result.page_numbers ?? [])}</span>
+                            </footer>
+                          </article>
+                        ))}
+                      </div>
+                    ) : (
+                      <EmptyState>No search has been run.</EmptyState>
+                    )}
+                  </section>
+                )}
+
+                {activeTab === "trace" && (
+                  <div className="trace-list">
+                    {(status?.events ?? []).length === 0 ? (
+                      <EmptyState>No processing events yet.</EmptyState>
+                    ) : (
+                      status?.events.map((event) => (
+                        <article className="trace-row" key={event.id}>
+                          <div>
+                            <strong>{humanize(event.stage)}</strong>
+                            <span>{event.message}</span>
+                          </div>
+                          <div>
+                            <StatusPill status={event.status} />
+                            <time>{formatDate(event.created_at)}</time>
+                          </div>
+                        </article>
+                      ))
+                    )}
+                  </div>
+                )}
+              </section>
             </>
-          ) : (
-            <EmptyPanel title="Document">No document selected.</EmptyPanel>
           )}
         </section>
       </section>
