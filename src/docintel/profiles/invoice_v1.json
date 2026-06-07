@@ -1,0 +1,54 @@
+{
+  "profile_key": "invoice_v1",
+  "version": "1.0.0",
+  "name": "Invoice",
+  "description": "Supplier invoices with identifiers, dates, totals, currencies, and line items.",
+  "supported_document_classes": ["invoice", "credit_note"],
+  "fields": [
+    {"name": "invoice_number", "field_type": "identifier", "required": true, "description": "Supplier invoice identifier"},
+    {"name": "invoice_date", "field_type": "date", "required": true, "description": "Invoice issue date"},
+    {"name": "due_date", "field_type": "date", "required": false, "description": "Payment due date"},
+    {"name": "total_amount", "field_type": "currency", "required": true, "description": "Invoice grand total"},
+    {"name": "currency", "field_type": "string", "required": true, "description": "ISO or printed currency code"}
+  ],
+  "entities": [
+    {"entity_type": "Organization", "description": "Supplier or customer", "required_attributes": []},
+    {"entity_type": "Product", "description": "Invoiced product", "required_attributes": []},
+    {"entity_type": "Service", "description": "Invoiced service", "required_attributes": []},
+    {"entity_type": "Amount", "description": "Invoice amount", "required_attributes": ["currency"]}
+  ],
+  "relationships": [
+    {
+      "relationship_type": "HAS_AMOUNT",
+      "source_entity_types": ["Document", "Product", "Service"],
+      "target_entity_types": ["Amount"],
+      "description": "Associates an invoice or line item with an amount",
+      "minimum_confidence": 0.8
+    }
+  ],
+  "typed_output_tables": [
+    {
+      "table_name": "invoice_headers",
+      "description": "Normalized invoice header",
+      "fields": [
+        {"name": "invoice_number", "field_type": "identifier", "required": true, "description": "Invoice identifier"},
+        {"name": "invoice_date", "field_type": "date", "required": true, "description": "Issue date"},
+        {"name": "due_date", "field_type": "date", "required": false, "description": "Due date"},
+        {"name": "total_amount", "field_type": "currency", "required": true, "description": "Grand total"},
+        {"name": "currency", "field_type": "string", "required": true, "description": "Currency"}
+      ]
+    },
+    {
+      "table_name": "invoice_line_items",
+      "description": "Repeated invoice line items",
+      "fields": [
+        {"name": "description", "field_type": "string", "required": true, "description": "Line description"},
+        {"name": "quantity", "field_type": "number", "required": false, "description": "Quantity"},
+        {"name": "unit_price", "field_type": "currency", "required": false, "description": "Unit price"},
+        {"name": "line_total", "field_type": "currency", "required": true, "description": "Line total"}
+      ]
+    }
+  ],
+  "validation_rules": {"require_evidence": true, "total_must_be_non_negative": true},
+  "minimum_confidence": 0.7
+}

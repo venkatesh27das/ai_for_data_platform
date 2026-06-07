@@ -266,3 +266,122 @@ def graph_search(query: str, limit: int = 8) -> None:
                 indent=2,
             )
         )
+
+
+@app.command("profile-sync")
+def profile_sync() -> None:
+    """Synchronize bundled starter profiles and the core ontology."""
+
+    from docintel.services.ontology.profiles import ExtractionProfileService
+
+    settings = Settings()
+    with session_scope(settings) as session:
+        summaries = ExtractionProfileService(session).synchronize_starters()
+        typer.echo(json.dumps([summary.__dict__ for summary in summaries], indent=2))
+
+
+@app.command("profile-list")
+def profile_list() -> None:
+    """List approved extraction profiles and active versions."""
+
+    from docintel.services.ontology.profiles import ExtractionProfileService
+
+    settings = Settings()
+    with session_scope(settings) as session:
+        summaries = ExtractionProfileService(session).list_profiles()
+        typer.echo(json.dumps([summary.__dict__ for summary in summaries], indent=2))
+
+
+@app.command("profile-show")
+def profile_show(profile_key: str, version: str | None = None) -> None:
+    """Print one active or explicitly selected profile definition."""
+
+    from docintel.services.ontology.profiles import (
+        ExtractionProfileService,
+        ProfileNotFoundError,
+    )
+
+    settings = Settings()
+    with session_scope(settings) as session:
+        try:
+            definition = ExtractionProfileService(session).get_profile_definition(
+                profile_key, version
+            )
+        except ProfileNotFoundError as exc:
+            raise typer.BadParameter(str(exc)) from exc
+        typer.echo(definition.model_dump_json(indent=2))
+
+
+@app.command("profile-propose")
+def profile_propose(definition_path: Path, rationale: str, evidence_path: Path) -> None:
+    """Submit a JSON profile definition and JSON evidence list for review."""
+
+    from docintel.domain.ontology import ExtractionProfileDefinition
+    from docintel.services.ontology.profiles import ExtractionProfileService
+
+    definition = ExtractionProfileDefinition.model_validate_json(
+        definition_path.read_text(encoding="utf-8")
+    )
+    evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+    if not isinstance(evidence, list):
+        raise typer.BadParameter("evidence file must contain a JSON list")
+    settings = Settings()
+    with session_scope(settings) as session:
+        proposal = ExtractionProfileService(session).submit_proposal(
+            definition, rationale, evidence
+        )
+        typer.echo(
+            json.dumps({"proposal_id": str(proposal.id), "status": proposal.status}, indent=2)
+        )
+
+
+@app.command("profile-review")
+def profile_review(
+    proposal_id: UUID,
+    decision: str,
+    reviewed_by: str,
+    review_notes: str | None = None,
+) -> None:
+    """Approve or reject a draft profile proposal."""
+
+    from docintel.services.ontology.profiles import ExtractionProfileService
+
+    settings = Settings()
+    with session_scope(settings) as session:
+        proposal = ExtractionProfileService(session).review_proposal(
+            proposal_id, decision.upper(), reviewed_by, review_notes
+        )
+        typer.echo(
+            json.dumps(
+                {
+                    "proposal_id": str(proposal.id),
+                    "status": proposal.status,
+                    "active": False,
+                },
+                indent=2,
+            )
+        )
+
+
+@app.command("profile-activate")
+def profile_activate(profile_key: str, version: str) -> None:
+    """Activate one approved profile version."""
+
+    from docintel.services.ontology.profiles import ExtractionProfileService
+
+    settings = Settings()
+    with session_scope(settings) as session:
+        summary = ExtractionProfileService(session).activate(profile_key, version)
+        typer.echo(json.dumps(summary.__dict__, indent=2))
+
+
+@app.command("profile-materialize")
+def profile_materialize(document_id: UUID, profile_key: str) -> None:
+    """Materialize typed rows for a document using an active profile."""
+
+    from docintel.services.ontology.typed_outputs import TypedOutputService
+
+    settings = Settings()
+    with session_scope(settings) as session:
+        outputs = TypedOutputService(session).materialize(document_id, profile_key)
+        typer.echo(json.dumps([output.__dict__ for output in outputs], indent=2, default=str))

@@ -1,0 +1,42 @@
+{
+  "profile_key": "policy_document_v1",
+  "version": "1.0.0",
+  "name": "Policy Document",
+  "description": "Organizational policies, owners, effective dates, controls, and obligations.",
+  "supported_document_classes": ["policy", "standard", "procedure"],
+  "fields": [
+    {"name": "policy_title", "field_type": "string", "required": true, "description": "Policy title"},
+    {"name": "policy_owner", "field_type": "string", "required": false, "description": "Responsible owner"},
+    {"name": "effective_date", "field_type": "date", "required": false, "description": "Effective date"},
+    {"name": "review_date", "field_type": "date", "required": false, "description": "Next review date"},
+    {"name": "version", "field_type": "identifier", "required": false, "description": "Policy version"}
+  ],
+  "entities": [
+    {"entity_type": "Organization", "description": "Policy owner or affected organization", "required_attributes": []},
+    {"entity_type": "Person", "description": "Named owner or approver", "required_attributes": []},
+    {"entity_type": "Concept", "description": "Control or policy concept", "required_attributes": []}
+  ],
+  "relationships": [
+    {
+      "relationship_type": "OBLIGATED_TO",
+      "source_entity_types": ["Organization", "Person"],
+      "target_entity_types": ["Concept", "Organization"],
+      "description": "Policy obligation",
+      "minimum_confidence": 0.8
+    }
+  ],
+  "typed_output_tables": [
+    {
+      "table_name": "policy_controls",
+      "description": "Normalized policy controls and requirements",
+      "fields": [
+        {"name": "control_name", "field_type": "string", "required": true, "description": "Control name"},
+        {"name": "requirement", "field_type": "string", "required": true, "description": "Normative requirement"},
+        {"name": "owner", "field_type": "string", "required": false, "description": "Responsible owner"},
+        {"name": "review_date", "field_type": "date", "required": false, "description": "Review date"}
+      ]
+    }
+  ],
+  "validation_rules": {"require_evidence": true, "required_language_creates_obligation": true},
+  "minimum_confidence": 0.7
+}

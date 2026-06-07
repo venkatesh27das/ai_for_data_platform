@@ -1,10 +1,10 @@
 # AI Handoff
 
-Last updated: 2026-06-05
+Last updated: 2026-06-07
 
 ## Current State
 
-The repository implements Phase 0 through Phase 6 of the local document
+The repository implements Phase 0 through Phase 7 of the local document
 intelligence roadmap.
 
 Completed capabilities:
@@ -26,6 +26,12 @@ Completed capabilities:
   documents still process through Docling. Low-text or scanned PDF pages are
   marked retryable when OCR is disabled and can be reprocessed after enabling
   `OCR_PROVIDER=olmocr` and `OLMOCR_ENABLED=true`.
+- Versioned extraction profiles with validated starter definitions for
+  contracts, invoices, and policy documents.
+- Versioned core ontology records, explicit draft profile review, separate
+  approval and activation actions, and persisted review tasks.
+- Profile-defined typed output tables materialized from existing generic
+  extraction fields with evidence, confidence, and review-required validation.
 - React `Doc Test Lab` UI for upload/process, document asset exploration,
   vector/graph/table preview, and query workspace.
 
@@ -41,6 +47,9 @@ Completed capabilities:
 - `src/docintel/services/vector_projection.py`: chunk/vector projection and search.
 - `src/docintel/services/extraction/generic.py`: generic structured extraction.
 - `src/docintel/services/graph/projection.py`: entity resolution and graph projection.
+- `src/docintel/services/ontology/profiles.py`: profile catalog and review lifecycle.
+- `src/docintel/services/ontology/typed_outputs.py`: typed output materialization.
+- `src/docintel/profiles/`: starter profiles and core ontology.
 - `ui/src/App.tsx`, `ui/src/styles.css`, `ui/src/api.ts`: Doc Test Lab UI.
 
 ## Local Runtime Notes
@@ -110,9 +119,9 @@ Known validation caveat:
   available from PostgreSQL; live Neo4j projection is optional.
 - OCR fallback expects the independent olmOCR service to expose `POST /ocr`.
   The app accepts either full Canonical IR JSON or page-level text/Markdown.
-- Domain-specific extraction profiles and ontology draft approval are not yet
-  implemented.
 - Review queue/UI is not yet implemented beyond the current test-lab surface.
+- Typed profile output currently materializes one row per configured table from
+  matching generic fields; repeated line-item extraction is not implemented.
 
 ## Current Worktree Notes
 
@@ -122,14 +131,11 @@ database and should not be committed.
 
 ## Recommended Next Phase
 
-Start Phase 7: domain profiles and ontology drafts.
+Start Phase 8: lightweight review UI.
 
 Suggested first vertical slice:
 
-1. Add versioned extraction profile models and repository tables if missing.
-2. Create starter profile definitions for `contract_v1`, `invoice_v1`, and
-   `policy_document_v1`.
-3. Implement read-only profile loading and validation.
-4. Add an API/CLI path to list approved profiles.
-5. Keep generic extraction stable and do not let draft profiles mutate the
-   active ontology automatically.
+1. Add review-task list/detail/resolve API endpoints.
+2. Add a review queue to the existing React Doc Test Lab.
+3. Show draft profile evidence, validation errors, and approval controls.
+4. Keep profile activation as a separate explicit action.

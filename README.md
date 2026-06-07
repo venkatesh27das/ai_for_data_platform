@@ -2,13 +2,15 @@
 
 Local Document Intelligence is a Mac-first application for processing PDF and DOCX files into reusable document intelligence assets. The full roadmap includes vector search assets, structured extraction records, and knowledge graph projections generated from one canonical document representation.
 
-The current implementation covers Phase 0 through Phase 6: repository scaffold,
+The current implementation covers Phase 0 through Phase 7: repository scaffold,
 document upload and registry, processing trace records, Docling parsing into
 canonical artifacts, layout-aware chunks, LM Studio embeddings, Qdrant vector
 upsert, vector search, deterministic generic extraction, LM Studio structured
 output extraction, persisted structured extraction records, exact-match entity
 resolution, Neo4j graph projection, and feature-flagged OCR fallback through an
-isolated olmOCR adapter.
+isolated olmOCR adapter. It also includes versioned domain extraction profiles,
+a core ontology, evidence-bearing draft profile review, and typed output
+materialization from generic extraction records.
 
 ## Architecture
 
@@ -183,6 +185,40 @@ uv run docintel rebuild-vectors <document-id>
 uv run docintel vector-search "payment terms"
 uv run docintel rebuild-graph <document-id>
 uv run docintel graph-search "Acme"
+uv run docintel profile-sync
+uv run docintel profile-list
+uv run docintel profile-show contract_v1
+uv run docintel profile-materialize <document-id> contract_v1
+```
+
+## Domain Profiles
+
+Phase 7 provides approved starter profiles for contracts, invoices, and policy
+documents. Run migrations and synchronize them into PostgreSQL:
+
+```bash
+make migrate
+uv run docintel profile-sync
+```
+
+Profiles define expected fields, entities, relationships, validation rules, and
+typed output tables. Draft proposals require rationale and sample evidence.
+Approval creates an approved but inactive version; activation is a separate
+explicit operation, so proposals never mutate the active profile or ontology
+automatically.
+
+Useful API routes:
+
+```text
+POST /api/v1/extraction-profiles/sync-starters
+GET  /api/v1/extraction-profiles
+GET  /api/v1/extraction-profiles/{profile_key}
+POST /api/v1/extraction-profiles/proposals
+POST /api/v1/extraction-profiles/proposals/{proposal_id}/review
+POST /api/v1/extraction-profiles/{profile_key}/versions/{version}/activate
+GET  /api/v1/ontologies
+POST /api/v1/documents/{document_id}/profiles/{profile_key}/materialize
+GET  /api/v1/documents/{document_id}/typed-outputs
 ```
 
 ## Tests And Checks
@@ -234,11 +270,14 @@ PYTHONPATH=src .venv/bin/pytest
 - olmOCR is optional and independently configured. It is not installed into this Python environment.
   When enabled, the app posts PDFs to `${OLMOCR_BASE_URL}/ocr` and accepts either
   canonical IR JSON or page-level OCR text/Markdown.
+- Profile typed-output materialization currently maps matching generic scalar
+  fields into one row per configured table. Repeated line-item extraction and
+  profile-specific model prompts remain future enhancements.
 
 ## Roadmap
 
-1. Phase 7: domain profiles and ontology drafts.
-2. Phase 8: lightweight review UI.
+1. Phase 8: lightweight review UI.
+2. Hardening: Celery orchestration and Docker-backed integration coverage.
 
 ## Troubleshooting
 

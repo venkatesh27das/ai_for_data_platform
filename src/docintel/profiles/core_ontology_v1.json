@@ -1,0 +1,51 @@
+{
+  "ontology_key": "core",
+  "version": "1.0.0",
+  "name": "Core Document Ontology",
+  "description": "Small universal ontology for local document intelligence.",
+  "entity_types": [
+    {"name": "Document", "description": "A source document"},
+    {"name": "Page", "description": "A page in a document"},
+    {"name": "Section", "description": "A logical document section"},
+    {"name": "Table", "description": "A document table"},
+    {"name": "Image", "description": "A document image"},
+    {"name": "Entity", "description": "Generic named entity"},
+    {"name": "Person", "description": "A person", "parent_type": "Entity"},
+    {"name": "Organization", "description": "An organization", "parent_type": "Entity"},
+    {"name": "Location", "description": "A location", "parent_type": "Entity"},
+    {"name": "Date", "description": "A date", "parent_type": "Entity"},
+    {"name": "Amount", "description": "A monetary amount", "parent_type": "Entity"},
+    {"name": "Product", "description": "A product", "parent_type": "Entity"},
+    {"name": "Service", "description": "A service", "parent_type": "Entity"},
+    {"name": "Event", "description": "An event"},
+    {"name": "Concept", "description": "A concept"},
+    {"name": "Topic", "description": "A topic"},
+    {"name": "Claim", "description": "An evidence-bearing claim"},
+    {"name": "Obligation", "description": "A stated obligation"}
+  ],
+  "relationship_types": [
+    {"name": "HAS_PAGE", "description": "Document contains page", "source_types": ["Document"], "target_types": ["Page"]},
+    {"name": "HAS_SECTION", "description": "Document contains section", "source_types": ["Document"], "target_types": ["Section"]},
+    {"name": "HAS_TABLE", "description": "Document contains table", "source_types": ["Document"], "target_types": ["Table"]},
+    {"name": "HAS_IMAGE", "description": "Document contains image", "source_types": ["Document"], "target_types": ["Image"]},
+    {"name": "CONTAINS", "description": "Container contains an item"},
+    {"name": "MENTIONS", "description": "Document element mentions entity"},
+    {"name": "PARTY_TO", "description": "Entity is party to document"},
+    {"name": "ASSOCIATED_WITH", "description": "Generic association"},
+    {"name": "LOCATED_IN", "description": "Entity is located in location"},
+    {"name": "OCCURRED_ON", "description": "Event occurred on date"},
+    {"name": "HAS_AMOUNT", "description": "Entity has monetary amount"},
+    {"name": "REFERS_TO", "description": "Item refers to another item"},
+    {"name": "RELATED_TO", "description": "Generic reviewed relationship"},
+    {"name": "SUPPORTS", "description": "Evidence supports a claim"},
+    {"name": "CONTRADICTS", "description": "Evidence contradicts a claim"},
+    {"name": "SUPERSEDES", "description": "Document or policy supersedes another"},
+    {"name": "OBLIGATED_TO", "description": "Party owes an obligation"},
+    {"name": "DEPENDS_ON", "description": "Item depends on another item"}
+  ],
+  "aliases": [
+    {"alias": "Company", "target_type": "Organization", "target_kind": "entity"},
+    {"alias": "Vendor", "target_type": "Organization", "target_kind": "entity"},
+    {"alias": "Customer", "target_type": "Organization", "target_kind": "entity"}
+  ]
+}

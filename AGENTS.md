@@ -1324,3 +1324,18 @@ Use this after placing `AGENTS.md` at the repository root:
 ```text
 Read AGENTS.md fully and implement Phase 0 — Repository scaffold. Work only on Phase 0. Use the specified Mac-first local setup and uv. Run all validation commands that are available in the environment. Do not proceed to document parsing or model integration yet. Summarize changed files, commands executed, results, blockers, and the recommended Phase 1 task.
 ```
+
+---
+
+## 30. Implementation Status
+
+As of June 7, 2026:
+
+- Phases 0 through 7 are implemented.
+- Phase 7 includes versioned starter profiles, a versioned core ontology,
+  evidence-bearing draft proposals, explicit approval and activation, review
+  task persistence, and typed output materialization from generic extraction
+  fields.
+- Phase 8 remains.
+- Celery orchestration and Docker-backed integration coverage remain hardening
+  work outside the completed Phase 7 vertical slice.
