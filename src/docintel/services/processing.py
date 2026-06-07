@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -43,7 +44,7 @@ class ProcessingResult:
 
 
 class DocumentProcessingService:
-    """Phase 1/2 processing orchestration for registered documents."""
+    """Shared synchronous and Celery-stage document processing orchestration."""
 
     def __init__(self, session: Session, settings: Settings) -> None:
         self.session = session
@@ -51,9 +52,11 @@ class DocumentProcessingService:
         self.repository = DocumentRepository(session)
 
     async def process(self, document: Document) -> ProcessingResult:
-        """Parse a registered document and persist canonical artifacts."""
+        """Run all processing stages synchronously."""
 
-        run = self.repository.create_processing_run(document)
+        run = self.start(document)
+        stage_data: dict[str, object] = {}
+        canonical: CanonicalDocument | None = None
         self.repository.add_event(
             document.id, run.id, "parse_document", "RUNNING", "Starting Docling parse."
         )
@@ -61,79 +64,269 @@ class DocumentProcessingService:
             "processing_started", document_id=str(document.id), processing_run_id=str(run.id)
         )
         try:
-            canonical = await self._parse(document, run)
-            self.repository.add_event(
-                document.id,
-                run.id,
-                "persist_artifacts",
-                "RUNNING",
-                "Persisting canonical and parser artifacts.",
-            )
-            artifacts = self._persist_artifacts(canonical, run)
-            self.repository.persist_canonical_document(canonical, run.id)
-            vector_result = await DocumentVectorProjectionService(
-                self.session, self.settings
-            ).project_from_canonical(document, run, canonical)
-            extraction_result = await GenericExtractionService(self.session, self.settings).run(
-                document, run
-            )
-            graph_result = DocumentGraphProjectionService(
-                self.session, self.settings
-            ).rebuild_document_graph(document, run)
-            final_status = (
-                "PARTIAL"
-                if (
-                    canonical.warnings
-                    or vector_result.status != "available"
-                    or extraction_result.status == "failed"
-                    or graph_result.status not in {"available", "partial"}
-                )
-                else "SUCCEEDED"
-            )
-            message = self._success_message(
-                final_status,
-                canonical,
-                len(artifacts),
-                vector_result,
-                extraction_result,
-                graph_result,
-            )
-            self.repository.add_event(
-                document.id,
-                run.id,
-                "finalize_quality_report",
-                final_status,
-                message,
-                {
-                    "warnings": canonical.warnings,
-                    "artifact_count": len(artifacts),
-                    "chunk_count": vector_result.chunk_count,
-                    "indexed_count": vector_result.indexed_count,
-                    "field_count": extraction_result.field_count,
-                    "entity_count": extraction_result.entity_count,
-                    "relationship_count": extraction_result.relationship_count,
-                    "graph_node_count": len(graph_result.nodes),
-                    "graph_edge_count": len(graph_result.edges),
-                },
-            )
-            run = self.repository.finish_processing_run(document, run, final_status)
-            logger.info(
-                "processing_finished",
-                document_id=str(document.id),
-                processing_run_id=str(run.id),
-                status=final_status,
-            )
-            return ProcessingResult(
-                document=document, run=run, canonical=canonical, message=message
-            )
+            canonical, parse_data = await self.parse_and_persist(document, run)
+            stage_data.update(parse_data)
+            vector_result = await self.project_vectors(document, run, canonical)
+            stage_data.update(self.vector_stage_data(vector_result))
+            extraction_result = await self.run_extraction(document, run)
+            stage_data.update(self.extraction_stage_data(extraction_result))
+            graph_result = self.project_graph(document, run)
+            stage_data.update(self.graph_stage_data(graph_result))
+            return self.finalize(document, run, stage_data, canonical)
         except Exception as exc:
-            message = f"Document processing failed: {exc}"
-            self.repository.add_event(document.id, run.id, "parse_document", "FAILED", message)
-            run = self.repository.finish_processing_run(document, run, "FAILED", message)
-            logger.exception(
-                "processing_failed", document_id=str(document.id), processing_run_id=str(run.id)
+            return self.fail(document, run, exc)
+
+    def start(self, document: Document, status: str = "RUNNING") -> ProcessingRun:
+        """Create a persisted processing run for sync or queued execution."""
+
+        return self.repository.create_processing_run(document, status)
+
+    async def parse_and_persist(
+        self, document: Document, run: ProcessingRun
+    ) -> tuple[CanonicalDocument, dict[str, object]]:
+        """Parse, normalize, and persist canonical artifacts."""
+
+        canonical = await self._parse(document, run)
+        self.repository.add_event(
+            document.id,
+            run.id,
+            "persist_artifacts",
+            "RUNNING",
+            "Persisting canonical and parser artifacts.",
+        )
+        artifacts = self._persist_artifacts(canonical, run)
+        self.repository.persist_canonical_document(canonical, run.id)
+        return canonical, {
+            "artifact_count": len(artifacts),
+            "warnings": canonical.warnings,
+            "page_quality_scores": [
+                page.text_quality_score
+                for page in canonical.pages
+                if page.text_quality_score is not None
+            ],
+            "page_count": len(canonical.pages),
+            "element_count": sum(len(page.elements) for page in canonical.pages),
+        }
+
+    async def project_vectors(
+        self,
+        document: Document,
+        run: ProcessingRun,
+        canonical: CanonicalDocument | None = None,
+    ) -> VectorProjectionResult:
+        """Build chunks and project vectors from canonical IR."""
+
+        loaded = canonical or self.load_canonical(document.id, run.id)
+        if loaded is None:
+            raise RuntimeError("canonical artifact is unavailable for vector projection")
+        return await DocumentVectorProjectionService(
+            self.session, self.settings
+        ).project_from_canonical(document, run, loaded)
+
+    async def run_extraction(
+        self, document: Document, run: ProcessingRun
+    ) -> GenericExtractionServiceResult:
+        """Run generic structured extraction."""
+
+        return await GenericExtractionService(self.session, self.settings).run(document, run)
+
+    def project_graph(self, document: Document, run: ProcessingRun) -> GraphProjectionResult:
+        """Resolve entities and project graph records."""
+
+        return DocumentGraphProjectionService(self.session, self.settings).rebuild_document_graph(
+            document, run
+        )
+
+    def finalize(
+        self,
+        document: Document,
+        run: ProcessingRun,
+        stage_data: dict[str, object],
+        canonical: CanonicalDocument | None = None,
+    ) -> ProcessingResult:
+        """Persist quality metrics and finalize a successful or partial run."""
+
+        warnings = _string_list(stage_data.get("warnings"))
+        vector_status = str(stage_data.get("vector_status", "unavailable"))
+        extraction_status = str(stage_data.get("extraction_status", "failed"))
+        graph_status = str(stage_data.get("graph_status", "unavailable"))
+        final_status = (
+            "PARTIAL"
+            if (
+                warnings
+                or vector_status != "available"
+                or extraction_status == "failed"
+                or graph_status not in {"available", "partial"}
             )
-            return ProcessingResult(document=document, run=run, canonical=None, message=message)
+            else "SUCCEEDED"
+        )
+        message = self._stage_message(final_status, stage_data)
+        self._persist_quality_scores(document, run, stage_data)
+        self.repository.add_event(
+            document.id,
+            run.id,
+            "finalize_quality_report",
+            final_status,
+            message,
+            stage_data,
+        )
+        run = self.repository.finish_processing_run(document, run, final_status)
+        logger.info(
+            "processing_finished",
+            document_id=str(document.id),
+            processing_run_id=str(run.id),
+            status=final_status,
+        )
+        return ProcessingResult(
+            document=document,
+            run=run,
+            canonical=canonical or self.load_canonical(document.id, run.id),
+            message=message,
+        )
+
+    def fail(
+        self, document: Document, run: ProcessingRun, error: Exception | str
+    ) -> ProcessingResult:
+        """Finalize a failed run without losing the processing trace."""
+
+        message = f"Document processing failed: {error}"
+        self.repository.add_event(document.id, run.id, "processing_pipeline", "FAILED", message)
+        run = self.repository.finish_processing_run(document, run, "FAILED", message)
+        logger.error(
+            "processing_failed",
+            document_id=str(document.id),
+            processing_run_id=str(run.id),
+            error=str(error),
+        )
+        return ProcessingResult(document=document, run=run, canonical=None, message=message)
+
+    def load_canonical(
+        self, document_id: UUID, processing_run_id: UUID | None = None
+    ) -> CanonicalDocument | None:
+        """Load persisted canonical IR for a document or processing run."""
+
+        artifact = next(
+            (
+                item
+                for item in self.repository.list_artifacts(document_id)
+                if item.artifact_type == "canonical_json"
+                and (processing_run_id is None or item.processing_run_id == processing_run_id)
+            ),
+            None,
+        )
+        if artifact is None:
+            return None
+        path = Path(artifact.uri)
+        if not path.exists():
+            return None
+        return CanonicalDocument.model_validate_json(path.read_text(encoding="utf-8"))
+
+    @staticmethod
+    def vector_stage_data(result: VectorProjectionResult) -> dict[str, object]:
+        return {
+            "vector_status": result.status,
+            "chunk_count": result.chunk_count,
+            "indexed_count": result.indexed_count,
+            "vector_message": result.message,
+        }
+
+    @staticmethod
+    def extraction_stage_data(
+        result: GenericExtractionServiceResult,
+    ) -> dict[str, object]:
+        return {
+            "extraction_status": result.status,
+            "field_count": result.field_count,
+            "entity_count": result.entity_count,
+            "relationship_count": result.relationship_count,
+            "event_count": result.event_count,
+            "claim_count": result.claim_count,
+            "obligation_count": result.obligation_count,
+            "extraction_message": result.message,
+        }
+
+    @staticmethod
+    def graph_stage_data(result: GraphProjectionResult) -> dict[str, object]:
+        return {
+            "graph_status": result.status,
+            "graph_node_count": len(result.nodes),
+            "graph_edge_count": len(result.edges),
+            "graph_message": result.message,
+        }
+
+    def _persist_quality_scores(
+        self,
+        document: Document,
+        run: ProcessingRun,
+        stage_data: dict[str, object],
+    ) -> None:
+        page_scores = _float_list(stage_data.get("page_quality_scores"))
+        text_quality = sum(page_scores) / len(page_scores) if page_scores else 0.0
+        vector_score = 1.0 if stage_data.get("vector_status") == "available" else 0.0
+        extraction_score = 1.0 if stage_data.get("extraction_status") == "available" else 0.0
+        graph_score = 1.0 if stage_data.get("graph_status") in {"available", "partial"} else 0.0
+        overall = (text_quality + vector_score + extraction_score + graph_score) / 4
+        self.repository.replace_quality_scores(
+            document.id,
+            run.id,
+            [
+                (
+                    "text_quality",
+                    text_quality,
+                    self.settings.min_text_quality_score,
+                    (
+                        "PASSED"
+                        if text_quality >= self.settings.min_text_quality_score
+                        else "REQUIRES_REVIEW"
+                    ),
+                    {"page_scores": page_scores},
+                ),
+                (
+                    "vector_projection",
+                    vector_score,
+                    1.0,
+                    "PASSED" if vector_score == 1.0 else "RETRYABLE",
+                    {"message": stage_data.get("vector_message")},
+                ),
+                (
+                    "structured_extraction",
+                    extraction_score,
+                    1.0,
+                    "PASSED" if extraction_score == 1.0 else "RETRYABLE",
+                    {"message": stage_data.get("extraction_message")},
+                ),
+                (
+                    "graph_projection",
+                    graph_score,
+                    1.0,
+                    "PASSED" if graph_score == 1.0 else "RETRYABLE",
+                    {"message": stage_data.get("graph_message")},
+                ),
+                (
+                    "overall",
+                    overall,
+                    0.75,
+                    "PASSED" if overall >= 0.75 else "REQUIRES_REVIEW",
+                    {"warning_count": len(_string_list(stage_data.get("warnings")))},
+                ),
+            ],
+        )
+
+    def _stage_message(self, status: str, stage_data: dict[str, object]) -> str:
+        warning_suffix = " with warnings" if stage_data.get("warnings") else ""
+        return (
+            f"Processing {status.lower()}{warning_suffix}: parsed "
+            f"{stage_data.get('page_count', 0)} pages, "
+            f"{stage_data.get('element_count', 0)} elements, wrote "
+            f"{stage_data.get('artifact_count', 0)} artifacts, built "
+            f"{stage_data.get('chunk_count', 0)} chunks, and indexed "
+            f"{stage_data.get('indexed_count', 0)} vectors. Extracted "
+            f"{stage_data.get('field_count', 0)} fields, "
+            f"{stage_data.get('entity_count', 0)} entities, and "
+            f"{stage_data.get('relationship_count', 0)} relationships. Built "
+            f"{stage_data.get('graph_node_count', 0)} graph nodes and "
+            f"{stage_data.get('graph_edge_count', 0)} graph edges."
+        )
 
     async def _parse(self, document: Document, run: ProcessingRun) -> CanonicalDocument:
         file_path = storage_path_for_document(document.id, document.storage_uri)
@@ -276,23 +469,18 @@ class DocumentProcessingService:
         )
         return path
 
-    def _success_message(
-        self,
-        status: str,
-        canonical: CanonicalDocument,
-        artifact_count: int,
-        vector_result: VectorProjectionResult,
-        extraction_result: GenericExtractionServiceResult,
-        graph_result: GraphProjectionResult,
-    ) -> str:
-        element_count = sum(len(page.elements) for page in canonical.pages)
-        warning_suffix = " with warnings" if canonical.warnings else ""
-        return (
-            f"Processing {status.lower()}{warning_suffix}: parsed {len(canonical.pages)} pages, "
-            f"{element_count} elements, wrote {artifact_count} artifacts, built "
-            f"{vector_result.chunk_count} chunks, and indexed "
-            f"{vector_result.indexed_count} vectors. Extracted "
-            f"{extraction_result.field_count} fields, {extraction_result.entity_count} entities, "
-            f"and {extraction_result.relationship_count} relationships. Built "
-            f"{len(graph_result.nodes)} graph nodes and {len(graph_result.edges)} graph edges."
-        )
+
+def _string_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in cast(list[object], value)]
+
+
+def _float_list(value: object) -> list[float]:
+    if not isinstance(value, list):
+        return []
+    scores: list[float] = []
+    for item in cast(list[object], value):
+        if isinstance(item, int | float):
+            scores.append(float(item))
+    return scores

@@ -1337,5 +1337,6 @@ As of June 7, 2026:
   task persistence, and typed output materialization from generic extraction
   fields.
 - Phase 8 remains.
-- Celery orchestration and Docker-backed integration coverage remain hardening
-  work outside the completed Phase 7 vertical slice.
+- Earlier-phase hardening now includes persisted quality scores, entity
+  resolution candidates, a configurable Celery task chain, and Docker-service
+  integration tests.

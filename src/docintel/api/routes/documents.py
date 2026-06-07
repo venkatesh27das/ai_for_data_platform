@@ -240,6 +240,20 @@ class ProcessResponse(BaseModel):
     status: str
     message: str
     processing_run_id: UUID | None = None
+    processing_job_id: str | None = None
+
+
+class QualityScoreResponse(BaseModel):
+    """Persisted processing quality metric."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    metric_name: str
+    score: float
+    threshold: float | None
+    status: str
+    details_json: dict[str, object]
+    created_at: datetime
 
 
 class ExtractResponse(BaseModel):
@@ -309,10 +323,39 @@ async def process_document(
     settings: Annotated[Settings, Depends(get_settings)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> ProcessResponse:
-    """Trigger Phase 1/2 processing for a document."""
+    """Process synchronously or enqueue the configured Celery task chain."""
 
     repository = DocumentRepository(session)
     document = _get_document_or_404(repository, document_id)
+    if settings.processing_mode == "celery":
+        from docintel.workers.tasks import enqueue_document_processing
+
+        service = DocumentProcessingService(session, settings)
+        run = service.start(document, "PENDING")
+        repository.add_event(
+            document.id,
+            run.id,
+            "processing_pipeline",
+            "PENDING",
+            "Document processing queued in Celery.",
+        )
+        try:
+            job_id = enqueue_document_processing(document.id, run.id)
+        except Exception as exc:
+            result = service.fail(document, run, exc)
+            return ProcessResponse(
+                document=DocumentResponse.model_validate(result.document),
+                status=result.run.status,
+                message=result.message,
+                processing_run_id=result.run.id,
+            )
+        return ProcessResponse(
+            document=DocumentResponse.model_validate(document),
+            status="PENDING",
+            message="Document processing queued.",
+            processing_run_id=run.id,
+            processing_job_id=job_id,
+        )
     result = await DocumentProcessingService(session, settings).process(document)
     return ProcessResponse(
         document=DocumentResponse.model_validate(result.document),
@@ -320,6 +363,24 @@ async def process_document(
         message=result.message,
         processing_run_id=result.run.id,
     )
+
+
+@router.get(
+    "/{document_id}/quality-scores",
+    response_model=list[QualityScoreResponse],
+)
+def get_document_quality_scores(
+    document_id: UUID,
+    session: Annotated[Session, Depends(get_db_session)],
+) -> list[QualityScoreResponse]:
+    """Return persisted quality metrics for a document."""
+
+    repository = DocumentRepository(session)
+    _get_document_or_404(repository, document_id)
+    return [
+        QualityScoreResponse.model_validate(score)
+        for score in repository.list_quality_scores(document_id)
+    ]
 
 
 @router.get("/{document_id}/status", response_model=StatusResponse)

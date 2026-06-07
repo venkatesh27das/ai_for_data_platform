@@ -776,3 +776,60 @@ class ExtractedTableRowRecord(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
+
+
+class QualityScore(Base):
+    """Persisted quality metric for one document processing run."""
+
+    __tablename__ = "quality_scores"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    document_id: Mapped[UUID] = mapped_column(
+        ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    processing_run_id: Mapped[UUID] = mapped_column(
+        ForeignKey("processing_runs.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    metric_name: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    score: Mapped[float] = mapped_column(nullable=False)
+    threshold: Mapped[float | None] = mapped_column(nullable=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    details_json: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class EntityResolutionCandidate(Base):
+    """Potential entity match awaiting deterministic or human resolution."""
+
+    __tablename__ = "entity_resolution_candidates"
+    __table_args__ = (
+        UniqueConstraint(
+            "entity_id",
+            "candidate_entity_id",
+            "resolution_method",
+            name="entity_resolution_candidate_method_unique",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    entity_id: Mapped[UUID] = mapped_column(
+        ForeignKey("entities.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    candidate_entity_id: Mapped[UUID] = mapped_column(
+        ForeignKey("entities.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    resolution_method: Mapped[str] = mapped_column(String(80), nullable=False)
+    similarity_score: Mapped[float] = mapped_column(nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="PROPOSED")
+    details_json: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )

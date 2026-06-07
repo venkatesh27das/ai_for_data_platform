@@ -47,7 +47,7 @@ class Neo4jGraphStore:
         """Project nodes and edges into Neo4j."""
 
         try:
-            from neo4j import GraphDatabase  # type: ignore[import-not-found]
+            from neo4j import GraphDatabase
         except ImportError as exc:
             raise Neo4jUnavailableError("Neo4j Python driver is not installed") from exc
 

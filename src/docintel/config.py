@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -58,6 +59,7 @@ class Settings(BaseSettings):
     min_text_quality_score: float = 0.70
     min_extraction_confidence: float = 0.70
     min_relationship_confidence: float = 0.75
+    processing_mode: Literal["sync", "celery"] = "sync"
 
     @property
     def max_upload_bytes(self) -> int:

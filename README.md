@@ -160,15 +160,23 @@ running, while local graph nodes and edges remain visible from PostgreSQL.
 
 ## Worker
 
-The worker entry point is scaffolded for future asynchronous processing:
+The worker executes an explicit Celery chain for parsing, vector projection,
+structured extraction, graph projection, and quality finalization:
 
 ```bash
 make worker
 ```
 
-Processing currently runs synchronously through the API or CLI so the local
-development loop stays simple. Celery/Redis remain available for a later task
-graph implementation.
+Processing is synchronous by default for the simplest local development loop.
+To queue API processing through Redis and Celery, set:
+
+```bash
+PROCESSING_MODE=celery
+```
+
+The existing `POST /api/v1/documents/{document_id}/process` endpoint then
+returns a processing run ID and Celery job ID immediately. The status endpoint
+continues to expose persisted stage events.
 
 ## CLI
 
@@ -233,6 +241,16 @@ make ui-build
 
 Integration tests that require Docker services should use the `integration` marker. Live local model tests should use the `live_model` marker.
 
+After starting services and applying migrations, run:
+
+```bash
+make test-integration
+```
+
+The integration suite checks PostgreSQL schema availability, Redis broker
+connectivity, Qdrant upsert/search, and Neo4j graph projection. Individual
+tests skip quickly when their local service is unavailable.
+
 If the machine is offline and `uv run` attempts to resolve build dependencies,
 use the existing virtual environment directly after `make install` has already
 completed:
@@ -259,13 +277,12 @@ PYTHONPATH=src .venv/bin/pytest
   `LM_STUDIO_LLM_MODEL` configured; if unavailable or invalid, deterministic
   results are preserved and the extraction run is marked partial/retryable.
 - Entity resolution currently uses exact normalized type/name matching. Aliases
-  are persisted for exact matches; fuzzy, embedding, and LLM adjudication are
-  later enhancements.
-- Neo4j is a serving projection. If Neo4j or its Python driver is unavailable,
+  are persisted for exact matches. Candidate records now support later fuzzy,
+  embedding, and LLM adjudication, but those matching strategies remain later
+  enhancements.
+- Neo4j is a serving projection. If Neo4j is unavailable,
   local graph nodes and edges remain available from the relational source and
   projection runs are marked partial/retryable.
-  Install the optional driver with `uv add neo4j` when you want live Neo4j
-  projection from the local API/CLI.
 - MinIO is available in Docker Compose, but the current phases use local filesystem directories only.
 - olmOCR is optional and independently configured. It is not installed into this Python environment.
   When enabled, the app posts PDFs to `${OLMOCR_BASE_URL}/ocr` and accepts either
@@ -277,7 +294,7 @@ PYTHONPATH=src .venv/bin/pytest
 ## Roadmap
 
 1. Phase 8: lightweight review UI.
-2. Hardening: Celery orchestration and Docker-backed integration coverage.
+2. Further hardening: repeated profile rows and richer entity resolution.
 
 ## Troubleshooting
 

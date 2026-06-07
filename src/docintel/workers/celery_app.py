@@ -10,4 +10,11 @@ celery_app = Celery(
     backend=settings.celery_result_backend,
     include=["docintel.workers.tasks"],
 )
-celery_app.conf.update(task_track_started=True)
+celery_app.conf.update(
+    task_track_started=True,
+    task_serializer="json",
+    result_serializer="json",
+    accept_content=["json"],
+    task_acks_late=True,
+    worker_prefetch_multiplier=1,
+)

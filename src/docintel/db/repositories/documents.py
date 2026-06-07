@@ -19,6 +19,7 @@ from docintel.db.models import (
     EntityAliasRecord,
     EntityMentionRecord,
     EntityRecord,
+    EntityResolutionCandidate,
     EventRecord,
     ExtractedFieldRecord,
     ExtractionRun,
@@ -26,6 +27,7 @@ from docintel.db.models import (
     ObligationRecord,
     ProcessingEvent,
     ProcessingRun,
+    QualityScore,
     RelationshipRecord,
     VectorIndexRecord,
 )
@@ -92,21 +94,37 @@ class DocumentRepository:
         self.session.refresh(document)
         return document
 
-    def create_processing_run(self, document: Document) -> ProcessingRun:
+    def create_processing_run(self, document: Document, status: str = "RUNNING") -> ProcessingRun:
         """Create a new processing run for a document."""
 
         run = ProcessingRun(
             document_id=document.id,
-            status="RUNNING",
-            started_at=datetime.now(UTC),
-            pipeline_version="phase-3",
+            status=status,
+            started_at=datetime.now(UTC) if status == "RUNNING" else None,
+            pipeline_version="phase-7-hardening",
         )
-        document.status = "RUNNING"
+        document.status = status
         self.session.add_all([run, document])
         self.session.commit()
         self.session.refresh(run)
         self.session.refresh(document)
         return run
+
+    def mark_processing_run_running(self, document: Document, run: ProcessingRun) -> ProcessingRun:
+        """Transition a queued processing run to running."""
+
+        run.status = "RUNNING"
+        run.started_at = run.started_at or datetime.now(UTC)
+        document.status = "RUNNING"
+        self.session.add_all([run, document])
+        self.session.commit()
+        self.session.refresh(run)
+        return run
+
+    def get_processing_run(self, processing_run_id: UUID) -> ProcessingRun | None:
+        """Return one processing run by ID."""
+
+        return self.session.get(ProcessingRun, processing_run_id)
 
     def list_chunks(self, document_id: UUID) -> Sequence[Chunk]:
         """Return persisted chunks ordered by creation time."""
@@ -579,6 +597,77 @@ class DocumentRepository:
             .where(ObligationRecord.document_id == document_id)
             .order_by(ObligationRecord.created_at.desc())
         ).all()
+
+    def replace_quality_scores(
+        self,
+        document_id: UUID,
+        processing_run_id: UUID,
+        scores: Sequence[tuple[str, float, float | None, str, dict[str, object]]],
+    ) -> Sequence[QualityScore]:
+        """Replace quality metrics for a processing run."""
+
+        existing = self.session.scalars(
+            select(QualityScore).where(QualityScore.processing_run_id == processing_run_id)
+        ).all()
+        for record in existing:
+            self.session.delete(record)
+        records: list[QualityScore] = []
+        for metric_name, score, threshold, status, details in scores:
+            record = QualityScore(
+                document_id=document_id,
+                processing_run_id=processing_run_id,
+                metric_name=metric_name,
+                score=score,
+                threshold=threshold,
+                status=status,
+                details_json=details,
+            )
+            self.session.add(record)
+            records.append(record)
+        self.session.commit()
+        for record in records:
+            self.session.refresh(record)
+        return records
+
+    def list_quality_scores(self, document_id: UUID) -> Sequence[QualityScore]:
+        """Return quality metrics ordered by newest first."""
+
+        return self.session.scalars(
+            select(QualityScore)
+            .where(QualityScore.document_id == document_id)
+            .order_by(QualityScore.created_at.desc())
+        ).all()
+
+    def replace_resolution_candidates(
+        self,
+        entity_id: UUID,
+        candidates: Sequence[tuple[UUID, str, float, str, dict[str, object]]],
+    ) -> Sequence[EntityResolutionCandidate]:
+        """Replace proposed resolution candidates for one entity."""
+
+        existing = self.session.scalars(
+            select(EntityResolutionCandidate).where(
+                EntityResolutionCandidate.entity_id == entity_id
+            )
+        ).all()
+        for record in existing:
+            self.session.delete(record)
+        records: list[EntityResolutionCandidate] = []
+        for candidate_id, method, score, status, details in candidates:
+            record = EntityResolutionCandidate(
+                entity_id=entity_id,
+                candidate_entity_id=candidate_id,
+                resolution_method=method,
+                similarity_score=score,
+                status=status,
+                details_json=details,
+            )
+            self.session.add(record)
+            records.append(record)
+        self.session.commit()
+        for record in records:
+            self.session.refresh(record)
+        return records
 
     def finish_processing_run(
         self,

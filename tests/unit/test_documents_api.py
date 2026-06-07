@@ -169,6 +169,35 @@ def test_process_builds_canonical_artifacts(client: TestClient, monkeypatch) -> 
     assert len(graph_payload["nodes"]) >= 2
     assert len(graph_payload["edges"]) >= 1
 
+    quality = client.get(f"/api/v1/documents/{document_id}/quality-scores")
+    assert quality.status_code == 200
+    quality_by_name = {item["metric_name"]: item for item in quality.json()}
+    assert quality_by_name["text_quality"]["score"] == 1.0
+    assert quality_by_name["overall"]["status"] == "PASSED"
+
+
+def test_process_can_enqueue_celery_pipeline(
+    client: TestClient, test_settings, monkeypatch
+) -> None:
+    test_settings.processing_mode = "celery"
+    monkeypatch.setattr(
+        "docintel.workers.tasks.enqueue_document_processing",
+        lambda document_id, processing_run_id: "job-123",
+    )
+    upload = client.post(
+        "/api/v1/documents/upload",
+        files={"file": ("sample.pdf", _sample_pdf_bytes(), "application/pdf")},
+    )
+    document_id = upload.json()["document"]["id"]
+
+    response = client.post(f"/api/v1/documents/{document_id}/process")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "PENDING"
+    assert response.json()["document"]["status"] == "PENDING"
+    assert response.json()["processing_job_id"] == "job-123"
+    assert response.json()["processing_run_id"]
+
 
 def test_rejects_invalid_file_type(client: TestClient) -> None:
     response = client.post(

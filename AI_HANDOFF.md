@@ -32,6 +32,10 @@ Completed capabilities:
   approval and activation actions, and persisted review tasks.
 - Profile-defined typed output tables materialized from existing generic
   extraction fields with evidence, confidence, and review-required validation.
+- Configurable synchronous or Celery processing. Celery runs an explicit chain
+  for parse/persist, vectors, extraction, graph projection, and final quality.
+- Persisted quality scores and entity resolution candidate records.
+- Docker-service integration coverage for PostgreSQL, Redis, Qdrant, and Neo4j.
 - React `Doc Test Lab` UI for upload/process, document asset exploration,
   vector/graph/table preview, and query workspace.
 
@@ -49,6 +53,7 @@ Completed capabilities:
 - `src/docintel/services/graph/projection.py`: entity resolution and graph projection.
 - `src/docintel/services/ontology/profiles.py`: profile catalog and review lifecycle.
 - `src/docintel/services/ontology/typed_outputs.py`: typed output materialization.
+- `src/docintel/workers/tasks.py`: explicit Celery processing chain.
 - `src/docintel/profiles/`: starter profiles and core ontology.
 - `ui/src/App.tsx`, `ui/src/styles.css`, `ui/src/api.ts`: Doc Test Lab UI.
 
@@ -110,18 +115,19 @@ Known validation caveat:
 
 ## Known Limitations
 
-- Processing is synchronous through API/CLI; Celery task graph is scaffolded but
-  not yet the main execution path.
+- Processing remains synchronous by default. Set `PROCESSING_MODE=celery` and
+  run the worker to queue API processing through the Celery task chain.
 - LM Studio, Qdrant, Neo4j, and olmOCR are local external services. Missing
   services should produce partial/retryable states rather than corrupting stored
   results.
-- The Neo4j Python driver may not be installed. Local graph records remain
-  available from PostgreSQL; live Neo4j projection is optional.
+- Local graph records remain available from PostgreSQL when Neo4j is down.
 - OCR fallback expects the independent olmOCR service to expose `POST /ocr`.
   The app accepts either full Canonical IR JSON or page-level text/Markdown.
 - Review queue/UI is not yet implemented beyond the current test-lab surface.
 - Typed profile output currently materializes one row per configured table from
   matching generic fields; repeated line-item extraction is not implemented.
+- Fuzzy, embedding, and LLM entity resolution are not implemented; the new
+  candidate table is the persistence boundary for those later strategies.
 
 ## Current Worktree Notes
 
