@@ -1,0 +1,29 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.api import conversations, health, projects, settings
+from app.config import get_settings
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    get_settings().data_dir.mkdir(parents=True, exist_ok=True)
+    yield
+
+
+app = FastAPI(title="AI Data Modelling Assistant API", version="0.1.0", lifespan=lifespan)
+config = get_settings()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[config.frontend_origin],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+app.include_router(health.router, prefix="/api")
+app.include_router(projects.router, prefix="/api")
+app.include_router(conversations.router, prefix="/api")
+app.include_router(settings.router, prefix="/api")
