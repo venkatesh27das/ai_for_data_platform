@@ -6,9 +6,11 @@ import { Brand } from '../../components/common/Brand'
 import { ErrorState, LoadingState } from '../../components/common/States'
 import { MessageBubble } from '../../components/chat/MessageBubble'
 import { ChatComposer } from '../../components/chat/ChatComposer'
+import { ArtifactSummaryCard } from '../../components/artefacts/ArtifactSummaryCard'
 import { ModelCanvas } from '../../components/artefacts/ModelCanvas'
+import { StructuredArtifactViewer } from '../../components/artefacts/StructuredArtifactViewer'
 import { api, streamMessage } from '../../services/api'
-import type { Message } from '../../types'
+import type { Artifact, LogicalModelPayload, Message } from '../../types'
 
 interface LocationState { initialScenario?: string }
 
@@ -20,11 +22,13 @@ export function WorkspacePage() {
   const initialScenario = (location.state as LocationState | null)?.initialScenario
   const { data: project, isLoading: projectLoading, error: projectError } = useQuery({ queryKey: ['project', projectId], queryFn: () => api.getProject(projectId), enabled: Boolean(projectId) })
   const { data: savedMessages = [], isLoading: messagesLoading } = useQuery({ queryKey: ['messages', projectId], queryFn: () => api.listMessages(projectId), enabled: Boolean(projectId) })
+  const { data: artifacts = [] } = useQuery({ queryKey: ['artifacts', projectId], queryFn: () => api.listArtifacts(projectId), enabled: Boolean(projectId) })
   const [optimistic, setOptimistic] = useState<Message[]>([])
   const [streamingText, setStreamingText] = useState('')
   const [progress, setProgress] = useState('')
   const [streaming, setStreaming] = useState(false)
   const [streamError, setStreamError] = useState('')
+  const [activeArtifactId, setActiveArtifactId] = useState<string | null>(null)
   const controllerRef = useRef<AbortController | null>(null)
   const initialSent = useRef(false)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -49,6 +53,7 @@ export function WorkspacePage() {
         queryClient.invalidateQueries({ queryKey: ['messages', projectId] }),
         queryClient.invalidateQueries({ queryKey: ['project', projectId] }),
         queryClient.invalidateQueries({ queryKey: ['projects'] }),
+        queryClient.invalidateQueries({ queryKey: ['artifacts', projectId] }),
       ])
       setStreamingText('')
     } catch (error) {
@@ -73,6 +78,7 @@ export function WorkspacePage() {
   if (projectLoading) return <LoadingState label="Opening project" />
   if (projectError || !project) return <ErrorState message={projectError?.message ?? 'Project not found'} />
   const visibleMessages = [...savedMessages, ...optimistic]
+  const activeArtifact = artifacts.find((artifact) => artifact.id === activeArtifactId)
 
   return (
     <div className="workspace-shell">
@@ -83,7 +89,7 @@ export function WorkspacePage() {
         <div className="workspace-actions"><button title="Undo"><Undo2 size={19} /></button><button title="Redo"><Redo2 size={19} /></button><button title="History"><Clock3 size={19} /></button><button className="export-button"><Download size={17} /> Export <ChevronDown size={14} /></button><button title="More"><MoreVertical size={20} /></button></div>
       </header>
       <aside className="workspace-nav"><Brand compact /><NavLink to="/"><Home size={22} /><span>Home</span></NavLink><NavLink to="/projects" className="active"><span className="folder-icon">▱</span><span>Projects</span></NavLink><NavLink to="/settings"><Settings size={22} /><span>Settings</span></NavLink><button className="workspace-avatar">AS</button></aside>
-      <main className="workspace-main">
+      <main className={`workspace-main ${activeArtifact ? 'viewer-open' : 'chat-only'}`}>
         <section className="conversation-panel">
           <div className="conversation-scroll" ref={scrollRef}>
             <div className="day-divider"><span>Today</span></div>
@@ -92,11 +98,20 @@ export function WorkspacePage() {
             {(streaming || streamingText) && <MessageBubble streaming message={{ role: 'assistant', content: streamingText || ' ', created_at: new Date().toISOString() }} />}
             {progress && <div className="progress-event"><span className="mini-spinner" /> {progress}</div>}
             {streamError && <div className="chat-error">{streamError}<button onClick={() => { const userMessages = visibleMessages.filter((item) => item.role === 'user'); const last = userMessages[userMessages.length - 1]; if (last) void send(last.content) }}>Retry</button></div>}
+            {artifacts.length > 0 && <ArtifactSummaryCard artifacts={artifacts} onOpen={(artifact) => setActiveArtifactId(artifact.id)} />}
           </div>
           <div className="composer-wrap"><ChatComposer disabled={streaming} streaming={streaming} onSend={(value) => void send(value)} onStop={() => controllerRef.current?.abort()} /><div className="composer-tip">♧ Tip: add source-system names and the desired fact grain when you know them.</div></div>
         </section>
-        <ModelCanvas />
+        {activeArtifact && isLogicalModelArtifact(activeArtifact) && <ModelCanvas artifact={activeArtifact} onClose={() => setActiveArtifactId(null)} />}
+        {activeArtifact && !isLogicalModelArtifact(activeArtifact) && <StructuredArtifactViewer artifact={activeArtifact} onClose={() => setActiveArtifactId(null)} />}
       </main>
     </div>
   )
+}
+
+function isLogicalModelArtifact(artifact: Artifact): artifact is Artifact<LogicalModelPayload> {
+  const payload = artifact.payload as Partial<LogicalModelPayload>
+  return artifact.artifact_type === 'logical_model'
+    && Array.isArray(payload.entities)
+    && Array.isArray(payload.relationships)
 }

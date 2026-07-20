@@ -1,6 +1,6 @@
-import type { Message, Project, ProviderSettings, ProviderSettingsPayload, StreamEvent } from '../types'
+import type { Artifact, Message, Project, ProviderSettings, ProviderSettingsPayload, StreamEvent } from '../types'
 
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api'
+const API_URL = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000/api'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
@@ -25,6 +25,7 @@ export const api = {
   duplicateProject: (id: string) => request<Project>(`/projects/${id}/duplicate`, { method: 'POST' }),
   deleteProject: (id: string) => request<void>(`/projects/${id}`, { method: 'DELETE' }),
   listMessages: (id: string) => request<Message[]>(`/projects/${id}/messages`),
+  listArtifacts: (id: string) => request<Artifact[]>(`/projects/${id}/artifacts`),
   getProviderSettings: () => request<ProviderSettings>('/settings/provider'),
   saveProviderSettings: (input: ProviderSettingsPayload) =>
     request<ProviderSettings>('/settings/provider', { method: 'PUT', body: JSON.stringify(input) }),
@@ -68,4 +69,3 @@ export async function streamMessage(
     }
   }
 }
-

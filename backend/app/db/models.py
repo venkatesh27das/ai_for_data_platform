@@ -1,7 +1,17 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -31,6 +41,9 @@ class Project(Base):
     messages: Mapped[list["Message"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )
+    artifacts: Mapped[list["Artifact"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan"
+    )
 
 
 class Message(Base):
@@ -44,6 +57,30 @@ class Message(Base):
     content: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     project: Mapped[Project] = relationship(back_populates="messages")
+
+
+class Artifact(Base):
+    __tablename__ = "artifacts"
+    __table_args__ = (
+        UniqueConstraint(
+            "project_id", "artifact_type", "version", name="uq_artifact_project_type_version"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    project_id: Mapped[str] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True
+    )
+    artifact_type: Mapped[str] = mapped_column(String(64))
+    name: Mapped[str] = mapped_column(String(160))
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    status: Mapped[str] = mapped_column(String(32), default="ready")
+    payload: Mapped[dict[str, object]] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+    project: Mapped[Project] = relationship(back_populates="artifacts")
 
 
 class ProviderSettings(Base):

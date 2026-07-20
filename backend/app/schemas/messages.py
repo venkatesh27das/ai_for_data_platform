@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 
 class MessageCreate(BaseModel):
@@ -14,3 +14,9 @@ class MessageRead(BaseModel):
     role: str
     content: str
     created_at: datetime
+
+    @field_serializer("created_at")
+    def serialize_utc(self, value: datetime) -> str:
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=UTC)
+        return value.isoformat()

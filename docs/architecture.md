@@ -19,3 +19,4 @@ The current graph has three stable scaffolding nodes: load project state, unders
 
 Project and message state is authoritative in SQLite. Browser state is used only for transient composer and streaming presentation state.
 
+Generated assets are also authoritative SQLite records. A workspace fetches the project's artifact list but does not select one automatically. The chat displays an asset summary only when records exist, and the relevant viewer is mounted only after the modeller explicitly opens an asset.

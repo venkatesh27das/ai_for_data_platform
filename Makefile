@@ -1,4 +1,6 @@
-.PHONY: install dev backend frontend test lint migrate
+.PHONY: install dev backend frontend test lint migrate seed-example
+
+UV_CACHE_DIR ?= /tmp/uv-ai-data-model-cache
 
 install:
 	cd backend && uv sync --extra dev
@@ -24,3 +26,5 @@ lint:
 migrate:
 	cd backend && uv run alembic upgrade head
 
+seed-example:
+	cd backend && UV_CACHE_DIR=$(UV_CACHE_DIR) uv run python -m scripts.seed_example
