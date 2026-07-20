@@ -1,8 +1,28 @@
-# AI Data Modelling Assistant MVP
+# AI Data Modelling Assistant
 
-A local-first, chat-driven assistant for turning source metadata and modelling scenarios into reviewable dimensional-model assets. It combines a React workspace, FastAPI, durable LangGraph orchestration, SQLite persistence, and local LM Studio models.
+A local-first, chat-driven workspace that helps data modellers turn business requirements and source metadata into reviewable dimensional models, source-to-target mappings, data-quality rules, and validation findings.
 
-## What works
+The repository is an actively developed MVP foundation. Its primary path runs privately on local models through LM Studio, while the agent layer remains provider-independent.
+
+![Current AI Data Modelling Assistant home screen](docs/images/app-home.jpg)
+
+## Contents
+
+- [Implemented features](#implemented-features)
+- [Installation and local hosting](#installation-and-local-hosting)
+- [How a modeller uses the application](#how-a-modeller-uses-the-application)
+- [Backend implementation](#backend-implementation)
+- [Configuration](#configuration)
+- [Testing and maintenance](#testing-and-maintenance)
+- [Architecture](#architecture)
+- [Agents, skills, tools, and MCP](#agents-skills-tools-and-mcp)
+- [Providers and embeddings](#providers-and-embeddings)
+- [Reliability and performance](#reliability-and-performance)
+- [API overview](#api-overview)
+- [Troubleshooting](#troubleshooting)
+- [Roadmap](#roadmap)
+
+## Implemented features
 
 - Create, reopen, search, duplicate, and delete modelling projects.
 - Upload and profile CSV, JSON, DDL/SQL, XLSX, and XLSM sources.
@@ -15,7 +35,61 @@ A local-first, chat-driven assistant for turning source metadata and modelling s
 - Use deterministic fast paths for clear source metadata and structural validation, with LLM escalation when semantics are ambiguous.
 - Call `nomic-embed-text` through an embedding-provider interface. Retrieval is intentionally deferred.
 
-The logical-model canvas remains closed and empty until a generated asset is selected.
+The logical-model canvas remains closed and empty until a generated asset is selected. The generated artifact—not a hardcoded preview—is rendered when the modeller opens it.
+
+### Capability status
+
+| Capability | Status | Notes |
+| --- | --- | --- |
+| Projects and persistent conversations | Implemented | Create, reopen, search, duplicate, and delete |
+| Source upload and profiling | Implemented | CSV, JSON, DDL/SQL, XLSX, XLSM |
+| Dimensional model generation | Implemented | One central fact for the MVP |
+| Mappings and starter DQ rules | Implemented | Evidence, confidence, and review state included |
+| Independent validation | Implemented | Deterministic structural checks plus LLM escalation |
+| Artifact review and versions | Implemented | Approve, request changes, edit JSON, browse history |
+| Targeted regeneration | Implemented | Starts at the affected specialist and reruns dependencies |
+| Built-in tools | Implemented | Source-profile summary and workflow context |
+| MCP integration | Implemented foundation | Requires an external allow-listed MCP server |
+| Embeddings | Implemented foundation | Vector indexing and retrieval are planned |
+| Export formats | Planned | Export UI exists; downloads are not complete |
+| Anthropic Claude | Placeholder | Provider contract exists; transport is deferred |
+| A2A endpoint | Planned | Internal contracts are ready for later exposure |
+
+### Agent ecosystem at a glance
+
+#### Agents
+
+| Agent | What it does | Status |
+| --- | --- | --- |
+| Master planner | Builds the bounded plan, selects skills and tools, and controls approval and replanning | Implemented |
+| Requirement agent | Extracts the objective, KPIs, source context, candidate grain, and blocking questions | Implemented |
+| Source-analysis agent | Interprets profiled metadata, source roles, keys, and relationship evidence | Implemented |
+| Model-design agent | Designs the dimensional fact, dimensions, attributes, keys, and relationships | Implemented |
+| Mapping and DQ agent | Generates source-to-target mappings and starter data-quality rules | Implemented |
+| Validation agent | Critiques structural integrity, mapping coverage, and DQ coverage | Implemented |
+
+#### Skills
+
+| Skill | Owner | Overview |
+| --- | --- | --- |
+| `requirements.clarification` | Requirement agent | Clarify requirements and select a defensible grain |
+| `sources.evidence-analysis` | Source-analysis agent | Analyse uploaded and profiled source evidence |
+| `sources.external-metadata` | Source-analysis agent | Discover metadata through approved MCP tools |
+| `models.dimensional-design` | Model-design agent | Design the dimensional logical model |
+| `governance.mapping-dq` | Mapping and DQ agent | Create mappings, DQ rules, and review items |
+| `governance.model-validation` | Validation agent | Validate artifacts and trigger bounded rework |
+
+#### Tools and MCP
+
+| Capability | Type | Overview | Availability |
+| --- | --- | --- | --- |
+| `source.profile_summary` | Built-in tool | Reads persisted source-profile summaries | Available |
+| `project.workflow_context` | Built-in tool | Reads the current typed workflow context | Available |
+| `mcp.<server>.<tool>` | External MCP tool | Calls an explicitly configured Streamable HTTP MCP server | Configuration required |
+| MCP schema discovery | MCP support | Resolves advertised schemas before execution | Implemented |
+| MCP approval interrupt | MCP safety | Pauses the checkpointed plan for modeller approval | Implemented |
+
+No external MCP tools are bundled or enabled by default. Their actual list comes from `MCP_SERVERS_JSON` and `MCP_TOOL_ALLOWLIST`. See [Agents, skills, tools, and MCP](#agents-skills-tools-and-mcp) for the detailed execution and policy model.
 
 ## Stack
 
@@ -43,7 +117,9 @@ Load these models in LM Studio:
 
 The interface and project CRUD run without LM Studio. Model generation and provider health checks require the chat model to be loaded.
 
-## Quick start
+## Installation and local hosting
+
+### Quick start
 
 From the repository root:
 
@@ -52,12 +128,13 @@ make setup
 make dev
 ```
 
-`make setup` creates `.env` when needed, installs locked dependencies, and applies every database migration. `make dev` starts both services with live reload. Press `Ctrl+C` to stop them.
+`make setup` creates `.env` when needed, installs locked Python and frontend dependencies, creates the data directory, and applies every Alembic migration. `make dev` starts both services with live reload. Press `Ctrl+C` once to stop them.
 
 Open:
 
 - App: [http://127.0.0.1:5173](http://127.0.0.1:5173)
 - API docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+- Health: [http://127.0.0.1:8000/api/health](http://127.0.0.1:8000/api/health)
 - Readiness: [http://127.0.0.1:8000/api/ready](http://127.0.0.1:8000/api/ready)
 
 ### Background hosting
@@ -68,7 +145,7 @@ make status
 make stop
 ```
 
-Logs and PID files are stored in the ignored `.run/` directory. `make start` applies pending migrations before launching.
+Logs and PID files are stored in the ignored `.run/` directory. `make start` applies pending migrations before launching. Ports are strict, so Vite fails clearly instead of silently moving to another port.
 
 ### Separate terminals
 
@@ -82,31 +159,114 @@ In a second terminal:
 make frontend
 ```
 
-## Modeller walkthrough
+### Manual installation
 
-Create the bundled showcase project:
+```bash
+cp .env.example .env
+
+cd backend
+uv sync --extra dev --frozen
+uv run alembic upgrade head
+
+cd ../frontend
+npm ci
+```
+
+## How a modeller uses the application
+
+### 1. Configure and test LM Studio
+
+Open **Settings** and confirm the provider, model, base URL, structured-output mode, and tool-calling preference. Use **Test connection** before a modelling run.
+
+![Current provider settings screen](docs/images/app-settings.jpg)
+
+Application-saved provider settings take precedence for runtime chat calls. API keys stay backend-only and are never returned to the browser.
+
+### 2. Describe the modelling outcome
+
+On Home, describe the analytical decision, business process, measures, likely fact grain, and known sources. Attach metadata when available.
+
+Example:
+
+> Build a sales-order analytics dimensional model from SAP S/4HANA at one row per sales-order line. Use VBAK, VBAP, KNA1, MARA, and T001W. Users need net sales, ordered quantity, discount amount, average selling price, and distinct order count by customer, product, plant, sales organisation, and order date. Keep cancelled lines with a flag. Generate the logical model, mappings, and core DQ rules.
+
+For a ready-made walkthrough:
 
 ```bash
 make seed-example
 ```
 
-Open **SAP Sales Order Analytics — Example** from Projects. It includes a representative conversation, source assessment, logical model, mappings, DQ rules, and validation findings.
+Open **SAP Sales Order Analytics — Example**.
 
-To test a new project:
+### 3. Manage and reopen work
 
-1. Enter this scenario on Home:
+Projects shows status, recency, source count, entity count, and mapping count. Search, filter, open, or duplicate a project.
 
-   > Build a sales-order analytics model at one row per order line. The source contains order headers, order lines, customers, products, and order dates. I need net sales, quantity, discount, order count, customer, product, territory, and monthly trend analysis. Generate a logical dimensional model, source-to-target mappings, and core data-quality rules.
+![Current projects screen](docs/images/app-projects.jpg)
 
-2. Create the project and optionally upload matching CSV, JSON, DDL, or spreadsheet metadata.
-3. Answer any blocking grain or source questions.
-4. Follow the streamed plan and specialist progress.
-5. Select the generated **Logical model** asset to open the canvas.
-6. Inspect relationships and keys, then review mappings and DQ rules.
-7. Approve, request changes, or regenerate only the affected asset.
-8. Return to Projects and reopen the project to verify persistence.
+### 4. Work through the conversation
 
-Clear profiled metadata is classified locally. Unknown source roles, low-confidence mappings, and explicit review decisions are sent to the configured chat model.
+The assistant may ask blocking questions when grain, KPI meaning, source availability, or a material design choice is unclear. Follow the streamed plan, specialist progress, tool activity, and approval requests.
+
+Generated-asset actions appear only after assets exist. The canvas stays closed until **Open model**, **Review mappings**, **Review DQ rules**, **Review findings**, or **Open source** is selected.
+
+![Current workspace before selecting an asset](docs/images/app-workspace.jpg)
+
+### 5. Review the generated assets
+
+The logical-model viewer displays the persisted model and renders relationship arrows from actual relationship records. A modeller can:
+
+- inspect facts, dimensions, keys, attributes, measures, and grain;
+- zoom, fit, and drag entities while persisting canvas positions;
+- switch between diagram and details;
+- review mappings, confidence, transformations, and evidence;
+- review starter DQ rules and validation findings;
+- approve or request changes; and
+- regenerate the affected asset and dependent outputs.
+
+![Current generated logical model and relationship connectors](docs/images/app-logical-model.jpg)
+
+### 6. Reopen and continue
+
+Messages, source profiles, generated artifacts, review decisions, project state, workflow runs, and checkpoints persist. Return to Projects and reopen the model to continue.
+
+Clear profiled metadata can be analysed locally. Unknown source roles, open design decisions, low-confidence mappings, and explicit review items escalate to the configured chat model.
+
+## Backend implementation
+
+The backend is layered so HTTP routes stay thin and agents do not depend on storage or provider SDKs.
+
+| Layer | Responsibility |
+| --- | --- |
+| `app/api` | FastAPI validation, response schemas, SSE endpoints |
+| `app/services` | Projects, conversations, artifacts, ingestion, providers, workflow execution |
+| `app/repositories` | SQLAlchemy persistence boundaries |
+| `app/db` | ORM models, sessions, SQLite configuration |
+| `app/orchestration` | LangGraph state, nodes, dispatch, supervision, replanning |
+| `app/agents` | Typed specialists, versioned prompts, safe fallbacks |
+| `app/autonomy` | Planner, capability manifests, tools, MCP, execution contracts |
+| `app/llm` | Provider and embedding abstractions and adapters |
+| `app/runtime.py` | Shared HTTP client, checkpointer, locks, tasks, provider guard |
+
+### Persisted records
+
+- Projects and latest typed workflow state
+- User and assistant messages linked to workflow runs
+- Uploaded source metadata and lightweight profiles
+- Immutable generated-artifact versions and reviews
+- Workflow runs and ordered SSE events
+- Idempotent tool operations and cached specialist results
+- LangGraph node checkpoints in a separate SQLite database
+
+SQLite runs with foreign keys, WAL mode, a busy timeout, and normal synchronous mode. Project state, artifacts, assistant response, terminal event, run status, and lease release are published in one transaction.
+
+### Source ingestion
+
+- CSV and JSON records are sampled.
+- SQL DDL is parsed into table and column metadata.
+- XLSX and XLSM workbooks are opened read-only.
+- Profiles include columns, inferred primitive types, null counts, small sample values, and evidence.
+- Full binary files and complete datasets are not placed into agent prompts.
 
 ## Configuration
 
@@ -174,7 +334,7 @@ Application state is stored under ignored `backend/data/`. `make clean` does not
 
 Terminal workflow publication is transactional: project state, artifact versions, assistant message, terminal event, status, and lease release become visible together. Progress events remain independently durable for SSE reconnection.
 
-## Tests and checks
+## Testing and maintenance
 
 ```bash
 make test
@@ -195,23 +355,215 @@ cd ../frontend
 npm test -- --run
 npm run lint
 npm run build
+npm audit
+```
+
+Verified baseline:
+
+- 29 backend tests passing
+- Frontend component tests passing
+- Ruff and strict mypy passing
+- ESLint and TypeScript passing
+- Production Vite build passing
+- npm audit reporting zero vulnerabilities
+
+Maintenance commands:
+
+```bash
+make migrate       # apply migrations
+make seed-example  # create or refresh the showcase project
+make clean         # remove caches, logs, PIDs, and build output
 ```
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-  UI[React workspace] -->|REST and SSE| API[FastAPI]
-  API --> RUN[Durable workflow runner]
-  RUN --> PLAN[LangGraph master planner]
-  PLAN --> AGENTS[Typed specialist agents]
-  PLAN --> TOOLS[Allow-listed tools and MCP]
-  AGENTS --> LLM[Provider abstraction]
-  LLM --> LM[LM Studio]
-  RUN --> DB[(SQLite)]
+  UI["React + TypeScript workspace"] -->|"REST + SSE"| API["FastAPI API"]
+  API --> RUN["Durable workflow runner"]
+  API --> SVC["Application services"]
+  SVC --> REPO["SQLAlchemy repositories"]
+  REPO --> DB[("SQLite application data")]
+  RUN --> GRAPH["LangGraph master orchestrator"]
+  GRAPH --> CP[("SQLite checkpoints")]
+  GRAPH --> PLAN["Master planner"]
+  PLAN --> SKILLS["Versioned skill registry"]
+  PLAN --> TOOLS["Policy-enforced tool executor"]
+  TOOLS --> MCP["MCP Streamable HTTP servers"]
+  GRAPH --> AGENTS["Typed specialist agents"]
+  AGENTS --> LLM["Provider registry"]
+  LLM --> LM["LM Studio / OpenAI-compatible API"]
+  EMBED["Embedding service"] --> LM
 ```
 
-The planner produces an authoritative dependency-aware plan with iteration and tool-call budgets. The supervisor validates capabilities, reacts to observations, interrupts for approval, and performs bounded replanning. Agents contain no provider-specific logic.
+### Request lifecycle
+
+```mermaid
+sequenceDiagram
+  participant U as Modeller
+  participant W as React workspace
+  participant A as FastAPI
+  participant R as Durable runner
+  participant G as LangGraph supervisor
+  participant P as Planner and specialists
+  participant D as SQLite
+
+  U->>W: Submit scenario
+  W->>A: Stream request with idempotency key
+  A->>D: Create or reuse workflow run
+  A-->>W: Run ID and SSE stream
+  R->>G: Execute checkpointed workflow
+  G->>P: Plan, act, observe, and replan
+  P-->>G: Typed results and evidence
+  G-->>R: Final workflow state
+  R->>D: Atomic terminal publication
+  D-->>W: Durable events and generated assets
+  W-->>U: Response and selectable artifacts
+```
+
+## Agents, skills, tools, and MCP
+
+The agent framework is LangGraph. The master orchestrator owns routing and shared state; specialists do not call each other directly and contain no provider-specific SDK logic.
+
+### Autonomous reactive planning
+
+```mermaid
+flowchart TD
+  START["New request or checkpoint resume"] --> LOAD["Load project state"]
+  LOAD --> PLAN["Create or reconcile plan"]
+  PLAN --> POLICY{"Approval required?"}
+  POLICY -->|"Yes"| HUMAN["Checkpointed human approval"]
+  POLICY -->|"No"| DISPATCH["Select dependency-ready step"]
+  HUMAN -->|"Approved"| DISPATCH
+  HUMAN -->|"Denied"| STOP["Stop safely"]
+  DISPATCH --> KIND{"Tool or specialist?"}
+  KIND -->|"Tool"| TOOL["Execute allow-listed tool"]
+  KIND -->|"Specialist"| AGENT["Run typed specialist"]
+  TOOL --> OBSERVE["Persist observation"]
+  AGENT --> OBSERVE
+  OBSERVE --> RESULT{"Failure or validation defect?"}
+  RESULT -->|"Recoverable and budget remains"| PLAN
+  RESULT -->|"No"| MORE{"More steps?"}
+  RESULT -->|"Budget exhausted"| REVIEW["Human review"]
+  MORE -->|"Yes"| DISPATCH
+  MORE -->|"No"| PERSIST["Persist versioned result"]
+```
+
+The execution plan is authoritative and contains dependency-aware steps, completion criteria, iteration and tool-call budgets, selected skills and tools, and approval requirements. The supervisor validates every selection against the capability registry before execution.
+
+### Implemented agents
+
+| Agent | Responsibility | Typed output | Modes |
+| --- | --- | --- | --- |
+| Master planner | Selects steps, skills, tools, budgets, and approval policy | `ExecutionPlan` | Deterministic, LLM, fallback, cache |
+| Requirement and clarification | Extracts objective, process, KPIs, sources, outputs, grain, and blocking questions | `ModellingBrief` | LLM, fallback, cache |
+| Source analysis | Interprets profiles without inventing statistics; identifies roles, keys, and relationships | `SourceAnalysis` | Deterministic, LLM, fallback, cache |
+| Model design | Creates fact, dimensions, attributes, keys, measures, grain, and relationships | `LogicalModelProposal` | LLM, fallback, cache |
+| Mapping and DQ | Creates mappings, transformations, confidence, review items, and starter rules | `MappingDQProposal` | LLM, fallback, cache |
+| Critic and validation | Checks structural integrity, targets, mapping coverage, and DQ coverage | `ValidationReport` | Deterministic, LLM, fallback, cache |
+
+Every specialist result includes agent ID and version, confidence, evidence, assumptions, execution mode, and fallback reason when applicable. Outputs are Pydantic-validated. Transient transport failures receive a bounded retry; persistent failures use conservative, explicitly labelled fallbacks.
+
+### Implemented skills
+
+A runtime skill is a versioned JSON capability manifest owned by an agent. It declares capabilities, allowed tools, and approval policy; it is not unrestricted executable code.
+
+| Skill ID | Owner | Capabilities | Allowed tools | Approval |
+| --- | --- | --- | --- | --- |
+| `requirements.clarification` | Requirement agent | Requirements, clarification, grain selection | None | No |
+| `sources.evidence-analysis` | Source-analysis agent | Source analysis, profiling, key identification | `source.profile_summary` | No |
+| `sources.external-metadata` | Source-analysis agent | External metadata and MCP access | `mcp.*`, constrained globally | Always |
+| `models.dimensional-design` | Model-design agent | Dimensional, entity, relationship design | `project.workflow_context` | No |
+| `governance.mapping-dq` | Mapping/DQ agent | Mapping, DQ, review triage | `project.workflow_context` | No |
+| `governance.model-validation` | Validation agent | Critique, validation, reactive replanning | `project.workflow_context` | No |
+
+Skill manifests live in `backend/app/autonomy/skills/`. Unknown and duplicate IDs are rejected.
+
+### Implemented built-in tools
+
+| Tool | Purpose | Boundary |
+| --- | --- | --- |
+| `source.profile_summary` | Returns persisted source profiles, sampled-row counts, columns, and column counts | Current workflow source-profile state only |
+| `project.workflow_context` | Returns available typed artifacts and the current workflow stage | Current project workflow state only |
+
+The tool executor validates the selected skill's allow-list and the tool input schema, applies timeouts, records status and duration, and reports failures back to the supervisor as observations. Stable fingerprints allow completed tool results to be reused after checkpoint recovery.
+
+### MCP implementation
+
+MCP uses the official Python SDK with Streamable HTTP:
+
+1. Servers are explicitly named in `MCP_SERVERS_JSON`.
+2. Fully qualified tools must be present in `MCP_TOOL_ALLOWLIST`.
+3. The external-metadata skill always requires modeller approval.
+4. LangGraph interrupts before execution and resumes only after approval.
+5. The MCP server's advertised input schema is resolved and validated.
+6. `isError` responses become failed observations.
+7. Tool schemas use a bounded TTL cache.
+8. Calls use timeouts and durable operation fingerprints.
+
+```dotenv
+MCP_SERVERS_JSON={"catalog":"http://127.0.0.1:9000/mcp"}
+MCP_TOOL_ALLOWLIST=mcp.catalog.list_tables,mcp.catalog.describe_table
+```
+
+No external MCP server is bundled, so MCP is disabled by default. The implementation does not provide unrestricted tool discovery, arbitrary shell execution, remote skill installation, or a full MCP ecosystem.
+
+```mermaid
+flowchart LR
+  CALL["Planned tool call"] --> SKILL{"Allowed by skill?"}
+  SKILL -->|"No"| DENY["Denied observation"]
+  SKILL -->|"Yes"| GLOBAL{"Registered or globally allow-listed?"}
+  GLOBAL -->|"No"| DENY
+  GLOBAL -->|"Yes"| APPROVE{"Approval required?"}
+  APPROVE -->|"Yes"| HUMAN["Human interrupt"]
+  APPROVE -->|"No"| SCHEMA["Validate schema"]
+  HUMAN -->|"Approved"| SCHEMA
+  HUMAN -->|"Denied"| DENY
+  SCHEMA --> EXEC["Execute with timeout"]
+  EXEC --> RECORD["Persist result or failure"]
+```
+
+## Providers and embeddings
+
+Agents depend only on the internal provider interface.
+
+| Provider | Status | Notes |
+| --- | --- | --- |
+| LM Studio | Implemented and primary | OpenAI-compatible structured output and streaming |
+| OpenAI | Implemented through compatible transport | Requires model and API key |
+| Custom OpenAI-compatible | Implemented | Configurable URL, model, and key |
+| Anthropic Claude | Placeholder | Contract and Settings option exist; transport is deferred |
+
+`EmbeddingService` provides a minimal `embed_documents()` boundary. The LM Studio embedding adapter checks available models, resolves `nomic-embed-text`, calls `/embeddings`, and restores input order. Vector indexing, retrieval, and RAG are not implemented yet.
+
+## Reliability and performance
+
+- Workflow execution is independent of the browser SSE connection.
+- Every request has a durable run ID and ordered events.
+- Refreshing or disconnecting does not terminate backend work.
+- The client reconnects after the last received sequence.
+- Startup recovery resumes queued or running work from LangGraph checkpoints.
+- Client idempotency keys prevent duplicate submissions.
+- Database and in-process project locks prevent conflicting runs.
+- Tool fingerprints prevent repeated completed operations.
+- Terminal state, artifact versions, response, event, status, and lease release commit atomically.
+- One pooled HTTP client, concurrency semaphore, and circuit breaker protect providers.
+- Specialist results are cached by agent version, provider, model, prompt, input, and schema.
+- Deterministic planner, presenter, source-analysis, and validation fast paths reduce LLM calls.
+
+## API overview
+
+Interactive OpenAPI documentation is available at `/docs`.
+
+| Area | Implemented endpoints |
+| --- | --- |
+| Health | Health and readiness |
+| Projects | List, create, read, patch, duplicate, delete |
+| Conversations | List messages, start/reconnect/cancel SSE runs, inspect active run |
+| Sources | List and upload project sources |
+| Artifacts | List/get, review, revise, save canvas layout |
+| Settings | Read/save provider settings and test provider |
+| Autonomy | List skills/tools, test MCP server, inspect project execution state |
 
 See [`docs/architecture.md`](./docs/architecture.md) and the product specification [`CODEX_AI_Data_Modelling_Assistant_MVP.md`](./CODEX_AI_Data_Modelling_Assistant_MVP.md).
 
@@ -232,8 +584,12 @@ frontend/
   src/features/        Home, Projects, Workspace, Settings
   src/services/        typed API and SSE client
 scripts/               setup and local process helpers
-docs/                   architecture notes
+docs/
+  images/              current application screenshots
+  architecture.md      implementation architecture notes
 ```
+
+Current screenshots live under `docs/images/`. Local `.env`, application databases, uploaded data, logs, PID files, caches, virtual environments, `node_modules`, and generated builds are ignored by Git.
 
 ## Troubleshooting
 
@@ -250,6 +606,17 @@ docs/                   architecture notes
 - Confirm `VITE_API_URL` and `FRONTEND_ORIGIN` are browser-reachable.
 - Restart the frontend after changing `.env`.
 
+### Frontend is blank after installing dependencies
+
+A Vite server started before `npm ci` or a dependency upgrade may still reference replaced client files. Stop that process and restart the frontend:
+
+```bash
+make stop
+make dev
+```
+
+If it was started in a separate terminal, use `Ctrl+C` in that terminal first.
+
 ### A port is already in use
 
 Run `make stop`, or change `APP_PORT`, `FRONTEND_PORT`, and `VITE_API_URL` consistently.
@@ -258,6 +625,27 @@ Run `make stop`, or change `APP_PORT`, `FRONTEND_PORT`, and `VITE_API_URL` consi
 
 Run `make setup` again. Installation is lockfile-based and safe to repeat.
 
-## Deferred scope
+## Roadmap
 
-Full retrieval/vector search, live database introspection, legacy `.xls` parsing, production authentication, and production export/deployment infrastructure are outside this MVP slice.
+### Planned next
+
+- Richer deterministic profiling: distinct percentages, numeric statistics, candidate-key scores
+- Relationship scoring using normalized names, uniqueness, overlap, and data-type compatibility
+- Natural-language operation extraction and deterministic model mutations
+- Impact analysis and approval for material changes
+- Fine-grained model diff, operation history, undo, and redo
+- JSON, mapping CSV, DQ CSV, Mermaid, Markdown, and optional SQL DDL exports
+- Completed Anthropic Claude transport
+- Remote A2A-style validation-agent endpoint and agent card
+- Embedding index, retrieval service, and evidence search
+- Trusted live database/catalog integrations through additional tools and MCP servers
+
+### Outside the current MVP
+
+- Data Vault and operational normalized modelling
+- Enterprise MDM and survivorship
+- Direct SAP connectivity and production database writeback
+- Multi-tenancy, enterprise RBAC, and simultaneous collaboration
+- Automated pipeline generation
+- Production deployment automation
+- Full enterprise lineage extraction
