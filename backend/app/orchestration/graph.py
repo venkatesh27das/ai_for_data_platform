@@ -30,7 +30,9 @@ from app.autonomy.capabilities import CapabilityRegistry
 from app.autonomy.contracts import (
     DecisionRecord,
     ExecutionPlan,
+    PlannedToolCall,
     PlanningInput,
+    PlanStep,
     ToolRequest,
 )
 from app.autonomy.planner import PlannerAgent
@@ -90,15 +92,17 @@ class MasterOrchestrator:
             plan = self.planner_agent.fallback(payload, exc).model_copy(
                 update={"execution_mode": "fallback", "fallback_reason": str(exc)}
             )
+        plan = reconcile_plan_with_state(plan, state)
         approval_required = plan.requires_human_approval or any(
-            step.approval_required or any(tool.startswith("mcp.") for tool in step.required_tools)
+            step_requires_approval(step, self.capabilities)
             for step in plan.steps
+            if step.status != "completed"
         )
         if approval_required and not plan.requires_human_approval:
             plan = plan.model_copy(
                 update={
                     "requires_human_approval": True,
-                    "approval_reason": "The plan includes an external MCP tool.",
+                    "approval_reason": "The plan includes a capability that requires approval.",
                 }
             )
         await self.emit(
@@ -111,6 +115,11 @@ class MasterOrchestrator:
             "execution_plan": plan.model_dump(mode="json"),
             "workflow_stage": "planned",
             "approval_status": "required" if approval_required else "not_required",
+            "active_step_id": None,
+            "next_action": None,
+            "replan_count": state.get("replan_count", 0)
+            + (1 if state.get("replanning_reason") else 0),
+            "replanning_reason": None,
             "decision_trace": [
                 *state.get("decision_trace", []),
                 DecisionRecord(
@@ -151,29 +160,36 @@ class MasterOrchestrator:
             ],
         }
 
-    async def execute_source_tools(self, state: ModellingGraphState) -> NodeResult:
+    async def execute_planned_tools(self, state: ModellingGraphState) -> NodeResult:
         plan = ExecutionPlan.model_validate(state["execution_plan"])
-        step = next((item for item in plan.steps if item.agent_id == "source_analysis_agent"), None)
-        if step is None or not step.required_tools:
-            return {"workflow_stage": "source_tools_skipped"}
+        step = plan_step(plan, state.get("active_step_id"))
+        calls = planned_tool_calls(step)
+        if not calls:
+            return {
+                "workflow_stage": "tools_skipped",
+                "tool_steps_completed": [*state.get("tool_steps_completed", []), step.id],
+            }
         remaining = max(0, plan.tool_call_budget - len(state.get("tool_trace", [])))
         requests = [
             ToolRequest(
-                tool_name=tool_name,
-                requested_by="source_analysis_agent",
+                tool_name=call.tool_name,
+                arguments=call.arguments,
+                requested_by=step.agent_id,
                 skill_id=step.skill_id,
+                plan_step_id=step.id,
             )
-            for tool_name in step.required_tools[:remaining]
+            for call in calls[:remaining]
         ]
         records = []
         results = dict(state.get("tool_results", {}))
+        budget_exhausted = len(requests) < len(calls)
         for request in requests:
             await self.emit("tool.started", request.tool_name)
             record = await self.tool_executor.execute(
                 request,
                 ToolContext(project_id=state.get("project_id", ""), state=dict(state)),
             )
-            records.append(record.model_dump(mode="json"))
+            records.append(record)
             if record.status == "completed":
                 results[record.tool_name] = record.result
             await self.emit(
@@ -181,10 +197,74 @@ class MasterOrchestrator:
                 request.tool_name,
                 execution_mode=record.status,
             )
+        failed = [record for record in records if record.status != "completed"]
+        reason: str | None = None
+        if budget_exhausted:
+            reason = f"Tool-call budget was exhausted while executing step {step.id}."
+        elif failed:
+            reason = "; ".join(
+                f"{record.tool_name}: {record.error or record.status}" for record in failed
+            )
+        revised = update_plan_step_status(plan, step.id, "failed" if reason else "running")
         return {
             "tool_results": results,
-            "tool_trace": [*state.get("tool_trace", []), *records],
-            "workflow_stage": "source_tools_completed",
+            "tool_trace": [
+                *state.get("tool_trace", []),
+                *(record.model_dump(mode="json") for record in records),
+            ],
+            "execution_plan": revised.model_dump(mode="json"),
+            "tool_steps_completed": (
+                state.get("tool_steps_completed", [])
+                if reason
+                else [*state.get("tool_steps_completed", []), step.id]
+            ),
+            "replanning_reason": reason,
+            "workflow_stage": "tool_observation_failed" if reason else "tools_completed",
+        }
+
+    async def dispatch_plan(self, state: ModellingGraphState) -> NodeResult:
+        plan = ExecutionPlan.model_validate(state["execution_plan"])
+        if state.get("replanning_reason"):
+            if state.get("replan_count", 0) < plan.iteration_budget:
+                return {
+                    "next_action": "replan",
+                    "workflow_stage": "replanning",
+                    "decision_trace": [
+                        *state.get("decision_trace", []),
+                        DecisionRecord(
+                            decision="observation_requires_replan",
+                            reason=state["replanning_reason"] or "Execution observation failed.",
+                            selected_route="planner_agent",
+                            plan_id=plan.plan_id,
+                        ).model_dump(mode="json"),
+                    ],
+                }
+            return {
+                "next_action": "stop",
+                "workflow_stage": "ready_for_review",
+                "run_status": "completed",
+            }
+
+        ready = next_ready_step(plan)
+        if ready is None:
+            unfinished = [step for step in plan.steps if step.status != "completed"]
+            if unfinished:
+                return {
+                    "next_action": "stop",
+                    "workflow_stage": "ready_for_review",
+                    "run_status": "completed",
+                }
+            return {"next_action": "persist", "active_step_id": None}
+
+        revised = update_plan_step_status(plan, ready.id, "running")
+        needs_tools = bool(planned_tool_calls(ready)) and ready.id not in state.get(
+            "tool_steps_completed", []
+        )
+        return {
+            "execution_plan": revised.model_dump(mode="json"),
+            "active_step_id": ready.id,
+            "next_action": "tools" if needs_tools else ready.agent_id,
+            "workflow_stage": f"executing:{ready.id}",
         }
 
     async def understand_scenario(self, state: ModellingGraphState) -> NodeResult:
@@ -356,7 +436,10 @@ class MasterOrchestrator:
         }
 
     async def persist_version(self, state: ModellingGraphState) -> NodeResult:
-        report = ValidationReport.model_validate(state["validation_report"])
+        report_data = state.get("validation_report")
+        if not report_data:
+            return {"workflow_stage": "ready_for_review", "run_status": "completed"}
+        report = ValidationReport.model_validate(report_data)
         return {
             "workflow_stage": "ready_for_review" if report.findings else "completed",
             "run_status": "completed",
@@ -379,7 +462,8 @@ class MasterOrchestrator:
         revised = revise_plan_status(plan, route)
         return {
             "execution_plan": revised.model_dump(mode="json"),
-            "supervisor_route": route,
+            "supervisor_route": "replan" if route != "complete" else "dispatch",
+            "replanning_reason": reason if route != "complete" else None,
             "decision_trace": [
                 *state.get("decision_trace", []),
                 DecisionRecord(
@@ -409,7 +493,8 @@ class MasterOrchestrator:
         graph.add_node("planner_agent", self.plan_execution)
         graph.add_node("plan_approval", self.request_plan_approval)
         graph.add_node("requirement_agent", self.understand_scenario)
-        graph.add_node("source_tools", self.execute_source_tools)
+        graph.add_node("plan_dispatch", self.dispatch_plan)
+        graph.add_node("tool_executor", self.execute_planned_tools)
         graph.add_node("source_analysis_agent", self.analyse_sources)
         graph.add_node("model_design_agent", self.design_model)
         graph.add_node("mapping_dq_agent", self.create_mappings_and_rules)
@@ -422,48 +507,48 @@ class MasterOrchestrator:
         graph.add_conditional_edges(
             "planner_agent",
             route_after_planning,
-            {
-                "approval": "plan_approval",
-                "requirements": "requirement_agent",
-                "sources": "source_tools",
-                "model": "model_design_agent",
-                "mapping_dq": "mapping_dq_agent",
-                "validation": "validation_agent",
-            },
+            {"approval": "plan_approval", "dispatch": "plan_dispatch"},
         )
         graph.add_conditional_edges(
             "plan_approval",
             route_after_approval,
+            {"dispatch": "plan_dispatch", "stop": "present_response"},
+        )
+        graph.add_conditional_edges(
+            "plan_dispatch",
+            route_after_dispatch,
             {
-                "requirements": "requirement_agent",
-                "sources": "source_tools",
-                "model": "model_design_agent",
-                "mapping_dq": "mapping_dq_agent",
-                "validation": "validation_agent",
+                "replan": "planner_agent",
+                "tools": "tool_executor",
+                "requirement_agent": "requirement_agent",
+                "source_analysis_agent": "source_analysis_agent",
+                "model_design_agent": "model_design_agent",
+                "mapping_dq_agent": "mapping_dq_agent",
+                "validation_agent": "validation_agent",
+                "persist": "persist_version",
                 "stop": "present_response",
             },
         )
+        graph.add_edge("tool_executor", "plan_dispatch")
         graph.add_conditional_edges(
             "requirement_agent",
             route_after_requirements,
-            {"continue": "source_tools", "wait": "present_response"},
+            {"continue": "plan_dispatch", "wait": "present_response"},
         )
-        graph.add_edge("source_tools", "source_analysis_agent")
         graph.add_conditional_edges(
             "source_analysis_agent",
             route_after_sources,
-            {"continue": "model_design_agent", "wait": "present_response"},
+            {"continue": "plan_dispatch", "wait": "present_response"},
         )
-        graph.add_edge("model_design_agent", "mapping_dq_agent")
-        graph.add_edge("mapping_dq_agent", "validation_agent")
+        graph.add_edge("model_design_agent", "plan_dispatch")
+        graph.add_edge("mapping_dq_agent", "plan_dispatch")
         graph.add_edge("validation_agent", "reactive_supervisor")
         graph.add_conditional_edges(
             "reactive_supervisor",
             route_after_supervision,
             {
-                "model_design": "model_design_agent",
-                "mapping_dq": "mapping_dq_agent",
-                "complete": "persist_version",
+                "replan": "planner_agent",
+                "dispatch": "plan_dispatch",
             },
         )
         graph.add_edge("persist_version", "present_response")
@@ -496,18 +581,46 @@ def route_after_requirements(state: ModellingGraphState) -> Literal["continue", 
 
 def route_after_planning(
     state: ModellingGraphState,
-) -> Literal["approval", "requirements", "sources", "model", "mapping_dq", "validation"]:
+) -> Literal["approval", "dispatch"]:
     if state.get("approval_status") == "required":
         return "approval"
-    return route_from_entry(state)
+    return "dispatch"
 
 
 def route_after_approval(
     state: ModellingGraphState,
-) -> Literal["requirements", "sources", "model", "mapping_dq", "validation", "stop"]:
+) -> Literal["dispatch", "stop"]:
     if state.get("approval_status") != "approved":
         return "stop"
-    return route_from_entry(state)
+    return "dispatch"
+
+
+def route_after_dispatch(
+    state: ModellingGraphState,
+) -> Literal[
+    "replan",
+    "tools",
+    "requirement_agent",
+    "source_analysis_agent",
+    "model_design_agent",
+    "mapping_dq_agent",
+    "validation_agent",
+    "persist",
+    "stop",
+]:
+    action = state.get("next_action")
+    allowed = {
+        "replan",
+        "tools",
+        "requirement_agent",
+        "source_analysis_agent",
+        "model_design_agent",
+        "mapping_dq_agent",
+        "validation_agent",
+        "persist",
+        "stop",
+    }
+    return action if action in allowed else "stop"  # type: ignore[return-value]
 
 
 def route_from_entry(
@@ -532,13 +645,8 @@ def route_after_sources(state: ModellingGraphState) -> Literal["continue", "wait
 
 def route_after_supervision(
     state: ModellingGraphState,
-) -> Literal["model_design", "mapping_dq", "complete"]:
-    route = state.get("supervisor_route")
-    if route == "model_design":
-        return "model_design"
-    if route == "mapping_dq":
-        return "mapping_dq"
-    return "complete"
+) -> Literal["replan", "dispatch"]:
+    return "replan" if state.get("supervisor_route") == "replan" else "dispatch"
 
 
 def extract_source_metadata(message: str) -> list[SourceMetadata]:
@@ -602,16 +710,38 @@ def validate_plan(
 ) -> None:
     if not plan.steps:
         raise ValueError("The planner returned no executable steps")
+    identifiers = [step.id for step in plan.steps]
+    if len(identifiers) != len(set(identifiers)):
+        raise ValueError("Plan step identifiers must be unique")
+    known_ids = set(identifiers)
+    supported_agents = {
+        "requirement_agent",
+        "source_analysis_agent",
+        "model_design_agent",
+        "mapping_dq_agent",
+        "validation_agent",
+    }
     for step in plan.steps:
+        if step.agent_id not in supported_agents:
+            raise ValueError(f"The plan selected an unsupported agent: {step.agent_id}")
+        missing_dependencies = set(step.depends_on) - known_ids
+        if missing_dependencies:
+            raise ValueError(
+                f"Step {step.id} has unknown dependencies: {', '.join(missing_dependencies)}"
+            )
+        if step.id in step.depends_on:
+            raise ValueError(f"Step {step.id} cannot depend on itself")
         skill = capabilities.get(step.skill_id)
         if skill.agent_id != step.agent_id:
             raise ValueError(f"Skill {skill.id} belongs to {skill.agent_id}, not {step.agent_id}")
         allowed = set(skill.allowed_tools)
-        for tool in step.required_tools:
+        selected_tools = [*step.required_tools, *(call.tool_name for call in step.tool_calls)]
+        for tool in selected_tools:
             if tool not in available_tools:
                 raise ValueError(f"The planner selected an unavailable tool: {tool}")
             if tool not in allowed and not (tool.startswith("mcp.") and "mcp.*" in allowed):
                 raise ValueError(f"Skill {skill.id} does not allow tool {tool}")
+    assert_acyclic_plan(plan)
 
 
 def revise_plan_status(plan: ExecutionPlan, route: str) -> ExecutionPlan:
@@ -632,10 +762,147 @@ def revise_plan_status(plan: ExecutionPlan, route: str) -> ExecutionPlan:
 
 def complete_plan_step(state: ModellingGraphState, agent_id: str) -> dict[str, Any]:
     plan = ExecutionPlan.model_validate(state["execution_plan"])
+    active_step_id = state.get("active_step_id")
     steps = [
         step.model_copy(update={"status": "completed"})
-        if step.agent_id == agent_id
+        if step.agent_id == agent_id and (active_step_id is None or step.id == active_step_id)
         else step
         for step in plan.steps
     ]
     return plan.model_copy(update={"steps": steps}).model_dump(mode="json")
+
+
+def assert_acyclic_plan(plan: ExecutionPlan) -> None:
+    dependencies = {step.id: set(step.depends_on) for step in plan.steps}
+    resolved: set[str] = set()
+    while remaining := {key for key in dependencies if key not in resolved}:
+        ready = {key for key in remaining if dependencies[key] <= resolved}
+        if not ready:
+            raise ValueError("Plan dependencies contain a cycle")
+        resolved.update(ready)
+
+
+def planned_tool_calls(step: PlanStep) -> list[PlannedToolCall]:
+    calls = list(step.tool_calls)
+    explicit_names = {call.tool_name for call in calls}
+    calls.extend(
+        PlannedToolCall(tool_name=name)
+        for name in step.required_tools
+        if name not in explicit_names
+    )
+    return calls
+
+
+def step_requires_approval(step: PlanStep, capabilities: CapabilityRegistry) -> bool:
+    skill = capabilities.get(step.skill_id)
+    return (
+        step.approval_required
+        or skill.requires_human_approval
+        or any(call.tool_name.startswith("mcp.") for call in planned_tool_calls(step))
+    )
+
+
+def plan_step(plan: ExecutionPlan, step_id: str | None) -> PlanStep:
+    step = next((item for item in plan.steps if item.id == step_id), None)
+    if step is None:
+        raise ValueError("The execution plan has no active step")
+    return step
+
+
+def update_plan_step_status(
+    plan: ExecutionPlan,
+    step_id: str,
+    status: Literal["pending", "running", "completed", "blocked", "failed"],
+) -> ExecutionPlan:
+    return plan.model_copy(
+        update={
+            "steps": [
+                step.model_copy(update={"status": status}) if step.id == step_id else step
+                for step in plan.steps
+            ]
+        }
+    )
+
+
+def next_ready_step(plan: ExecutionPlan) -> PlanStep | None:
+    completed = {step.id for step in plan.steps if step.status == "completed"}
+    return next(
+        (
+            step
+            for step in plan.steps
+            if step.status in {"pending", "running"} and set(step.depends_on) <= completed
+        ),
+        None,
+    )
+
+
+def reconcile_plan_with_state(
+    plan: ExecutionPlan, state: ModellingGraphState
+) -> ExecutionPlan:
+    prior_data = state.get("execution_plan")
+    prior = ExecutionPlan.model_validate(prior_data) if prior_data else None
+    verified_outputs = {
+        "requirement_agent": bool(state.get("modelling_brief")),
+        "source_analysis_agent": bool(state.get("source_analysis")),
+        "model_design_agent": bool(state.get("logical_model")),
+        "mapping_dq_agent": bool(state.get("mapping_dq")),
+        "validation_agent": bool(state.get("validation_report")),
+    }
+    completed_agents = {
+        step.agent_id
+        for step in plan.steps
+        if step.status == "completed" and verified_outputs.get(step.agent_id, False)
+    }
+    if prior:
+        completed_agents.update(
+            step.agent_id
+            for step in prior.steps
+            if step.status == "completed" and verified_outputs.get(step.agent_id, False)
+        )
+    target = state.get("regeneration_target")
+    if state.get("replanning_reason"):
+        target = state.get("rework_target") or agent_rework_target(
+            prior, state.get("active_step_id")
+        )
+    order = [
+        "requirement_agent",
+        "source_analysis_agent",
+        "model_design_agent",
+        "mapping_dq_agent",
+        "validation_agent",
+    ]
+    target_agents = {
+        "source_preview": "source_analysis_agent",
+        "logical_model": "model_design_agent",
+        "mappings": "mapping_dq_agent",
+        "dq_rules": "mapping_dq_agent",
+        "validation": "validation_agent",
+        "model_design": "model_design_agent",
+        "mapping_dq": "mapping_dq_agent",
+    }
+    target_agent = target_agents.get(target) if target is not None else None
+    if target_agent in order:
+        cutoff = order.index(target_agent)
+        completed_agents.update(order[:cutoff])
+        completed_agents.difference_update(order[cutoff:])
+    return plan.model_copy(
+        update={
+            "steps": [
+                step.model_copy(
+                    update={
+                        "status": "completed"
+                        if step.agent_id in completed_agents
+                        else "pending"
+                    }
+                )
+                for step in plan.steps
+            ]
+        }
+    )
+
+
+def agent_rework_target(plan: ExecutionPlan | None, step_id: str | None) -> str | None:
+    if plan is None:
+        return None
+    step = next((item for item in plan.steps if item.id == step_id), None)
+    return step.agent_id if step else None

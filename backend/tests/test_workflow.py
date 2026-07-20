@@ -7,7 +7,8 @@ import pytest
 from pydantic import BaseModel
 
 from app.autonomy.capabilities import CapabilityRegistry
-from app.autonomy.tools import ToolExecutor, ToolRegistry
+from app.autonomy.contracts import ToolExecutionRecord, ToolRequest
+from app.autonomy.tools import ToolContext, ToolExecutor, ToolRegistry
 from app.services.workflows import WorkflowService
 
 T = TypeVar("T", bound=BaseModel)
@@ -270,8 +271,89 @@ class ApprovalProvider(ScriptedProvider):
         return payload
 
 
+class RequirementsOnlyProvider(ScriptedProvider):
+    def payload(self, name: str) -> dict[str, Any]:
+        payload = super().payload(name)
+        if name == "ExecutionPlan":
+            payload["steps"] = payload["steps"][:1]
+        return payload
+
+
+class ManifestApprovalProvider(ScriptedProvider):
+    def payload(self, name: str) -> dict[str, Any]:
+        payload = super().payload(name)
+        if name == "ExecutionPlan":
+            payload["steps"][1]["skill_id"] = "sources.external-metadata"
+            payload["requires_human_approval"] = False
+        return payload
+
+
+class ReplanningProvider(ScriptedProvider):
+    def payload(self, name: str) -> dict[str, Any]:
+        payload = super().payload(name)
+        if name == "ExecutionPlan" and self.structured_calls.count("ExecutionPlan") == 1:
+            payload["steps"][1]["required_tools"] = ["source.profile_summary"]
+        return payload
+
+
+class ValidationReworkProvider(ScriptedProvider):
+    def payload(self, name: str) -> dict[str, Any]:
+        payload = super().payload(name)
+        if name == "ValidationReport" and self.structured_calls.count("ValidationReport") == 1:
+            payload.update(
+                {
+                    "passed": False,
+                    "requires_rework": True,
+                    "rework_target": "model_design",
+                    "findings": [
+                        {
+                            "severity": "High",
+                            "category": "Grain",
+                            "message": "Align the fact grain.",
+                            "affected_artifact_type": "logical_model",
+                            "affected_artifact_id": "fact_sales",
+                            "evidence": ["Validation comparison"],
+                            "recommended_action": "Rework the model grain.",
+                            "requires_human": False,
+                        }
+                    ],
+                    "summary": "Model grain requires correction.",
+                }
+            )
+        return payload
+
+
+class FailOnceToolExecutor(ToolExecutor):
+    def __init__(self, registry: ToolRegistry, capabilities: CapabilityRegistry) -> None:
+        super().__init__(registry, capabilities)
+        self.failed = False
+
+    async def execute(self, request: ToolRequest, context: ToolContext) -> ToolExecutionRecord:
+        if not self.failed:
+            self.failed = True
+            return ToolExecutionRecord(
+                request_id=request.id,
+                tool_name=request.tool_name,
+                requested_by=request.requested_by,
+                skill_id=request.skill_id,
+                plan_step_id=request.plan_step_id,
+                status="failed",
+                error="temporary profile failure",
+            )
+        return await super().execute(request, context)
+
+
 class WorkflowFakeMCPClient:
     allowlist = {"mcp.catalog.describe_table"}
+
+    async def list_tools(self, server_name: str) -> list[dict[str, Any]]:
+        return [
+            {
+                "name": f"mcp.{server_name}.describe_table",
+                "description": "Describe a table",
+                "input_schema": {"type": "object", "properties": {}},
+            }
+        ]
 
     async def call_tool(
         self, server_name: str, tool_name: str, arguments: dict[str, Any]
@@ -483,3 +565,93 @@ async def test_external_tool_plan_interrupts_for_approval_and_resumes(tmp_path: 
     assert resumed[-1]["event"] == "workflow.completed"
     assert state["approval_status"] == "approved"
     assert state["tool_trace"][0]["source"] == "mcp"
+
+
+async def test_execution_plan_is_authoritative_and_can_skip_specialists() -> None:
+    provider = RequirementsOnlyProvider()
+    workflow = WorkflowService(provider)  # type: ignore[arg-type]
+    events = [
+        event
+        async for event in workflow.run(
+            project_id="requirements-only",
+            user_message="Clarify the requirements only",
+            conversation=[],
+        )
+    ]
+
+    assert provider.structured_calls == ["ExecutionPlan", "ModellingBrief"]
+    assert events[-1]["state"]["workflow_stage"] == "ready_for_review"
+    assert "source_analysis" not in events[-1]["state"]
+
+
+async def test_skill_manifest_approval_policy_cannot_be_bypassed(tmp_path: Path) -> None:
+    workflow = WorkflowService(  # type: ignore[arg-type]
+        ManifestApprovalProvider(),
+        checkpoint_path=tmp_path / "manifest-approval.db",
+    )
+    events = [
+        event
+        async for event in workflow.run(
+            project_id="manifest-approval",
+            user_message="Build a model with external metadata",
+            conversation=[],
+        )
+    ]
+
+    assert events[-1]["event"] == "workflow.interrupted"
+    assert events[-1]["interrupt"]["type"] == "plan_approval"
+
+
+async def test_failed_tool_observation_triggers_bounded_replanning() -> None:
+    provider = ReplanningProvider()
+    capabilities = CapabilityRegistry()
+    executor = FailOnceToolExecutor(ToolRegistry(), capabilities)
+    workflow = WorkflowService(  # type: ignore[arg-type]
+        provider,
+        capabilities=capabilities,
+        tool_executor=executor,
+    )
+    events = [
+        event
+        async for event in workflow.run(
+            project_id="tool-replan",
+            user_message="Build a sales model at order-line grain",
+            conversation=[],
+        )
+    ]
+
+    state = events[-1]["state"]
+    assert provider.structured_calls.count("ExecutionPlan") == 2
+    assert state["workflow_stage"] == "completed"
+    assert state["tool_trace"][0]["status"] == "failed"
+    assert any(
+        item["decision"] == "observation_requires_replan" for item in state["decision_trace"]
+    )
+
+
+async def test_validation_observation_replans_and_reexecutes_affected_steps() -> None:
+    provider = ValidationReworkProvider()
+    workflow = WorkflowService(provider)  # type: ignore[arg-type]
+    events = [
+        event
+        async for event in workflow.run(
+            project_id="validation-replan",
+            user_message="Build a sales model at order-line grain",
+            conversation=[],
+        )
+    ]
+
+    assert provider.structured_calls == [
+        "ExecutionPlan",
+        "ModellingBrief",
+        "SourceAnalysis",
+        "LogicalModelProposal",
+        "MappingDQProposal",
+        "ValidationReport",
+        "ExecutionPlan",
+        "LogicalModelProposal",
+        "MappingDQProposal",
+        "ValidationReport",
+    ]
+    assert events[-1]["state"]["workflow_stage"] == "completed"
+    assert events[-1]["state"]["replan_count"] == 1

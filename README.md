@@ -83,26 +83,27 @@ The complete flow is: enter a scenario and attach source files on Home → submi
 ## Autonomous agent workflow
 
 ```mermaid
-flowchart LR
-  P[Master planner] --> A{Approval needed?}
-  A -->|external MCP tool| H[Human approval interrupt]
-  A -->|no| R[Requirement agent]
-  H -->|approved| R
-  R -->|ready| T[Allow-listed source tools]
-  T --> S[Source analysis agent]
-  R -->|blocking question| H[Human clarification]
-  S -->|sources available| M[Model design agent]
-  S -->|missing sources| H
-  M --> Q[Mapping and DQ agent]
-  Q --> V[Validation agent]
-  V -->|bounded reactive re-plan| M
-  V --> P[Persist versioned assets]
-  P --> A[Present response]
+flowchart TD
+  P[Master planner] --> A{Manifest or action approval?}
+  A -->|yes| H[Human approval interrupt]
+  A -->|no| D[Authoritative plan dispatcher]
+  H -->|approved| D
+  D -->|tool action| T[Allow-listed tool executor]
+  T --> O{Observation}
+  O -->|success| D
+  O -->|recoverable failure and budget remains| P
+  O -->|budget exhausted| R[Human review]
+  D -->|ready specialist step| S[Typed specialist agent]
+  S -->|completed| D
+  S -->|clarification needed| R
+  S -->|validation defect| P
+  D -->|plan complete| V[Persist versioned assets]
+  V --> X[Present response]
 ```
 
-The planner and every specialist have versioned prompts and typed Pydantic contracts. Versioned JSON skill manifests bind capabilities to one agent and an explicit tool allow-list. The supervisor validates every model-selected skill/tool combination before execution, enforces plan iteration and tool-call budgets, and records decisions and observations.
+The planner and every specialist have versioned prompts and typed Pydantic contracts. Versioned JSON skill manifests bind capabilities to one agent, an explicit tool allow-list, and approval policy. The plan is executable and authoritative: only dependency-ready steps run. The supervisor validates every model-selected skill/tool combination, enforces plan iteration and tool-call budgets, and sends failed observations or validation defects back to the planner for bounded replanning.
 
-Built-in tools currently expose persisted source profiles and workflow context. MCP uses the official stable Python SDK with Streamable HTTP; servers and fully qualified tools must be explicitly configured in `MCP_SERVERS_JSON` and `MCP_TOOL_ALLOWLIST`. MCP plans always require human approval. Configure only trusted local or authenticated servers.
+Built-in tools currently expose persisted source profiles and workflow context. MCP uses the official stable Python SDK with Streamable HTTP; servers and fully qualified tools must be explicitly configured in `MCP_SERVERS_JSON` and `MCP_TOOL_ALLOWLIST`. MCP plans always require human approval, advertised input schemas are validated before execution, and MCP error responses are recorded as failed observations. Configure only trusted local or authenticated servers.
 
 `WORKFLOW_CHECKPOINT_PATH` controls the node-level LangGraph checkpoint database. A project's latest domain state is also stored with the project, while checkpoints retain execution progress for recovery and audit. Targeted regeneration uses explicit artifact markers internally and skips unchanged upstream agents.
 

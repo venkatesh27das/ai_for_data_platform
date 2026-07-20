@@ -75,6 +75,11 @@ class WorkflowService:
                 "rework_target": None,
                 "regeneration_target": None,
                 "agent_trace": [],
+                "active_step_id": None,
+                "next_action": None,
+                "tool_steps_completed": [],
+                "replan_count": 0,
+                "replanning_reason": None,
                 "sources": sources or (existing_state or {}).get("sources", []),
             },
         )

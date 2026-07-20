@@ -71,6 +71,22 @@ class ToolRegistry:
         except KeyError as exc:
             raise ValueError(f"Unknown tool: {name}") from exc
 
+    async def resolve(self, name: str) -> ToolDefinition:
+        definition = self.get(name)
+        if not name.startswith("mcp.") or self.mcp_client is None:
+            return definition
+        _, server_name, _ = name.split(".", 2)
+        available = await self.mcp_client.list_tools(server_name)
+        metadata = next((item for item in available if item.get("name") == name), None)
+        if metadata is None:
+            raise ValueError(f"Allow-listed MCP tool is not advertised by its server: {name}")
+        return definition.model_copy(
+            update={
+                "description": str(metadata.get("description") or definition.description),
+                "input_schema": metadata.get("input_schema") or {},
+            }
+        )
+
     def _mcp_definition(self, name: str) -> ToolDefinition:
         if self.mcp_client is None:
             raise ValueError("No MCP client is configured")
@@ -112,21 +128,26 @@ class ToolExecutor:
                 tool_name=request.tool_name,
                 requested_by=request.requested_by,
                 skill_id=request.skill_id,
+                plan_step_id=request.plan_step_id,
                 status="denied",
                 arguments=request.arguments,
                 error="The selected skill does not allow this tool.",
             )
         try:
-            definition = self.registry.get(request.tool_name)
+            definition = await self.registry.resolve(request.tool_name)
+            validate_tool_arguments(request.arguments, definition.input_schema)
             result = await asyncio.wait_for(
                 definition.handler(request.arguments, context),
                 timeout=self.timeout_seconds,
             )
+            if result.get("is_error") is True:
+                raise RuntimeError(mcp_error_message(result))
             return ToolExecutionRecord(
                 request_id=request.id,
                 tool_name=request.tool_name,
                 requested_by=request.requested_by,
                 skill_id=request.skill_id,
+                plan_step_id=request.plan_step_id,
                 status="completed",
                 arguments=request.arguments,
                 result=result,
@@ -139,6 +160,7 @@ class ToolExecutor:
                 tool_name=request.tool_name,
                 requested_by=request.requested_by,
                 skill_id=request.skill_id,
+                plan_step_id=request.plan_step_id,
                 status="failed",
                 arguments=request.arguments,
                 error=str(exc) or type(exc).__name__,
@@ -182,3 +204,44 @@ async def workflow_context(_: dict[str, Any], context: ToolContext) -> dict[str,
         ],
         "workflow_stage": state.get("workflow_stage"),
     }
+
+
+def validate_tool_arguments(arguments: dict[str, Any], schema: dict[str, Any]) -> None:
+    if not schema:
+        return
+    if schema.get("type") == "object" and not isinstance(arguments, dict):
+        raise ValueError("Tool arguments must be an object")
+    required = schema.get("required", [])
+    if isinstance(required, list):
+        missing = [name for name in required if isinstance(name, str) and name not in arguments]
+        if missing:
+            raise ValueError(f"Missing required tool arguments: {', '.join(missing)}")
+    properties = schema.get("properties", {})
+    if not isinstance(properties, dict):
+        return
+    expected_types: dict[str, type[Any] | tuple[type[Any], ...]] = {
+        "string": str,
+        "integer": int,
+        "number": (int, float),
+        "boolean": bool,
+        "object": dict,
+        "array": list,
+    }
+    for name, value in arguments.items():
+        property_schema = properties.get(name)
+        if not isinstance(property_schema, dict):
+            if schema.get("additionalProperties") is False:
+                raise ValueError(f"Unexpected tool argument: {name}")
+            continue
+        expected = expected_types.get(str(property_schema.get("type")))
+        if expected is not None and not isinstance(value, expected):
+            raise ValueError(f"Tool argument {name} has an invalid type")
+
+
+def mcp_error_message(result: dict[str, Any]) -> str:
+    content = result.get("content")
+    if isinstance(content, list) and content:
+        first = content[0]
+        if isinstance(first, dict) and first.get("text"):
+            return f"MCP tool reported an error: {first['text']}"
+    return "MCP tool reported an error"

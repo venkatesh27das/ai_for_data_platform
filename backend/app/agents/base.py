@@ -34,19 +34,29 @@ class StructuredAgent[InputT: BaseModel, OutputT: BaseModel](ABC):
                 ),
             },
         ]
-        try:
-            return await asyncio.wait_for(
-                self.provider.generate_structured(messages, self.output_model),
-                timeout=self.timeout_seconds,
-            )
-        except (TimeoutError, httpx.HTTPError, RuntimeError, ValueError) as exc:
-            result = self.fallback(payload, exc)
-            return result.model_copy(
-                update={
-                    "execution_mode": "fallback",
-                    "fallback_reason": str(exc) or type(exc).__name__,
-                }
-            )
+        failure: Exception | None = None
+        for attempt in range(2):
+            try:
+                return await asyncio.wait_for(
+                    self.provider.generate_structured(messages, self.output_model),
+                    timeout=self.timeout_seconds,
+                )
+            except (TimeoutError, httpx.HTTPError) as exc:
+                failure = exc
+                if attempt == 0:
+                    await asyncio.sleep(0.2)
+                    continue
+            except (RuntimeError, ValueError) as exc:
+                failure = exc
+            break
+        assert failure is not None
+        result = self.fallback(payload, failure)
+        return result.model_copy(
+            update={
+                "execution_mode": "fallback",
+                "fallback_reason": str(failure) or type(failure).__name__,
+            }
+        )
 
     def fallback(self, payload: InputT, error: Exception) -> OutputT:
         raise RuntimeError(

@@ -30,3 +30,8 @@ class ModellingGraphState(TypedDict, total=False):
     decision_trace: list[dict[str, Any]]
     supervisor_route: str | None
     approval_status: str | None
+    active_step_id: str | None
+    next_action: str | None
+    tool_steps_completed: list[str]
+    replan_count: int
+    replanning_reason: str | None

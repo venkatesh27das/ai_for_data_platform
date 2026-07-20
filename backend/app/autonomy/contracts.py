@@ -18,6 +18,12 @@ class SkillManifest(BaseModel):
     requires_human_approval: bool = False
 
 
+class PlannedToolCall(BaseModel):
+    tool_name: str
+    arguments: dict[str, Any] = Field(default_factory=dict)
+    rationale: str = ""
+
+
 class PlanStep(BaseModel):
     id: str
     title: str
@@ -25,6 +31,7 @@ class PlanStep(BaseModel):
     skill_id: str
     depends_on: list[str] = Field(default_factory=list)
     required_tools: list[str] = Field(default_factory=list)
+    tool_calls: list[PlannedToolCall] = Field(default_factory=list)
     completion_criteria: list[str] = Field(default_factory=list)
     status: Literal["pending", "running", "completed", "blocked", "failed"] = "pending"
     approval_required: bool = False
@@ -56,6 +63,7 @@ class ToolRequest(BaseModel):
     arguments: dict[str, Any] = Field(default_factory=dict)
     requested_by: str
     skill_id: str
+    plan_step_id: str | None = None
 
 
 class ToolExecutionRecord(BaseModel):
@@ -63,6 +71,7 @@ class ToolExecutionRecord(BaseModel):
     tool_name: str
     requested_by: str
     skill_id: str
+    plan_step_id: str | None = None
     status: Literal["completed", "failed", "denied"]
     arguments: dict[str, Any] = Field(default_factory=dict)
     result: dict[str, Any] = Field(default_factory=dict)
