@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import artifacts, conversations, health, projects, settings
+from app.api import artifacts, conversations, health, projects, settings, sources
 from app.config import get_settings
 
 
@@ -27,4 +27,5 @@ app.include_router(health.router, prefix="/api")
 app.include_router(projects.router, prefix="/api")
 app.include_router(conversations.router, prefix="/api")
 app.include_router(artifacts.router, prefix="/api")
+app.include_router(sources.router, prefix="/api")
 app.include_router(settings.router, prefix="/api")

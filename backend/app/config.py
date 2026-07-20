@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     embedding_model: str = "nomic-embed-text"
     llm_temperature: float = 0.2
     llm_request_timeout: int = 120
+    agent_request_timeout: int = 45
+    workflow_checkpoint_path: Path = Path("./data/workflow_checkpoints.db")
 
     openai_base_url: str = "https://api.openai.com/v1"
     openai_api_key: str = ""

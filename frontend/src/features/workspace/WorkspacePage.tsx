@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronDown, Clock3, Download, Home, MoreVertical, Redo2, Settings, Undo2 } from 'lucide-react'
+import { ChevronDown, Clock3, Download, Home, MoreVertical, Redo2, Settings, Undo2, X } from 'lucide-react'
 import { NavLink, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Brand } from '../../components/common/Brand'
 import { ErrorState, LoadingState } from '../../components/common/States'
@@ -29,6 +29,7 @@ export function WorkspacePage() {
   const [streaming, setStreaming] = useState(false)
   const [streamError, setStreamError] = useState('')
   const [activeArtifactId, setActiveArtifactId] = useState<string | null>(null)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const controllerRef = useRef<AbortController | null>(null)
   const initialSent = useRef(false)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -43,7 +44,10 @@ export function WorkspacePage() {
     controllerRef.current = controller
     try {
       await streamMessage(projectId, content, (event) => {
-        if (event.event === 'progress') setProgress(event.data.label ?? '')
+        if (event.event === 'progress') {
+          const mode = event.data.execution_mode === 'fallback' ? ' · safe fallback used' : ''
+          setProgress(`${event.data.label ?? ''}${mode}`)
+        }
         if (event.event === 'token') setStreamingText((current) => current + (event.data.content ?? ''))
         if (event.event === 'error') setStreamError(event.data.detail ?? 'The provider returned an error.')
         if (event.event === 'done') setProgress('')
@@ -80,13 +84,38 @@ export function WorkspacePage() {
   const visibleMessages = [...savedMessages, ...optimistic]
   const activeArtifact = artifacts.find((artifact) => artifact.id === activeArtifactId)
 
+  async function reviewArtifact(decision: 'approved' | 'changes_requested') {
+    if (!activeArtifact) return
+    await api.reviewArtifact(projectId, activeArtifact.id, decision)
+    await queryClient.invalidateQueries({ queryKey: ['artifacts', projectId] })
+  }
+
+  async function reviseArtifact(payload: Record<string, unknown>) {
+    if (!activeArtifact) return
+    const revision = await api.reviseArtifact(projectId, activeArtifact.id, payload)
+    await queryClient.invalidateQueries({ queryKey: ['artifacts', projectId] })
+    setActiveArtifactId(revision.id)
+  }
+
+  async function saveLayout(positions: Record<string, { x: number; y: number }>) {
+    if (!activeArtifact) return
+    await api.saveArtifactLayout(projectId, activeArtifact.id, positions)
+    await queryClient.invalidateQueries({ queryKey: ['artifacts', projectId] })
+  }
+
+  function regenerateArtifact() {
+    if (!activeArtifact || streaming) return
+    setActiveArtifactId(null)
+    void send(`[regenerate:${activeArtifact.artifact_type}] Regenerate this asset using the latest approved project context and explain material changes.`)
+  }
+
   return (
     <div className="workspace-shell">
       <header className="workspace-topbar">
         <Brand />
         <button className="project-title">{project.name} <ChevronDown size={15} /></button>
         <div className="save-state"><span /> {streaming ? 'Generating…' : 'Draft saved'}</div>
-        <div className="workspace-actions"><button title="Undo"><Undo2 size={19} /></button><button title="Redo"><Redo2 size={19} /></button><button title="History"><Clock3 size={19} /></button><button className="export-button"><Download size={17} /> Export <ChevronDown size={14} /></button><button title="More"><MoreVertical size={20} /></button></div>
+        <div className="workspace-actions"><button title="Undo"><Undo2 size={19} /></button><button title="Redo"><Redo2 size={19} /></button><button title="Artifact history" onClick={() => setHistoryOpen(true)}><Clock3 size={19} /></button><button className="export-button"><Download size={17} /> Export <ChevronDown size={14} /></button><button title="More"><MoreVertical size={20} /></button></div>
       </header>
       <aside className="workspace-nav"><Brand compact /><NavLink to="/"><Home size={22} /><span>Home</span></NavLink><NavLink to="/projects" className="active"><span className="folder-icon">▱</span><span>Projects</span></NavLink><NavLink to="/settings"><Settings size={22} /><span>Settings</span></NavLink><button className="workspace-avatar">AS</button></aside>
       <main className={`workspace-main ${activeArtifact ? 'viewer-open' : 'chat-only'}`}>
@@ -102,9 +131,10 @@ export function WorkspacePage() {
           </div>
           <div className="composer-wrap"><ChatComposer disabled={streaming} streaming={streaming} onSend={(value) => void send(value)} onStop={() => controllerRef.current?.abort()} /><div className="composer-tip">♧ Tip: add source-system names and the desired fact grain when you know them.</div></div>
         </section>
-        {activeArtifact && isLogicalModelArtifact(activeArtifact) && <ModelCanvas artifact={activeArtifact} onClose={() => setActiveArtifactId(null)} />}
-        {activeArtifact && !isLogicalModelArtifact(activeArtifact) && <StructuredArtifactViewer artifact={activeArtifact} onClose={() => setActiveArtifactId(null)} />}
+        {activeArtifact && isLogicalModelArtifact(activeArtifact) && <ModelCanvas artifact={activeArtifact} onClose={() => setActiveArtifactId(null)} onReview={(decision) => void reviewArtifact(decision)} onSaveLayout={saveLayout} onRegenerate={regenerateArtifact} />}
+        {activeArtifact && !isLogicalModelArtifact(activeArtifact) && <StructuredArtifactViewer artifact={activeArtifact} onClose={() => setActiveArtifactId(null)} onReview={(decision) => void reviewArtifact(decision)} onRevise={reviseArtifact} onRegenerate={regenerateArtifact} />}
       </main>
+      {historyOpen && <aside className="artifact-history" aria-label="Artifact version history"><header><div><strong>Artifact history</strong><small>{artifacts.length} saved versions</small></div><button onClick={() => setHistoryOpen(false)} aria-label="Close history"><X size={16} /></button></header><div>{artifacts.map((artifact) => <button key={artifact.id} onClick={() => { setActiveArtifactId(artifact.id); setHistoryOpen(false) }}><span><strong>{artifact.name}</strong><small>{artifact.artifact_type.replace('_', ' ')}</small></span><span>v{artifact.version}<small>{artifact.review_status}</small></span></button>)}</div></aside>}
     </div>
   )
 }

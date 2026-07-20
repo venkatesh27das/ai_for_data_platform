@@ -2,7 +2,7 @@ from fastapi import HTTPException, status
 
 from app.db.models import Artifact
 from app.repositories.artifacts import ArtifactRepository
-from app.schemas.artifacts import ArtifactCreate
+from app.schemas.artifacts import ArtifactCreate, ArtifactLayout, ArtifactReview, ArtifactRevision
 
 
 class ArtifactService:
@@ -20,3 +20,27 @@ class ArtifactService:
 
     def create(self, project_id: str, payload: ArtifactCreate) -> Artifact:
         return self.repository.create(project_id=project_id, **payload.model_dump())
+
+    def review(self, project_id: str, artifact_id: str, payload: ArtifactReview) -> Artifact:
+        artifact = self.get(project_id, artifact_id)
+        return self.repository.update(
+            artifact,
+            review_status=payload.decision,
+            review_note=payload.note,
+        )
+
+    def revise(self, project_id: str, artifact_id: str, payload: ArtifactRevision) -> Artifact:
+        artifact = self.get(project_id, artifact_id)
+        return self.repository.create(
+            project_id=project_id,
+            artifact_type=artifact.artifact_type,
+            name=payload.name or artifact.name,
+            version=self.repository.next_version(project_id, artifact.artifact_type),
+            status=payload.status,
+            payload=payload.payload,
+        )
+
+    def save_layout(self, project_id: str, artifact_id: str, layout: ArtifactLayout) -> Artifact:
+        artifact = self.get(project_id, artifact_id)
+        updated_payload = {**artifact.payload, "layout": layout.model_dump(mode="json")}
+        return self.repository.update(artifact, payload=updated_payload)

@@ -1,4 +1,4 @@
-import type { Artifact, Message, Project, ProviderSettings, ProviderSettingsPayload, StreamEvent } from '../types'
+import type { Artifact, Message, Project, ProjectSource, ProviderSettings, ProviderSettingsPayload, StreamEvent } from '../types'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000/api'
 
@@ -18,7 +18,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   listProjects: () => request<Project[]>('/projects'),
   getProject: (id: string) => request<Project>(`/projects/${id}`),
-  createProject: (input: { name: string; objective: string }) =>
+  createProject: (input: { name: string; objective: string; source_count?: number }) =>
     request<Project>('/projects', { method: 'POST', body: JSON.stringify(input) }),
   updateProject: (id: string, input: Partial<Project>) =>
     request<Project>(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify(input) }),
@@ -26,6 +26,29 @@ export const api = {
   deleteProject: (id: string) => request<void>(`/projects/${id}`, { method: 'DELETE' }),
   listMessages: (id: string) => request<Message[]>(`/projects/${id}/messages`),
   listArtifacts: (id: string) => request<Artifact[]>(`/projects/${id}/artifacts`),
+  reviewArtifact: (projectId: string, artifactId: string, decision: 'approved' | 'changes_requested', note = '') =>
+    request<Artifact>(`/projects/${projectId}/artifacts/${artifactId}/review`, {
+      method: 'POST', body: JSON.stringify({ decision, note }),
+    }),
+  reviseArtifact: (projectId: string, artifactId: string, payload: Record<string, unknown>) =>
+    request<Artifact>(`/projects/${projectId}/artifacts/${artifactId}/revisions`, {
+      method: 'POST', body: JSON.stringify({ payload }),
+    }),
+  saveArtifactLayout: (projectId: string, artifactId: string, positions: Record<string, { x: number; y: number }>) =>
+    request<Artifact>(`/projects/${projectId}/artifacts/${artifactId}/layout`, {
+      method: 'PUT', body: JSON.stringify({ positions }),
+    }),
+  listSources: (id: string) => request<ProjectSource[]>(`/projects/${id}/sources`),
+  uploadSource: async (id: string, file: File) => {
+    const body = new FormData()
+    body.append('file', file)
+    const response = await fetch(`${API_URL}/projects/${id}/sources`, { method: 'POST', body })
+    if (!response.ok) {
+      const error = (await response.json().catch(() => null)) as { detail?: string } | null
+      throw new Error(error?.detail ?? `Source upload failed (${response.status})`)
+    }
+    return response.json() as Promise<ProjectSource>
+  },
   getProviderSettings: () => request<ProviderSettings>('/settings/provider'),
   saveProviderSettings: (input: ProviderSettingsPayload) =>
     request<ProviderSettings>('/settings/provider', { method: 'PUT', body: JSON.stringify(input) }),

@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import (
@@ -34,6 +35,7 @@ class Project(Base):
     mapping_count: Mapped[int] = mapped_column(Integer, default=0)
     dq_rule_count: Mapped[int] = mapped_column(Integer, default=0)
     review_count: Mapped[int] = mapped_column(Integer, default=0)
+    workflow_state: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, onupdate=utcnow
@@ -42,6 +44,9 @@ class Project(Base):
         back_populates="project", cascade="all, delete-orphan"
     )
     artifacts: Mapped[list["Artifact"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan"
+    )
+    sources: Mapped[list["ProjectSource"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )
 
@@ -75,12 +80,30 @@ class Artifact(Base):
     name: Mapped[str] = mapped_column(String(160))
     version: Mapped[int] = mapped_column(Integer, default=1)
     status: Mapped[str] = mapped_column(String(32), default="ready")
+    review_status: Mapped[str] = mapped_column(String(32), default="pending")
+    review_note: Mapped[str] = mapped_column(Text, default="")
     payload: Mapped[dict[str, object]] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, onupdate=utcnow
     )
     project: Mapped[Project] = relationship(back_populates="artifacts")
+
+
+class ProjectSource(Base):
+    __tablename__ = "project_sources"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    project_id: Mapped[str] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(255))
+    format: Mapped[str] = mapped_column(String(32))
+    size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    content_excerpt: Mapped[str] = mapped_column(Text, default="")
+    profile: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    project: Mapped[Project] = relationship(back_populates="sources")
 
 
 class ProviderSettings(Base):

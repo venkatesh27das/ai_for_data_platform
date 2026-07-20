@@ -3,7 +3,7 @@ from collections.abc import AsyncIterator
 from typing import Any, TypeVar
 
 import httpx
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -128,7 +128,22 @@ class OpenAICompatibleProvider:
                 }
             ]
             content = await self.generate_text(fallback, temperature=temperature)
-        return response_model.model_validate_json(content)
+        try:
+            return response_model.model_validate_json(extract_json(content))
+        except (ValidationError, ValueError):
+            repair_messages = [
+                *messages,
+                {
+                    "role": "system",
+                    "content": (
+                        "The previous response did not validate. Return only one JSON object "
+                        f"matching this schema: {json.dumps(response_model.model_json_schema())}"
+                    ),
+                },
+                {"role": "assistant", "content": str(content)},
+            ]
+            repaired = await self.generate_text(repair_messages, temperature=0)
+            return response_model.model_validate_json(extract_json(repaired))
 
     async def stream_text(
         self, messages: list[dict[str, Any]], *, temperature: float | None = None
@@ -161,3 +176,15 @@ class OpenAICompatibleProvider:
             )
             response.raise_for_status()
             return dict(response.json()["choices"][0]["message"])
+
+
+def extract_json(content: object) -> str:
+    text = str(content).strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[-1]
+        text = text.rsplit("```", 1)[0].strip()
+    start = text.find("{")
+    end = text.rfind("}")
+    if start < 0 or end < start:
+        raise ValueError("Structured model response did not contain a JSON object")
+    return text[start : end + 1]

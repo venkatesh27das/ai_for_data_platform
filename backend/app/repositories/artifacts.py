@@ -1,6 +1,6 @@
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.models import Artifact
@@ -21,6 +21,15 @@ class ArtifactRepository:
     def get(self, artifact_id: str) -> Artifact | None:
         return self.db.get(Artifact, artifact_id)
 
+    def next_version(self, project_id: str, artifact_type: str) -> int:
+        current = self.db.scalar(
+            select(func.max(Artifact.version)).where(
+                Artifact.project_id == project_id,
+                Artifact.artifact_type == artifact_type,
+            )
+        )
+        return int(current or 0) + 1
+
     def create(
         self,
         *,
@@ -40,6 +49,13 @@ class ArtifactRepository:
             payload=payload,
         )
         self.db.add(artifact)
+        self.db.commit()
+        self.db.refresh(artifact)
+        return artifact
+
+    def update(self, artifact: Artifact, **values: object) -> Artifact:
+        for key, value in values.items():
+            setattr(artifact, key, value)
         self.db.commit()
         self.db.refresh(artifact)
         return artifact

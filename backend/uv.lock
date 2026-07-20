@@ -15,7 +15,10 @@ dependencies = [
     { name = "fastapi" },
     { name = "httpx" },
     { name = "langgraph" },
+    { name = "langgraph-checkpoint-sqlite" },
+    { name = "openpyxl" },
     { name = "pydantic-settings" },
+    { name = "python-multipart" },
     { name = "sqlalchemy" },
     { name = "structlog" },
     { name = "uvicorn", extra = ["standard"] },
@@ -29,22 +32,42 @@ dev = [
     { name = "ruff" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "types-openpyxl" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "alembic", specifier = ">=1.13.2" },
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "langgraph", specifier = ">=0.2.28" },
+    { name = "langgraph-checkpoint-sqlite", specifier = ">=3.0.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.11.2" },
+    { name = "openpyxl", specifier = ">=3.1.5" },
     { name = "pydantic-settings", specifier = ">=2.5.2" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.3" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.24.0" },
+    { name = "python-multipart", specifier = ">=0.0.20" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6.8" },
     { name = "sqlalchemy", specifier = ">=2.0.35" },
     { name = "structlog", specifier = ">=24.4.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30.6" },
 ]
 provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "types-openpyxl", specifier = ">=3.1.5.20250602" }]
+
+[[package]]
+name = "aiosqlite"
+version = "0.22.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/4e/8a/64761f4005f17809769d23e518d915db74e6310474e733e3593cfc854ef1/aiosqlite-0.22.1.tar.gz", hash = "sha256:043e0bd78d32888c0a9ca90fc788b38796843360c855a7262a532813133a0650", size = 14821, upload-time = "2025-12-23T19:25:43.997Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/00/b7/e3bf5133d697a08128598c8d0abc5e16377b51465a33756de24fa7dee953/aiosqlite-0.22.1-py3-none-any.whl", hash = "sha256:21c002eb13823fad740196c5a2e9d8e62f6243bd9e7e4a1f87fb5e44ecb4fceb", size = 17405, upload-time = "2025-12-23T19:25:42.139Z" },
+]
 
 [[package]]
 name = "alembic"
@@ -230,6 +253,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/fc/f8/98eea607f65de6527f8a2e8885fc8015d3e6f5775df186e443e0964a11c3/distro-1.9.0.tar.gz", hash = "sha256:2fa77c6fd8940f116ee1d6b94a2f90b13b5ea8d019b98bc8bafdcabcdd9bdbed", size = 60722, upload-time = "2023-12-24T09:54:32.31Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/12/b3/231ffd4ab1fc9d679809f356cebee130ac7daa00d6d6f3206dd4fd137e9e/distro-1.9.0-py3-none-any.whl", hash = "sha256:7bffd925d65168f85027d8da9af6bddab658135b840670a223589bc0c8ef02b2", size = 20277, upload-time = "2023-12-24T09:54:30.421Z" },
+]
+
+[[package]]
+name = "et-xmlfile"
+version = "2.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d3/38/af70d7ab1ae9d4da450eeec1fa3918940a5fafb9055e934af8d6eb0c2313/et_xmlfile-2.0.0.tar.gz", hash = "sha256:dab3f4764309081ce75662649be815c4c9081e88f0837825f90fd28317d4da54", size = 17234, upload-time = "2024-10-25T17:25:40.039Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c1/8b/5fe2cc11fee489817272089c4203e679c63b570a5aaeb18d852ae3cbba6a/et_xmlfile-2.0.0-py3-none-any.whl", hash = "sha256:7a91720bc756843502c3b7504c77b8fe44217c85c537d85037f0f536151b2caa", size = 18059, upload-time = "2024-10-25T17:25:39.051Z" },
 ]
 
 [[package]]
@@ -478,6 +510,20 @@ wheels = [
 ]
 
 [[package]]
+name = "langgraph-checkpoint-sqlite"
+version = "3.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "aiosqlite" },
+    { name = "langgraph-checkpoint" },
+    { name = "sqlite-vec" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e3/ea/83917c2369acf8a10a894d4247655fd063c07924ba5bc4e83c85d2eaeded/langgraph_checkpoint_sqlite-3.1.0.tar.gz", hash = "sha256:f926916ebc1b985d802cc9c820026036e84db9d910d62c97b57e4ba64f67d5ae", size = 147902, upload-time = "2026-05-12T03:34:52.503Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/97/07/b342811a16327900af2747c752ea19676172fcddf9b592cc384031076623/langgraph_checkpoint_sqlite-3.1.0-py3-none-any.whl", hash = "sha256:cc9b40df0076feae8a9ad42ae713621b148b00ac23adc09dc1dc66090a46e5ad", size = 38587, upload-time = "2026-05-12T03:34:51.231Z" },
+]
+
+[[package]]
 name = "langgraph-prebuilt"
 version = "1.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -720,6 +766,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/a2/6e/371856a3fb9d31ca8dac321cda606860fa4548858c0cc45d9d1d4ca2628b/mypy_extensions-1.1.0.tar.gz", hash = "sha256:52e68efc3284861e772bbcd66823fde5ae21fd2fdb51c62a211403730b916558", size = 6343, upload-time = "2025-04-22T14:54:24.164Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/79/7b/2c79738432f5c924bef5071f933bcc9efd0473bac3b4aa584a6f7c1c8df8/mypy_extensions-1.1.0-py3-none-any.whl", hash = "sha256:1be4cccdb0f2482337c4743e60421de3a356cd97508abadd57d47403e94f5505", size = 4963, upload-time = "2025-04-22T14:54:22.983Z" },
+]
+
+[[package]]
+name = "openpyxl"
+version = "3.1.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "et-xmlfile" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3d/f9/88d94a75de065ea32619465d2f77b29a0469500e99012523b91cc4141cd1/openpyxl-3.1.5.tar.gz", hash = "sha256:cf0e3cf56142039133628b5acffe8ef0c12bc902d2aadd3e0fe5878dc08d1050", size = 186464, upload-time = "2024-06-28T14:03:44.161Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c0/da/977ded879c29cbd04de313843e76868e6e13408a94ed6b987245dc7c8506/openpyxl-3.1.5-py2.py3-none-any.whl", hash = "sha256:5282c12b107bffeef825f4617dc029afaf41d0ea60823bbb665ef3079dc79de2", size = 250910, upload-time = "2024-06-28T14:03:41.161Z" },
 ]
 
 [[package]]
@@ -993,6 +1051,15 @@ wheels = [
 ]
 
 [[package]]
+name = "python-multipart"
+version = "0.0.32"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/5b/42/55c32bb9b12693c092ad250a0e82edb5b31ddeda6eb772de5f308b3804ad/python_multipart-0.0.32.tar.gz", hash = "sha256:be54b7f3fa167bb83e4fcd936b887b708f4e57fe75911c02aebf53efaf8d938e", size = 46881, upload-time = "2026-06-04T16:18:58.647Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e1/04/e8135ebd1ad02c56ec633277529b2602ff99ff634be76cdba5744cf554fd/python_multipart-0.0.32-py3-none-any.whl", hash = "sha256:ff6d3f776f16878c894e52e107296ffc890e913c611b1a4ec6c44e2821fe2e23", size = 30042, upload-time = "2026-06-04T16:18:57.319Z" },
+]
+
+[[package]]
 name = "pyyaml"
 version = "6.0.3"
 source = { registry = "https://pypi.org/simple" }
@@ -1141,6 +1208,18 @@ wheels = [
 ]
 
 [[package]]
+name = "sqlite-vec"
+version = "0.1.9"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/68/85/9fad0045d8e7c8df3e0fa5a56c630e8e15ad6e5ca2e6106fceb666aa6638/sqlite_vec-0.1.9-py3-none-macosx_10_6_x86_64.whl", hash = "sha256:1b62a7f0a060d9475575d4e599bbf94a13d85af896bc1ce86ee80d1b5b48e5fb", size = 131171, upload-time = "2026-03-31T08:02:31.717Z" },
+    { url = "https://files.pythonhosted.org/packages/a4/3d/3677e0cd2f92e5ebc43cd29fbf565b75582bff1ccfa0b8327c7508e1084f/sqlite_vec-0.1.9-py3-none-macosx_11_0_arm64.whl", hash = "sha256:1d52e30513bae4cc9778ddbf6145610434081be4c3afe57cd877893bad9f6b6c", size = 165434, upload-time = "2026-03-31T08:02:32.712Z" },
+    { url = "https://files.pythonhosted.org/packages/00/d4/f2b936d3bdc38eadcbd2a87875815db36430fab0363182ba5d12cd8e0b51/sqlite_vec-0.1.9-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:4e921e592f24a5f9a18f590b6ddd530eb637e2d474e3b1972f9bbeb773aa3cb9", size = 160076, upload-time = "2026-03-31T08:02:33.796Z" },
+    { url = "https://files.pythonhosted.org/packages/6f/ad/6afd073b0f817b3e03f9e37ad626ae341805891f23c74b5292818f49ac63/sqlite_vec-0.1.9-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux1_x86_64.whl", hash = "sha256:1515727990b49e79bcaf75fdee2ffc7d461f8b66905013231251f1c8938e7786", size = 163388, upload-time = "2026-03-31T08:02:34.888Z" },
+    { url = "https://files.pythonhosted.org/packages/42/89/81b2907cda14e566b9bf215e2ad82fc9b349edf07d2010756ffdb902f328/sqlite_vec-0.1.9-py3-none-win_amd64.whl", hash = "sha256:4a28dc12fa4b53d7b1dced22da2488fade444e96b5d16fd2d698cd670675cf32", size = 292804, upload-time = "2026-03-31T08:02:36.035Z" },
+]
+
+[[package]]
 name = "starlette"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1169,6 +1248,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/47/c6/ee486fd809e357697ee8a44d3d69222b344920433d3b6666ccd9b374630c/tenacity-9.1.4.tar.gz", hash = "sha256:adb31d4c263f2bd041081ab33b498309a57c77f9acf2db65aadf0898179cf93a", size = 49413, upload-time = "2026-02-07T10:45:33.841Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl", hash = "sha256:6095a360c919085f28c6527de529e76a06ad89b23659fa881ae0649b867a9d55", size = 28926, upload-time = "2026-02-07T10:45:32.24Z" },
+]
+
+[[package]]
+name = "types-openpyxl"
+version = "3.1.5.20260518"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/f5/d1/a1e23040a758746ad5bb6b8849a011c3c901775618bc7e1fec3a1a8b7142/types_openpyxl-3.1.5.20260518.tar.gz", hash = "sha256:da9cd644e4e80215a3f60a8c2c2c8e980e941a9b581cffa3876285aa791ca5af", size = 101550, upload-time = "2026-05-18T06:03:57.59Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/96/0e/d745ce95fc74e34df802010fd0387e33db468179e6ff42b708280ab268c7/types_openpyxl-3.1.5.20260518-py3-none-any.whl", hash = "sha256:e6ca4b116c8b979ed57f3045edcd3d49c25917d6dae99e90358f41322a19d375", size = 165744, upload-time = "2026-05-18T06:03:56.036Z" },
 ]
 
 [[package]]

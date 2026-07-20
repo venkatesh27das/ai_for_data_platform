@@ -16,7 +16,7 @@ frontend:
 	cd frontend && npm run dev
 
 test:
-	cd backend && uv run pytest
+	cd backend && uv run python -m pytest
 	cd frontend && npm test -- --run
 
 lint:

@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_serializer
 class ProjectCreate(BaseModel):
     name: str = Field(min_length=1, max_length=160)
     objective: str = Field(default="", max_length=10_000)
+    source_count: int = Field(default=0, ge=0, le=100)
 
 
 class ProjectUpdate(BaseModel):

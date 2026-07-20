@@ -1,9 +1,13 @@
-import { X } from 'lucide-react'
+import { Check, Edit3, Save, X } from 'lucide-react'
+import { useState } from 'react'
 import type { Artifact, ArtifactType } from '../../types'
 
 interface Props {
   artifact: Artifact
   onClose: () => void
+  onReview: (decision: 'approved' | 'changes_requested') => void
+  onRevise: (payload: Record<string, unknown>) => Promise<void>
+  onRegenerate: () => void
 }
 
 interface Column {
@@ -41,17 +45,31 @@ const columnsByType: Partial<Record<ArtifactType, Column[]>> = {
   ],
 }
 
-export function StructuredArtifactViewer({ artifact, onClose }: Props) {
+export function StructuredArtifactViewer({ artifact, onClose, onReview, onRevise, onRegenerate }: Props) {
   const columns = columnsByType[artifact.artifact_type] ?? []
   const rows = getRows(artifact)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(() => JSON.stringify(artifact.payload, null, 2))
+  const [editError, setEditError] = useState('')
+
+  async function saveRevision() {
+    try {
+      const parsed = JSON.parse(draft) as Record<string, unknown>
+      await onRevise(parsed)
+      setEditing(false)
+      setEditError('')
+    } catch (error) {
+      setEditError(error instanceof Error ? error.message : 'Enter valid JSON.')
+    }
+  }
 
   return (
     <section className="artifact-panel structured-artifact-viewer">
       <div className="artifact-header">
         <div><h2>{artifact.name}</h2><span>v{artifact.version}</span></div>
-        <div className="artifact-tabs"><span className="artifact-ready">{artifact.status}</span><button className="close-artifact" onClick={onClose} aria-label="Close asset"><X size={15} /></button></div>
+        <div className="artifact-tabs"><span className="artifact-ready">{artifact.review_status}</span><button onClick={() => onReview('approved')}><Check size={13} /> Approve</button><button onClick={() => onReview('changes_requested')}>Request changes</button><button onClick={onRegenerate}>Regenerate</button><button onClick={() => setEditing((value) => !value)}><Edit3 size={13} /> Edit</button><button className="close-artifact" onClick={onClose} aria-label="Close asset"><X size={15} /></button></div>
       </div>
-      <div className="structured-table-wrap">
+      {editing ? <div className="artifact-json-editor"><textarea aria-label="Artifact JSON" value={draft} onChange={(event) => setDraft(event.target.value)} />{editError && <p>{editError}</p>}<button onClick={() => void saveRevision()}><Save size={14} /> Save new version</button></div> : <div className="structured-table-wrap">
         <div className="structured-table-summary"><strong>{rows.length}</strong> records in this generated asset</div>
         <table className="structured-table">
           <thead><tr>{columns.map((column) => <th key={column.key}>{column.label}</th>)}</tr></thead>
@@ -60,7 +78,7 @@ export function StructuredArtifactViewer({ artifact, onClose }: Props) {
           ))}</tbody>
         </table>
         {rows.length === 0 && <div className="empty-structured-asset">This asset contains no records.</div>}
-      </div>
+      </div>}
     </section>
   )
 }
@@ -87,4 +105,3 @@ function renderValue(key: string, value: unknown) {
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
-

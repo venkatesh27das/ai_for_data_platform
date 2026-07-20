@@ -62,6 +62,18 @@ export interface Artifact<TPayload = unknown> {
   payload: TPayload
   created_at: string
   updated_at: string
+  review_status: 'pending' | 'approved' | 'changes_requested'
+  review_note: string
+}
+
+export interface ProjectSource {
+  id: string
+  project_id: string
+  name: string
+  format: string
+  size_bytes: number
+  profile: Record<string, unknown>
+  created_at: string
 }
 
 export interface ProviderSettings {
@@ -83,6 +95,6 @@ export interface ProviderSettingsPayload extends Omit<ProviderSettings, 'api_key
 }
 
 export interface StreamEvent {
-  event: 'progress' | 'token' | 'done' | 'error'
-  data: { content?: string; label?: string; detail?: string }
+  event: 'progress' | 'token' | 'done' | 'error' | 'agent.started' | 'agent.completed'
+  data: { content?: string; label?: string; detail?: string; execution_mode?: 'llm' | 'fallback' }
 }

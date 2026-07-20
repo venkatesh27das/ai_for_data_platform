@@ -1,20 +1,27 @@
 # AI Data Modelling Assistant MVP
 
-The first runnable foundation of a local-first, chat-driven data modelling assistant. It provides a screenshot-aligned React interface, a FastAPI/SQLite API, provider-independent LLM and embedding boundaries, and a small LangGraph workflow that sends scenarios to LM Studio and streams responses back to the workspace.
+The first runnable foundation of a local-first, chat-driven data modelling assistant. It provides a screenshot-aligned React interface, a FastAPI/SQLite API, provider-independent LLM and embedding boundaries, and a LangGraph master orchestrator that coordinates specialist modelling agents.
 
 ## What works now
 
 - Create a project from the Home scenario composer.
-- Stream an LM Studio response from `gemma-4-12b-qat` over SSE.
+- Stream agent progress and the final LM Studio response from `gemma-4-12b-qat` over SSE.
 - Persist projects and both sides of the conversation in SQLite.
 - Persist generated artifacts separately from chat and open viewers only from generated-asset cards.
 - Reopen a project from Home or Projects and continue its conversation.
 - Search, filter, duplicate, and delete projects.
 - Configure and test LM Studio, OpenAI, Anthropic, or a custom provider preset. The Anthropic transport is a deliberate placeholder in this iteration.
 - Call `nomic-embed-text` through a minimal embedding service boundary (retrieval is not built yet).
-- Exercise the initial LangGraph state path with mocked requirement-stage nodes.
+- Run five typed specialists: requirements, source analysis, model design, mappings/DQ, and validation.
+- Route deterministically through clarification, generation, bounded rework, persistence, and presentation.
+- Generate and version source analysis, logical model, mapping, DQ, and validation assets.
+- Fall back to conservative, evidence-labelled DDL analysis if a local structured-model call times out or returns invalid JSON.
+- Checkpoint every LangGraph node to a dedicated SQLite database for durable recovery.
+- Parse and profile CSV, JSON, DDL/SQL, XLSX, and XLSM source files on the backend.
+- Approve assets, request changes, edit JSON as a new version, browse history, and run dependency-aware targeted regeneration.
+- Zoom, inspect, select, drag, and persist entity positions on the logical-model canvas.
 
-The logical-model viewer now renders persisted structured artifact payloads and remains closed until a modeller selects an available asset. Automatic artifact generation, source upload, mappings, DQ rules, model operations, full agent implementations, and export generation are intentionally deferred.
+The logical-model viewer renders persisted structured artifact payloads and remains closed until a modeller selects an available asset. Retrieval, live database introspection, legacy `.xls` parsing, and export generation remain deferred.
 
 ## Prerequisites
 
@@ -67,7 +74,26 @@ make seed-example
 
 Open **SAP Sales Order Analytics — Example** from Projects. It includes a realistic modelling conversation plus source assessment, logical model, source-to-target mappings, DQ rules, and validation findings. Each viewer opens only when its generated-asset button is selected.
 
-The complete flow is: enter a scenario on Home → submit → the project workspace opens → LM Studio streams its clarification response → reopen the saved project from Projects.
+The complete flow is: enter a scenario and attach source files on Home → submit → the backend profiles the files → specialists analyse and generate assets → select an asset card to review or edit it → optionally regenerate that asset → reopen the persisted project from Projects.
+
+## Agent workflow
+
+```mermaid
+flowchart LR
+  R[Requirement agent] -->|ready| S[Source analysis agent]
+  R -->|blocking question| H[Human clarification]
+  S -->|sources available| M[Model design agent]
+  S -->|missing sources| H
+  M --> Q[Mapping and DQ agent]
+  Q --> V[Validation agent]
+  V -->|one bounded correction| M
+  V --> P[Persist versioned assets]
+  P --> A[Present response]
+```
+
+Every specialist has a versioned prompt and typed Pydantic input/output contract. Agents receive an `LLMProvider`; provider selection and secrets remain outside agent code. `AGENT_REQUEST_TIMEOUT` limits each structured call, after which the safe fallback preserves workflow availability and records the fallback as an assumption.
+
+`WORKFLOW_CHECKPOINT_PATH` controls the node-level LangGraph checkpoint database. A project's latest domain state is also stored with the project, while checkpoints retain execution progress for recovery and audit. Targeted regeneration uses explicit artifact markers internally and skips unchanged upstream agents.
 
 ## Verification
 
@@ -80,7 +106,7 @@ Or run checks independently:
 
 ```bash
 cd backend
-uv run pytest
+uv run python -m pytest
 uv run ruff check .
 uv run mypy app
 
@@ -99,7 +125,8 @@ backend/
   app/repositories/    persistence boundaries
   app/services/        application workflows
   app/llm/             provider and embedding abstractions/adapters
-  app/orchestration/   LangGraph state and initial graph
+  app/agents/          typed specialists and versioned prompts
+  app/orchestration/   LangGraph state and master graph
   tests/
 frontend/
   src/components/      reusable chat, artefact, and common UI

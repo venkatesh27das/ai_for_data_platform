@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.db.base import Base
 from app.repositories.artifacts import ArtifactRepository
 from app.repositories.projects import ProjectRepository
-from app.schemas.artifacts import ArtifactCreate
+from app.schemas.artifacts import ArtifactCreate, ArtifactLayout, ArtifactReview, ArtifactRevision
 from app.services.artifacts import ArtifactService
 
 
@@ -37,3 +37,25 @@ def test_artifact_is_persisted_with_structured_payload() -> None:
         assert artifact.project_id == project.id
         assert artifact.payload["entities"][0]["name"] == "FactSales"  # type: ignore[index]
         assert service.list(project.id) == [artifact]
+
+        reviewed = service.review(
+            project.id,
+            artifact.id,
+            ArtifactReview(decision="approved", note="Reviewed by modeller"),
+        )
+        assert reviewed.review_status == "approved"
+
+        laid_out = service.save_layout(
+            project.id,
+            artifact.id,
+            ArtifactLayout(positions={"fact_sales": {"x": 120, "y": 80}}),
+        )
+        assert laid_out.payload["layout"]["positions"]["fact_sales"]["x"] == 120  # type: ignore[index]
+
+        revision = service.revise(
+            project.id,
+            artifact.id,
+            ArtifactRevision(payload={"entities": [], "relationships": []}),
+        )
+        assert revision.version == 2
+        assert revision.review_status == "pending"

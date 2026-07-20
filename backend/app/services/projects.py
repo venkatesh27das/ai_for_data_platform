@@ -19,7 +19,11 @@ class ProjectService:
         return project
 
     def create(self, payload: ProjectCreate) -> Project:
-        return self.repository.create(name=payload.name, objective=payload.objective)
+        return self.repository.create(
+            name=payload.name,
+            objective=payload.objective,
+            source_count=payload.source_count,
+        )
 
     def update(self, project_id: str, payload: ProjectUpdate) -> Project:
         return self.repository.update(
@@ -30,5 +34,4 @@ class ProjectService:
         self.repository.delete(self.get(project_id))
 
     def duplicate(self, project_id: str) -> Project:
-        source = self.get(project_id)
-        return self.repository.create(name=f"{source.name} (copy)", objective=source.objective)
+        return self.repository.duplicate(self.get(project_id))
