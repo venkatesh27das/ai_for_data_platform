@@ -189,6 +189,27 @@ a { color: inherit; text-decoration: none; }
 .artifact-history > div > button span:last-child { text-align: right; color: #6542e7; }
 .artifact-history > div > button strong { font-size: 10px; }
 .artifact-history > div > button small { color: #7c8398; font-size: 8px; text-transform: capitalize; }
+.execution-plan-card { margin: 12px 0 12px 39px; border: 1px solid #dcd8f4; border-radius: 8px; background: #fcfbff; overflow: hidden; }
+.execution-plan-card > header { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid #ece9fa; }
+.execution-plan-card > header > span { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 6px; color: #6240df; background: #eeeaff; }
+.execution-plan-card > header > div { display: grid; gap: 2px; }
+.execution-plan-card > header strong { font-size: 10px; }
+.execution-plan-card > header small { color: #777f96; font-size: 8px; }
+.execution-plan-card > header b { margin-left: auto; color: #6543db; font-size: 8px; font-weight: 500; text-transform: capitalize; }
+.execution-plan-card ol { list-style: none; display: grid; gap: 5px; margin: 0; padding: 9px 12px; }
+.execution-plan-card li { display: flex; gap: 7px; color: #8a90a3; }
+.execution-plan-card li.completed { color: #15945c; }
+.execution-plan-card li > span { display: grid; gap: 1px; color: #303650; }
+.execution-plan-card li strong { font-size: 9px; font-weight: 500; }
+.execution-plan-card li small { color: #81879a; font-size: 8px; }
+.execution-plan-card > footer { display: flex; gap: 18px; padding: 7px 12px; border-top: 1px solid #ece9fa; color: #737b93; font-size: 8px; }
+.execution-plan-card > footer span { display: inline-flex; align-items: center; gap: 4px; }
+.plan-approval { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 8px; padding: 9px 12px; color: #8a5a0a; background: #fff8e7; border-top: 1px solid #f0dfae; }
+.plan-approval > span { display: grid; gap: 2px; }
+.plan-approval strong { font-size: 9px; }
+.plan-approval small { font-size: 8px; }
+.plan-approval button { border: 1px solid #d7c896; border-radius: 5px; padding: 6px 8px; background: white; font-size: 8px; cursor: pointer; }
+.plan-approval button:last-child { border-color: #6542df; color: white; background: #6542df; }
 .artifact-ready { text-transform: capitalize; color: #16774a !important; background: #e9f8ef !important; }
 .structured-table-wrap { overflow: auto; padding: 17px; }
 .structured-table-summary { margin-bottom: 12px; color: #68718d; font-size: 10px; }

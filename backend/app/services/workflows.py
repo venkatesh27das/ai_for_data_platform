@@ -7,7 +7,10 @@ from typing import Any, cast
 import aiosqlite
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+from langgraph.types import Command
 
+from app.autonomy.capabilities import CapabilityRegistry
+from app.autonomy.tools import ToolExecutor
 from app.llm.base import LLMProvider
 from app.orchestration.graph import MasterOrchestrator
 from app.orchestration.state import ModellingGraphState
@@ -17,7 +20,8 @@ Use only the supplied structured workflow state. If blocking questions exist, br
 the understood objective and ask those exact questions. If generation completed, summarize
 the grain, entity/mapping/DQ counts, validation outcome, assumptions, and human-review items.
 Tell the modeller which generated assets are available. Never invent artifacts, evidence, or
-profiling statistics. Be concise, practical, and transparent about assumptions."""
+profiling statistics. Mention whether the planner or any specialist used a safe fallback and
+summarize material tool or reactive-supervisor decisions. Be concise and transparent."""
 
 AGENT_LABELS = {
     "requirement_agent": "Requirement and clarification agent",
@@ -34,9 +38,16 @@ class WorkflowService:
         provider: LLMProvider,
         agent_timeout_seconds: float = 45,
         checkpoint_path: Path | None = None,
+        capabilities: CapabilityRegistry | None = None,
+        tool_executor: ToolExecutor | None = None,
     ) -> None:
         self.provider = provider
-        self.orchestrator = MasterOrchestrator(provider, agent_timeout_seconds)
+        self.orchestrator = MasterOrchestrator(
+            provider,
+            agent_timeout_seconds,
+            capabilities,
+            tool_executor,
+        )
         self.checkpoint_path = checkpoint_path
 
     async def run(
@@ -48,6 +59,7 @@ class WorkflowService:
         existing_state: dict[str, Any] | None = None,
         sources: list[dict[str, Any]] | None = None,
         resume_from_checkpoint: bool = False,
+        approval_decision: str | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         initial = cast(
             ModellingGraphState,
@@ -77,9 +89,11 @@ class WorkflowService:
             graph = self.orchestrator.compile(checkpointer)
             config = {"configurable": {"thread_id": project_id, "checkpoint_ns": "modelling"}}
         try:
-            graph_input: ModellingGraphState | None = (
-                None if resume_from_checkpoint and config is not None else initial
-            )
+            graph_input: ModellingGraphState | Command[Any] | None = initial
+            if approval_decision is not None and config is not None:
+                graph_input = Command(resume={"decision": approval_decision})
+            elif resume_from_checkpoint and config is not None:
+                graph_input = None
             graph_task = asyncio.create_task(graph.ainvoke(graph_input, config=config))
             while not graph_task.done():
                 try:
@@ -90,7 +104,19 @@ class WorkflowService:
             while not self.orchestrator.events.empty():
                 yield self.orchestrator.events.get_nowait()
             final_state = await graph_task
-            yield {"event": "workflow.completed", "state": final_state}
+            interrupts = final_state.get("__interrupt__", [])
+            if interrupts:
+                first = interrupts[0]
+                persisted_state = {
+                    key: value for key, value in final_state.items() if key != "__interrupt__"
+                }
+                yield {
+                    "event": "workflow.interrupted",
+                    "state": persisted_state,
+                    "interrupt": getattr(first, "value", first),
+                }
+            else:
+                yield {"event": "workflow.completed", "state": final_state}
         finally:
             if connection is not None:
                 await connection.close()
@@ -102,6 +128,10 @@ class WorkflowService:
             key: state.get(key)
             for key in (
                 "workflow_stage",
+                "execution_plan",
+                "tool_trace",
+                "decision_trace",
+                "approval_status",
                 "modelling_brief",
                 "source_analysis",
                 "logical_model",
@@ -123,6 +153,9 @@ class WorkflowService:
 
 
 def agent_progress_label(event: dict[str, Any]) -> str:
+    if str(event.get("event", "")).startswith("tool."):
+        action = "started" if event.get("event") == "tool.started" else "completed"
+        return f"Tool {event.get('agent_id', 'execution')} {action}"
     agent = AGENT_LABELS.get(str(event.get("agent_id")), "Specialist agent")
     action = "started" if event.get("event") == "agent.started" else "completed"
     return f"{agent} {action}"

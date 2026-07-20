@@ -76,6 +76,37 @@ export interface ProjectSource {
   created_at: string
 }
 
+export interface ExecutionPlanStep {
+  id: string
+  title: string
+  agent_id: string
+  skill_id: string
+  required_tools: string[]
+  status: 'pending' | 'running' | 'completed' | 'blocked' | 'failed'
+  approval_required: boolean
+}
+
+export interface ExecutionPlan {
+  plan_id: string
+  objective: string
+  rationale: string
+  steps: ExecutionPlanStep[]
+  requires_human_approval: boolean
+  approval_reason?: string | null
+  iteration_budget: number
+  tool_call_budget: number
+  execution_mode: 'llm' | 'fallback'
+}
+
+export interface ExecutionState {
+  plan: ExecutionPlan | null
+  tool_trace: Array<{ tool_name: string; status: string; source: 'builtin' | 'mcp' }>
+  decision_trace: Array<{ decision: string; reason: string; selected_route: string }>
+  approval_status: string | null
+  run_status: string | null
+  workflow_stage: string | null
+}
+
 export interface ProviderSettings {
   provider: string
   base_url: string
@@ -95,6 +126,6 @@ export interface ProviderSettingsPayload extends Omit<ProviderSettings, 'api_key
 }
 
 export interface StreamEvent {
-  event: 'progress' | 'token' | 'done' | 'error' | 'agent.started' | 'agent.completed'
-  data: { content?: string; label?: string; detail?: string; execution_mode?: 'llm' | 'fallback' }
+  event: 'progress' | 'token' | 'done' | 'error' | 'agent.started' | 'agent.completed' | 'tool.started' | 'tool.completed' | 'approval.required'
+  data: { content?: string; label?: string; detail?: string; execution_mode?: 'llm' | 'fallback'; reason?: string; plan_id?: string }
 }

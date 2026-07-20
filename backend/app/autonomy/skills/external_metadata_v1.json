@@ -1,0 +1,10 @@
+{
+  "id": "sources.external-metadata",
+  "version": "1.0",
+  "name": "External metadata discovery",
+  "description": "Discover source metadata through explicitly configured and allow-listed MCP tools.",
+  "agent_id": "source_analysis_agent",
+  "capabilities": ["source-analysis", "mcp-access"],
+  "allowed_tools": ["mcp.*"],
+  "requires_human_approval": true
+}

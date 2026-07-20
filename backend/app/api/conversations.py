@@ -10,6 +10,7 @@ from app.api.dependencies import (
     get_project_service,
     get_provider_configuration_service,
 )
+from app.autonomy.factory import build_autonomy_runtime
 from app.config import get_settings
 from app.db.models import Message, utcnow
 from app.db.session import SessionLocal
@@ -53,6 +54,8 @@ def stream_message(
 ) -> StreamingResponse:
     project = projects.get(project_id)
     resume_from_checkpoint = project.status == "failed"
+    awaiting_approval = project.workflow_stage == "awaiting_approval"
+    approval_decision = parse_approval_decision(payload.content) if awaiting_approval else None
     existing_state = project.workflow_state
     conversations.add(project_id, "user", payload.content)
     projects.repository.update(project, status="in_progress", workflow_stage="understanding")
@@ -87,8 +90,13 @@ def stream_message(
                 provider,
                 settings.agent_request_timeout,
                 settings.workflow_checkpoint_path,
+                *build_autonomy_runtime(
+                    settings,
+                    tool_calling_enabled=config.tool_calling,
+                ),
             )
             final_state: dict[str, object] = {}
+            interrupted = False
             async for workflow_event in workflow.run(
                 project_id=project_id,
                 user_message=payload.content,
@@ -96,9 +104,15 @@ def stream_message(
                 existing_state=existing_state,
                 sources=source_metadata,
                 resume_from_checkpoint=resume_from_checkpoint,
+                approval_decision=approval_decision,
             ):
                 event_name = str(workflow_event.get("event"))
-                if event_name in {"agent.started", "agent.completed"}:
+                if event_name in {
+                    "agent.started",
+                    "agent.completed",
+                    "tool.started",
+                    "tool.completed",
+                }:
                     event_data = {
                         "agent_id": workflow_event.get("agent_id"),
                         "confidence": workflow_event.get("confidence"),
@@ -111,6 +125,39 @@ def stream_message(
                     state_value = workflow_event.get("state")
                     if isinstance(state_value, dict):
                         final_state = state_value
+                elif event_name == "workflow.interrupted":
+                    state_value = workflow_event.get("state")
+                    if isinstance(state_value, dict):
+                        final_state = state_value
+                    final_state["workflow_stage"] = "awaiting_approval"
+                    final_state["run_status"] = "interrupted"
+                    interrupted = True
+                    yield sse("approval.required", workflow_event.get("interrupt", {}))
+
+            if interrupted:
+                complete = (
+                    "I prepared a bounded execution plan that requires your approval before "
+                    "using an external capability. Review the plan and approve or reject it."
+                )
+                with SessionLocal() as db:
+                    saved_project = ProjectRepository(db).get(project_id)
+                    if saved_project is not None:
+                        WorkflowPersistenceService(db).persist(saved_project, final_state)
+                    MessageRepository(db).create(
+                        project_id=project_id,
+                        role="assistant",
+                        content=complete,
+                    )
+                yield sse(
+                    "done",
+                    {
+                        "content": complete,
+                        "saved_at": utcnow().isoformat(),
+                        "artifact_count": 0,
+                        "workflow_stage": "awaiting_approval",
+                    },
+                )
+                return
 
             yield sse("progress", {"label": "Presenting the orchestrator result"})
             async for token in workflow.stream_response(final_state, history):
@@ -153,3 +200,8 @@ def stream_message(
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+def parse_approval_decision(content: str) -> str:
+    normalized = content.strip().lower()
+    return "approved" if normalized in {"approve", "approved", "approve plan"} else "denied"

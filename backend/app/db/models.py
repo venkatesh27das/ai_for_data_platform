@@ -117,7 +117,7 @@ class ProviderSettings(Base):
     temperature: Mapped[float] = mapped_column(Float, default=0.2)
     request_timeout: Mapped[int] = mapped_column(Integer, default=120)
     structured_output: Mapped[bool] = mapped_column(Boolean, default=True)
-    tool_calling: Mapped[bool] = mapped_column(Boolean, default=False)
+    tool_calling: Mapped[bool] = mapped_column(Boolean, default=True)
     data_dir: Mapped[str] = mapped_column(String(512), default="./data")
     max_upload_mb: Mapped[int] = mapped_column(Integer, default=25)
     log_level: Mapped[str] = mapped_column(String(20), default="INFO")

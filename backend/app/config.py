@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     llm_request_timeout: int = 120
     agent_request_timeout: int = 45
     workflow_checkpoint_path: Path = Path("./data/workflow_checkpoints.db")
+    tool_request_timeout: int = 30
+    mcp_request_timeout: int = 30
+    mcp_servers_json: str = "{}"
+    mcp_tool_allowlist: str = ""
 
     openai_base_url: str = "https://api.openai.com/v1"
     openai_api_key: str = ""

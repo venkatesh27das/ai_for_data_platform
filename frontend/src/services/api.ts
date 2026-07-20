@@ -1,4 +1,4 @@
-import type { Artifact, Message, Project, ProjectSource, ProviderSettings, ProviderSettingsPayload, StreamEvent } from '../types'
+import type { Artifact, ExecutionState, Message, Project, ProjectSource, ProviderSettings, ProviderSettingsPayload, StreamEvent } from '../types'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000/api'
 
@@ -26,6 +26,7 @@ export const api = {
   deleteProject: (id: string) => request<void>(`/projects/${id}`, { method: 'DELETE' }),
   listMessages: (id: string) => request<Message[]>(`/projects/${id}/messages`),
   listArtifacts: (id: string) => request<Artifact[]>(`/projects/${id}/artifacts`),
+  getExecutionState: (id: string) => request<ExecutionState>(`/projects/${id}/execution`),
   reviewArtifact: (projectId: string, artifactId: string, decision: 'approved' | 'changes_requested', note = '') =>
     request<Artifact>(`/projects/${projectId}/artifacts/${artifactId}/review`, {
       method: 'POST', body: JSON.stringify({ decision, note }),

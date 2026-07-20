@@ -9,6 +9,10 @@ flowchart LR
   Repositories --> SQLite[(SQLite)]
   Services --> Graph[LangGraph master orchestrator]
   Graph --> Checkpoints[(SQLite node checkpoints)]
+  Graph --> Planner[Typed master planner]
+  Planner --> Skills[Versioned skill registry]
+  Planner --> Tools[Allow-listed tool executor]
+  Tools --> MCP[MCP Streamable HTTP clients]
   Graph --> Agents[Typed specialist agents]
   Agents --> Registry[Provider registry]
   Registry --> LM[LM Studio OpenAI-compatible API]
@@ -17,7 +21,11 @@ flowchart LR
 
 Routes validate and translate HTTP concerns only. Services own use-case sequencing, repositories isolate SQLAlchemy, and agents/workflows receive an `LLMProvider` rather than constructing provider clients. The embedding boundary uses the same OpenAI-compatible LM Studio server but is independent of chat generation.
 
-The master graph owns routing and shared state. Its specialist nodes are requirement clarification, source analysis, logical model design, mapping and DQ generation, and validation. Blocking requirements or missing sources stop safely for human input. Validation may route through one bounded correction pass before persistence, preventing unbounded autonomous loops.
+The master graph owns planning, routing and shared state. The planner selects only registered skills and tools and sets finite iteration and tool budgets. Tool results are observations supplied to downstream specialists. Its specialist nodes are requirement clarification, source analysis, logical model design, mapping and DQ generation, and validation. Blocking requirements or missing sources stop safely for human input. The reactive supervisor observes validation and routes only the affected step while budget remains.
+
+Every skill is a versioned JSON manifest containing its owning agent, capabilities, tool permissions and approval policy. The tool executor independently checks the plan against that manifest, so prompt output alone cannot grant a capability. Built-in and MCP calls share the same execution-record contract.
+
+MCP uses short-lived Streamable HTTP sessions. Server URLs and fully-qualified tools are configured separately, and a wildcard is permitted only inside the dedicated external-metadata skill. Any MCP step forces a LangGraph interrupt and cannot execute until the modeller approves the checkpointed plan.
 
 Each specialist has a versioned system prompt, typed Pydantic contract, declared identity, and provider-independent `LLMProvider` dependency. Structured responses are schema-validated and receive one JSON-repair attempt. If LM Studio times out or still returns invalid output, an evidence-labelled deterministic fallback keeps the local workflow usable without pretending that invented analysis came from the model.
 

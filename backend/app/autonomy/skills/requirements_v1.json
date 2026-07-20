@@ -1,0 +1,9 @@
+{
+  "id": "requirements.clarification",
+  "version": "1.0",
+  "name": "Requirements clarification",
+  "description": "Extract modelling intent, KPIs, sources and fact grain; stop for material ambiguity.",
+  "agent_id": "requirement_agent",
+  "capabilities": ["requirements", "clarification", "grain-selection"],
+  "allowed_tools": []
+}

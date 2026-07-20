@@ -24,3 +24,9 @@ class ModellingGraphState(TypedDict, total=False):
     rework_count: int
     rework_target: str | None
     regeneration_target: str | None
+    execution_plan: dict[str, Any] | None
+    tool_results: dict[str, Any]
+    tool_trace: list[dict[str, Any]]
+    decision_trace: list[dict[str, Any]]
+    supervisor_route: str | None
+    approval_status: str | None

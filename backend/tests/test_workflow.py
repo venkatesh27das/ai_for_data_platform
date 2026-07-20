@@ -6,6 +6,8 @@ from typing import Any, TypeVar
 import pytest
 from pydantic import BaseModel
 
+from app.autonomy.capabilities import CapabilityRegistry
+from app.autonomy.tools import ToolExecutor, ToolRegistry
 from app.services.workflows import WorkflowService
 
 T = TypeVar("T", bound=BaseModel)
@@ -59,6 +61,53 @@ class ScriptedProvider:
             "evidence": ["User supplied scenario"],
             "assumptions": [],
         }
+        if name == "ExecutionPlan":
+            return {
+                **common,
+                "agent_id": "planner_agent",
+                "plan_id": "test-plan",
+                "objective": "Analyse sales",
+                "rationale": "Run the bounded modelling workflow.",
+                "requires_human_approval": False,
+                "iteration_budget": 1,
+                "tool_call_budget": 4,
+                "steps": [
+                    {
+                        "id": "requirements",
+                        "title": "Confirm requirements",
+                        "agent_id": "requirement_agent",
+                        "skill_id": "requirements.clarification",
+                    },
+                    {
+                        "id": "sources",
+                        "title": "Analyse sources",
+                        "agent_id": "source_analysis_agent",
+                        "skill_id": "sources.evidence-analysis",
+                        "depends_on": ["requirements"],
+                    },
+                    {
+                        "id": "model",
+                        "title": "Design model",
+                        "agent_id": "model_design_agent",
+                        "skill_id": "models.dimensional-design",
+                        "depends_on": ["sources"],
+                    },
+                    {
+                        "id": "mapping_dq",
+                        "title": "Create mappings and DQ",
+                        "agent_id": "mapping_dq_agent",
+                        "skill_id": "governance.mapping-dq",
+                        "depends_on": ["model"],
+                    },
+                    {
+                        "id": "validation",
+                        "title": "Validate",
+                        "agent_id": "validation_agent",
+                        "skill_id": "governance.model-validation",
+                        "depends_on": ["mapping_dq"],
+                    },
+                ],
+            }
         if name == "ModellingBrief":
             return {
                 **common,
@@ -208,6 +257,28 @@ class CrashingOnceProvider(ScriptedProvider):
         )
 
 
+class ApprovalProvider(ScriptedProvider):
+    def payload(self, name: str) -> dict[str, Any]:
+        payload = super().payload(name)
+        if name == "ExecutionPlan":
+            source_step = payload["steps"][1]
+            source_step["skill_id"] = "sources.external-metadata"
+            source_step["required_tools"] = ["mcp.catalog.describe_table"]
+            source_step["approval_required"] = True
+            payload["requires_human_approval"] = True
+            payload["approval_reason"] = "External catalog access requires approval."
+        return payload
+
+
+class WorkflowFakeMCPClient:
+    allowlist = {"mcp.catalog.describe_table"}
+
+    async def call_tool(
+        self, server_name: str, tool_name: str, arguments: dict[str, Any]
+    ) -> dict[str, Any]:
+        return {"server": server_name, "tool": tool_name, "columns": ["VBELN", "POSNR"]}
+
+
 async def test_master_orchestrator_runs_all_specialist_agents() -> None:
     provider = ScriptedProvider()
     workflow = WorkflowService(provider)  # type: ignore[arg-type]
@@ -221,6 +292,7 @@ async def test_master_orchestrator_runs_all_specialist_agents() -> None:
     ]
 
     assert provider.structured_calls == [
+        "ExecutionPlan",
         "ModellingBrief",
         "SourceAnalysis",
         "LogicalModelProposal",
@@ -253,7 +325,7 @@ async def test_master_orchestrator_stops_for_blocking_questions() -> None:
         )
     ]
 
-    assert provider.structured_calls == ["ModellingBrief"]
+    assert provider.structured_calls == ["ExecutionPlan", "ModellingBrief"]
     assert events[-1]["state"]["workflow_stage"] == "awaiting_clarification"
     assert "logical_model" not in events[-1]["state"]
 
@@ -276,6 +348,7 @@ CREATE TABLE VBAP (VBELN STRING, POSNR STRING, PRIMARY KEY (VBELN, POSNR));"""
     ]
 
     assert provider.structured_calls == [
+        "ExecutionPlan",
         "ModellingBrief",
         "SourceAnalysis",
         "LogicalModelProposal",
@@ -336,6 +409,7 @@ async def test_targeted_model_regeneration_skips_unchanged_upstream_agents() -> 
     ]
 
     assert provider.structured_calls == [
+        "ExecutionPlan",
         "LogicalModelProposal",
         "MappingDQProposal",
         "ValidationReport",
@@ -371,3 +445,41 @@ async def test_failed_node_resumes_from_durable_checkpoint(tmp_path: Path) -> No
 
     assert resumed[-1]["event"] == "workflow.completed"
     assert resumed[-1]["state"]["logical_model"]["model_name"] == "Sales Model"
+
+
+async def test_external_tool_plan_interrupts_for_approval_and_resumes(tmp_path: Path) -> None:
+    capabilities = CapabilityRegistry()
+    executor = ToolExecutor(
+        ToolRegistry(WorkflowFakeMCPClient()),  # type: ignore[arg-type]
+        capabilities,
+    )
+    workflow = WorkflowService(  # type: ignore[arg-type]
+        ApprovalProvider(),
+        checkpoint_path=tmp_path / "approval.db",
+        capabilities=capabilities,
+        tool_executor=executor,
+    )
+    interrupted = [
+        event
+        async for event in workflow.run(
+            project_id="approval-project",
+            user_message="Build a sales model at one row per order line",
+            conversation=[],
+        )
+    ]
+    assert interrupted[-1]["event"] == "workflow.interrupted"
+    assert interrupted[-1]["interrupt"]["type"] == "plan_approval"
+
+    resumed = [
+        event
+        async for event in workflow.run(
+            project_id="approval-project",
+            user_message="approve plan",
+            conversation=[],
+            approval_decision="approved",
+        )
+    ]
+    state = resumed[-1]["state"]
+    assert resumed[-1]["event"] == "workflow.completed"
+    assert state["approval_status"] == "approved"
+    assert state["tool_trace"][0]["source"] == "mcp"

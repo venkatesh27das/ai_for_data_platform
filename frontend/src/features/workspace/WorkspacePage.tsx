@@ -6,6 +6,7 @@ import { Brand } from '../../components/common/Brand'
 import { ErrorState, LoadingState } from '../../components/common/States'
 import { MessageBubble } from '../../components/chat/MessageBubble'
 import { ChatComposer } from '../../components/chat/ChatComposer'
+import { ExecutionPlanCard } from '../../components/chat/ExecutionPlanCard'
 import { ArtifactSummaryCard } from '../../components/artefacts/ArtifactSummaryCard'
 import { ModelCanvas } from '../../components/artefacts/ModelCanvas'
 import { StructuredArtifactViewer } from '../../components/artefacts/StructuredArtifactViewer'
@@ -23,6 +24,7 @@ export function WorkspacePage() {
   const { data: project, isLoading: projectLoading, error: projectError } = useQuery({ queryKey: ['project', projectId], queryFn: () => api.getProject(projectId), enabled: Boolean(projectId) })
   const { data: savedMessages = [], isLoading: messagesLoading } = useQuery({ queryKey: ['messages', projectId], queryFn: () => api.listMessages(projectId), enabled: Boolean(projectId) })
   const { data: artifacts = [] } = useQuery({ queryKey: ['artifacts', projectId], queryFn: () => api.listArtifacts(projectId), enabled: Boolean(projectId) })
+  const { data: execution } = useQuery({ queryKey: ['execution', projectId], queryFn: () => api.getExecutionState(projectId), enabled: Boolean(projectId) })
   const [optimistic, setOptimistic] = useState<Message[]>([])
   const [streamingText, setStreamingText] = useState('')
   const [progress, setProgress] = useState('')
@@ -58,6 +60,7 @@ export function WorkspacePage() {
         queryClient.invalidateQueries({ queryKey: ['project', projectId] }),
         queryClient.invalidateQueries({ queryKey: ['projects'] }),
         queryClient.invalidateQueries({ queryKey: ['artifacts', projectId] }),
+        queryClient.invalidateQueries({ queryKey: ['execution', projectId] }),
       ])
       setStreamingText('')
     } catch (error) {
@@ -126,6 +129,7 @@ export function WorkspacePage() {
             {visibleMessages.map((message) => <MessageBubble key={message.id} message={message} />)}
             {(streaming || streamingText) && <MessageBubble streaming message={{ role: 'assistant', content: streamingText || ' ', created_at: new Date().toISOString() }} />}
             {progress && <div className="progress-event"><span className="mini-spinner" /> {progress}</div>}
+            {execution?.plan && <ExecutionPlanCard execution={execution} disabled={streaming} onApprove={() => void send('approve plan')} onReject={() => void send('reject plan')} />}
             {streamError && <div className="chat-error">{streamError}<button onClick={() => { const userMessages = visibleMessages.filter((item) => item.role === 'user'); const last = userMessages[userMessages.length - 1]; if (last) void send(last.content) }}>Retry</button></div>}
             {artifacts.length > 0 && <ArtifactSummaryCard artifacts={artifacts} onOpen={(artifact) => setActiveArtifactId(artifact.id)} />}
           </div>

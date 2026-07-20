@@ -20,6 +20,10 @@ The first runnable foundation of a local-first, chat-driven data modelling assis
 - Parse and profile CSV, JSON, DDL/SQL, XLSX, and XLSM source files on the backend.
 - Approve assets, request changes, edit JSON as a new version, browse history, and run dependency-aware targeted regeneration.
 - Zoom, inspect, select, drag, and persist entity positions on the logical-model canvas.
+- Create a typed, budgeted execution plan before specialist work begins.
+- Select versioned skills and allow-listed tools, record observations, and react to validation.
+- Interrupt for modeller approval before any configured MCP tool runs, then resume durably.
+- Inspect the plan, tool calls, decisions, and approval state directly in the workspace.
 
 The logical-model viewer renders persisted structured artifact payloads and remains closed until a modeller selects an available asset. Retrieval, live database introspection, legacy `.xls` parsing, and export generation remain deferred.
 
@@ -76,24 +80,33 @@ Open **SAP Sales Order Analytics — Example** from Projects. It includes a real
 
 The complete flow is: enter a scenario and attach source files on Home → submit → the backend profiles the files → specialists analyse and generate assets → select an asset card to review or edit it → optionally regenerate that asset → reopen the persisted project from Projects.
 
-## Agent workflow
+## Autonomous agent workflow
 
 ```mermaid
 flowchart LR
-  R[Requirement agent] -->|ready| S[Source analysis agent]
+  P[Master planner] --> A{Approval needed?}
+  A -->|external MCP tool| H[Human approval interrupt]
+  A -->|no| R[Requirement agent]
+  H -->|approved| R
+  R -->|ready| T[Allow-listed source tools]
+  T --> S[Source analysis agent]
   R -->|blocking question| H[Human clarification]
   S -->|sources available| M[Model design agent]
   S -->|missing sources| H
   M --> Q[Mapping and DQ agent]
   Q --> V[Validation agent]
-  V -->|one bounded correction| M
+  V -->|bounded reactive re-plan| M
   V --> P[Persist versioned assets]
   P --> A[Present response]
 ```
 
-Every specialist has a versioned prompt and typed Pydantic input/output contract. Agents receive an `LLMProvider`; provider selection and secrets remain outside agent code. `AGENT_REQUEST_TIMEOUT` limits each structured call, after which the safe fallback preserves workflow availability and records the fallback as an assumption.
+The planner and every specialist have versioned prompts and typed Pydantic contracts. Versioned JSON skill manifests bind capabilities to one agent and an explicit tool allow-list. The supervisor validates every model-selected skill/tool combination before execution, enforces plan iteration and tool-call budgets, and records decisions and observations.
+
+Built-in tools currently expose persisted source profiles and workflow context. MCP uses the official stable Python SDK with Streamable HTTP; servers and fully qualified tools must be explicitly configured in `MCP_SERVERS_JSON` and `MCP_TOOL_ALLOWLIST`. MCP plans always require human approval. Configure only trusted local or authenticated servers.
 
 `WORKFLOW_CHECKPOINT_PATH` controls the node-level LangGraph checkpoint database. A project's latest domain state is also stored with the project, while checkpoints retain execution progress for recovery and audit. Targeted regeneration uses explicit artifact markers internally and skips unchanged upstream agents.
+
+The Settings **Tool calling enabled** toggle controls application tool execution. Local defaults enable bounded tools. MCP remains disabled until at least one server and one fully qualified allow-listed tool are provided through environment configuration.
 
 ## Verification
 

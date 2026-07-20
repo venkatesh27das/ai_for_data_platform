@@ -7,7 +7,7 @@ import type { ProviderSettingsPayload } from '../../types'
 
 const defaults: ProviderSettingsPayload = {
   provider: 'lm_studio', base_url: 'http://localhost:1234/v1', model: 'gemma-4-12b-qat', api_key: '',
-  temperature: 0.2, request_timeout: 120, structured_output: true, tool_calling: false,
+  temperature: 0.2, request_timeout: 120, structured_output: true, tool_calling: true,
   data_dir: './data', max_upload_mb: 25, log_level: 'INFO',
 }
 
@@ -59,4 +59,3 @@ export function SettingsPage() {
 function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (value: boolean) => void }) {
   return <label className="toggle-row"><span>{label}</span><button type="button" role="switch" aria-checked={checked} className={checked ? 'toggle on' : 'toggle'} onClick={() => onChange(!checked)}><i /></button></label>
 }
-

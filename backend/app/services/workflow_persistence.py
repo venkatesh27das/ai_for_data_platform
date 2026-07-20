@@ -36,7 +36,11 @@ class WorkflowPersistenceService:
             workflow_state=state,
             workflow_stage=stage,
             status=project_status,
-            source_count=len(list_of_dicts(source_analysis.get("sources"))),
+            source_count=(
+                len(list_of_dicts(source_analysis.get("sources")))
+                if source_analysis
+                else project.source_count
+            ),
             entity_count=len(list_of_dicts(logical_model.get("entities"))),
             mapping_count=len(mappings),
             dq_rule_count=len(dq_rules),

@@ -52,6 +52,7 @@ class SourceAnalysisAgentInput(BaseModel):
     modelling_brief: ModellingBrief
     uploaded_sources: list[SourceMetadata] = Field(default_factory=list)
     prior_analysis: dict[str, Any] | None = None
+    tool_results: dict[str, Any] = Field(default_factory=dict)
 
 
 class AnalysedSource(BaseModel):
