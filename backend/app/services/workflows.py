@@ -80,10 +80,23 @@ class WorkflowService:
         resume_from_checkpoint: bool = False,
         approval_decision: str | None = None,
         run_id: str | None = None,
+        memory_context: dict[str, Any] | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         compact_conversation = compact_messages(
             conversation, self.recent_message_limit, self.message_char_limit
         )
+        if memory_context and has_memory(memory_context):
+            compact_conversation.insert(
+                0,
+                {
+                    "role": "system",
+                    "content": (
+                        "Durable modelling memory. Treat it as background context, prefer the "
+                        "current user instruction on conflict, and never claim memory as fresh "
+                        "source evidence:\n" + json.dumps(memory_context)
+                    )[-self.message_char_limit :],
+                },
+            )
         compact_sources = compact_source_metadata(
             sources or (existing_state or {}).get("sources", []), self.source_excerpt_limit
         )
@@ -96,6 +109,7 @@ class WorkflowService:
                 "thread_id": project_id,
                 "user_message": user_message,
                 "conversation_messages": compact_conversation,
+                "memory_context": memory_context or {},
                 "workflow_stage": "new",
                 "run_status": "queued",
                 "rework_count": 0,
@@ -212,6 +226,16 @@ def compact_source_metadata(
         }
         for source in sources
     ]
+
+
+def has_memory(value: dict[str, Any]) -> bool:
+    return bool(
+        value.get("project_summary")
+        or value.get("facts")
+        or value.get("decisions")
+        or value.get("preferences")
+        or value.get("relevant_memories")
+    )
 
 
 def deterministic_presenter(state: dict[str, Any]) -> str:

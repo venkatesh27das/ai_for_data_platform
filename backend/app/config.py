@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     deterministic_structural_validation: bool = True
     agent_result_cache_enabled: bool = True
     agent_result_cache_ttl_seconds: int = 86_400
+    memory_enabled: bool = True
+    memory_retrieval_limit: int = 5
+    memory_embedding_timeout: int = 10
 
     openai_base_url: str = "https://api.openai.com/v1"
     openai_api_key: str = ""

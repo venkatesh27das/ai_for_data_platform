@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, CircleAlert, KeyRound, Server, SlidersHorizontal } from 'lucide-react'
+import { BrainCircuit, CheckCircle2, CircleAlert, KeyRound, Server, SlidersHorizontal, Trash2 } from 'lucide-react'
 import { ErrorState, LoadingState } from '../../components/common/States'
 import { api } from '../../services/api'
 import type { ProviderSettingsPayload } from '../../types'
@@ -14,11 +14,21 @@ const defaults: ProviderSettingsPayload = {
 export function SettingsPage() {
   const queryClient = useQueryClient()
   const { data, isLoading, error } = useQuery({ queryKey: ['provider-settings'], queryFn: api.getProviderSettings })
+  const memory = useQuery({ queryKey: ['memory-settings'], queryFn: api.getMemorySettings })
+  const userMemory = useQuery({ queryKey: ['user-memory'], queryFn: api.listUserMemory })
   const [form, setForm] = useState<ProviderSettingsPayload>(defaults)
   const [testResult, setTestResult] = useState<{ ok: boolean; detail: string } | null>(null)
   useEffect(() => { if (data) setForm({ ...data, api_key: '' }) }, [data])
   const save = useMutation({ mutationFn: api.saveProviderSettings, onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['provider-settings'] }) })
   const test = useMutation({ mutationFn: api.testProvider, onSuccess: setTestResult, onError: (err) => setTestResult({ ok: false, detail: err.message }) })
+  const saveMemory = useMutation({
+    mutationFn: api.saveMemorySettings,
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['memory-settings'] }),
+  })
+  const clearMemory = useMutation({
+    mutationFn: api.deleteAllUserMemory,
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['user-memory'] }),
+  })
 
   function update<K extends keyof ProviderSettingsPayload>(key: K, value: ProviderSettingsPayload[K]) {
     setForm((current) => ({ ...current, [key]: value }))
@@ -52,6 +62,19 @@ export function SettingsPage() {
           <div className="form-grid"><label className="full">Local data directory<input value={form.data_dir} onChange={(event) => update('data_dir', event.target.value)} /></label><label>Maximum upload size (MB)<input type="number" value={form.max_upload_mb} onChange={(event) => update('max_upload_mb', Number(event.target.value))} /></label><label>Logging level<select value={form.log_level} onChange={(event) => update('log_level', event.target.value)}><option>DEBUG</option><option>INFO</option><option>WARNING</option><option>ERROR</option></select></label></div>
         </section>
       </form>
+      <section className="settings-card">
+        <div className="settings-heading"><span><BrainCircuit size={22} /></span><div><h2>Memory</h2><p>Control durable context used by future modelling conversations.</p></div></div>
+        <div className="memory-settings-row">
+          <div><strong>Cross-project memory</strong><p>Allow confirmed summaries and preferences from one project to help another. Project-scoped memory remains enabled independently.</p></div>
+          <Toggle label="" checked={memory.data?.cross_project_enabled ?? false} onChange={(checked) => saveMemory.mutate(checked)} />
+        </div>
+        <div className="memory-storage-row">
+          <div><strong>{userMemory.data?.length ?? 0} cross-project memories stored</strong><p>Stored locally in SQLite. Turning memory off stops retrieval; deleting removes the saved entries.</p></div>
+          <button type="button" className="button danger-outline" disabled={clearMemory.isPending || !userMemory.data?.length} onClick={() => { if (window.confirm('Delete all cross-project memory? Project-specific memories will remain.')) clearMemory.mutate() }}><Trash2 size={15} />{clearMemory.isPending ? 'Deleting…' : 'Delete memory'}</button>
+        </div>
+        {saveMemory.isSuccess && <div className="connection-result ok"><CheckCircle2 size={18} /> Memory preference saved.</div>}
+        {(memory.error || userMemory.error || saveMemory.error || clearMemory.error) && <div className="connection-result bad"><CircleAlert size={18} /> Memory settings could not be updated.</div>}
+      </section>
     </div>
   )
 }

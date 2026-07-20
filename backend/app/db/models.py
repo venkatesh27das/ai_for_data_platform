@@ -54,6 +54,12 @@ class Project(Base):
     workflow_runs: Mapped[list["WorkflowRun"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )
+    memory: Mapped["ProjectMemory | None"] = relationship(
+        back_populates="project", cascade="all, delete-orphan", uselist=False
+    )
+    memory_entries: Mapped[list["MemoryEntry"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan"
+    )
 
 
 class Message(Base):
@@ -222,3 +228,53 @@ class AgentResultCache(Base):
     result: Mapped[dict[str, Any]] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class ProjectMemory(Base):
+    __tablename__ = "project_memories"
+
+    project_id: Mapped[str] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True
+    )
+    summary: Mapped[str] = mapped_column(Text, default="")
+    facts: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    decisions: Mapped[list[str]] = mapped_column(JSON, default=list)
+    assumptions: Mapped[list[str]] = mapped_column(JSON, default=list)
+    terminology: Mapped[dict[str, str]] = mapped_column(JSON, default=dict)
+    preferences: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+    project: Mapped[Project] = relationship(back_populates="memory")
+
+
+class MemoryEntry(Base):
+    __tablename__ = "memory_entries"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    project_id: Mapped[str | None] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    scope: Mapped[str] = mapped_column(String(24), index=True)
+    kind: Mapped[str] = mapped_column(String(32), index=True)
+    content: Mapped[str] = mapped_column(Text)
+    embedding: Mapped[list[float]] = mapped_column(JSON, default=list)
+    source_run_id: Mapped[str | None] = mapped_column(
+        ForeignKey("workflow_runs.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    source_project_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+    project: Mapped[Project | None] = relationship(back_populates="memory_entries")
+
+
+class MemorySettings(Base):
+    __tablename__ = "memory_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    cross_project_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )

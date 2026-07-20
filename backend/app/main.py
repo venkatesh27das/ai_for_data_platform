@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import artifacts, autonomy, conversations, health, projects, settings, sources
+from app.api import artifacts, autonomy, conversations, health, memory, projects, settings, sources
 from app.config import get_settings
 from app.runtime import application_runtime
 from app.services.workflow_runner import recover_incomplete_runs
@@ -37,3 +37,4 @@ app.include_router(artifacts.router, prefix="/api")
 app.include_router(sources.router, prefix="/api")
 app.include_router(settings.router, prefix="/api")
 app.include_router(autonomy.router, prefix="/api")
+app.include_router(memory.router, prefix="/api")

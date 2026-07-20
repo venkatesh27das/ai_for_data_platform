@@ -125,6 +125,22 @@ export interface ProviderSettingsPayload extends Omit<ProviderSettings, 'api_key
   api_key?: string
 }
 
+export interface MemorySettings {
+  cross_project_enabled: boolean
+  updated_at: string
+}
+
+export interface MemoryEntry {
+  id: string
+  project_id: string | null
+  scope: 'project' | 'user'
+  kind: string
+  content: string
+  source_project_id: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface StreamEvent {
   event: 'progress' | 'token' | 'done' | 'error' | 'agent.started' | 'agent.completed' | 'tool.started' | 'tool.completed' | 'approval.required'
   data: { content?: string; label?: string; detail?: string; execution_mode?: 'llm' | 'fallback' | 'deterministic' | 'cached'; reason?: string; plan_id?: string; run_id?: string; duration_ms?: number }

@@ -965,6 +965,7 @@ def planning_context(state: ModellingGraphState) -> dict[str, Any]:
         "active_step_id",
         "execution_plan",
         "tool_results",
+        "memory_context",
     )
     context = {key: state.get(key) for key in keys if state.get(key) is not None}
     context["sources"] = [

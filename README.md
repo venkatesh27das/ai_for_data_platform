@@ -16,6 +16,7 @@ The repository is an actively developed MVP foundation. Its primary path runs pr
 - [Testing and maintenance](#testing-and-maintenance)
 - [Architecture](#architecture)
 - [Agents, skills, tools, and MCP](#agents-skills-tools-and-mcp)
+- [Conversation and modelling memory](#conversation-and-modelling-memory)
 - [Providers and embeddings](#providers-and-embeddings)
 - [Reliability and performance](#reliability-and-performance)
 - [API overview](#api-overview)
@@ -33,7 +34,10 @@ The repository is an actively developed MVP foundation. Its primary path runs pr
 - Use allow-listed local tools and approval-gated MCP tools.
 - Resume durable runs and prevent duplicate requests, tool operations, messages, and artifact versions.
 - Use deterministic fast paths for clear source metadata and structural validation, with LLM escalation when semantics are ambiguous.
-- Call `nomic-embed-text` through an embedding-provider interface. Retrieval is intentionally deferred.
+- Keep recent conversation context and durable LangGraph checkpoints for active work.
+- Automatically maintain structured project memory for confirmed grain, decisions, assumptions, terminology, and preferences.
+- Rank older project memories with `nomic-embed-text`, with lexical fallback when the embedding provider is unavailable.
+- Optionally share selected summaries and preferences across projects, with explicit Settings controls and deletion.
 
 The logical-model canvas remains closed and empty until a generated asset is selected. The generated artifact—not a hardcoded preview—is rendered when the modeller opens it.
 
@@ -50,7 +54,9 @@ The logical-model canvas remains closed and empty until a generated asset is sel
 | Targeted regeneration | Implemented | Starts at the affected specialist and reruns dependencies |
 | Built-in tools | Implemented | Source-profile summary and workflow context |
 | MCP integration | Implemented foundation | Requires an external allow-listed MCP server |
-| Embeddings | Implemented foundation | Vector indexing and retrieval are planned |
+| Project memory | Implemented | Automatic structured summary plus older request, response, and artifact context |
+| Cross-project memory | Implemented, opt-in | Disabled by default; inspectable and deletable through API and Settings |
+| Embeddings and retrieval | Implemented | Local SQLite vector storage, cosine ranking, lexical failure fallback |
 | Export formats | Planned | Export UI exists; downloads are not complete |
 | Anthropic Claude | Placeholder | Provider contract exists; transport is deferred |
 | A2A endpoint | Planned | Internal contracts are ready for later exposure |
@@ -256,6 +262,7 @@ The backend is layered so HTTP routes stay thin and agents do not depend on stor
 - Immutable generated-artifact versions and reviews
 - Workflow runs and ordered SSE events
 - Idempotent tool operations and cached specialist results
+- Structured project summaries, embedding-backed memory entries, and opt-in user memory
 - LangGraph node checkpoints in a separate SQLite database
 
 SQLite runs with foreign keys, WAL mode, a busy timeout, and normal synchronous mode. Project state, artifacts, assistant response, terminal event, run status, and lease release are published in one transaction.
@@ -281,6 +288,9 @@ Configuration lives in the ignored root `.env`. Safe defaults are documented in 
 | `LM_STUDIO_BASE_URL` | `http://localhost:1234/v1` | LM Studio API |
 | `LM_STUDIO_MODEL` | `gemma-4-12b-qat` | Chat model |
 | `EMBEDDING_MODEL` | `nomic-embed-text` | Embedding model |
+| `MEMORY_ENABLED` | `true` | Enable automatic project-memory update and retrieval |
+| `MEMORY_RETRIEVAL_LIMIT` | `5` | Maximum relevant older memories injected per run |
+| `MEMORY_EMBEDDING_TIMEOUT` | `10` | Embedding timeout before lexical fallback |
 | `WORKFLOW_CHECKPOINT_PATH` | `./data/workflow_checkpoints.db` | LangGraph checkpoints |
 | `MCP_SERVERS_JSON` | `{}` | Named MCP Streamable HTTP servers |
 | `MCP_TOOL_ALLOWLIST` | empty | Fully qualified allowed MCP tools |
@@ -384,6 +394,9 @@ flowchart LR
   API --> SVC["Application services"]
   SVC --> REPO["SQLAlchemy repositories"]
   REPO --> DB[("SQLite application data")]
+  RUN --> MEMORY["Memory service"]
+  MEMORY --> DB
+  MEMORY --> EMBED["Embedding adapter"]
   RUN --> GRAPH["LangGraph master orchestrator"]
   GRAPH --> CP[("SQLite checkpoints")]
   GRAPH --> PLAN["Master planner"]
@@ -393,7 +406,7 @@ flowchart LR
   GRAPH --> AGENTS["Typed specialist agents"]
   AGENTS --> LLM["Provider registry"]
   LLM --> LM["LM Studio / OpenAI-compatible API"]
-  EMBED["Embedding service"] --> LM
+  EMBED --> LM
 ```
 
 ### Request lifecycle
@@ -412,11 +425,13 @@ sequenceDiagram
   W->>A: Stream request with idempotency key
   A->>D: Create or reuse workflow run
   A-->>W: Run ID and SSE stream
+  R->>D: Retrieve structured and relevant memory
   R->>G: Execute checkpointed workflow
   G->>P: Plan, act, observe, and replan
   P-->>G: Typed results and evidence
   G-->>R: Final workflow state
   R->>D: Atomic terminal publication
+  R->>D: Update structured summary and memory index
   D-->>W: Durable events and generated assets
   W-->>U: Response and selectable artifacts
 ```
@@ -523,6 +538,24 @@ flowchart LR
   EXEC --> RECORD["Persist result or failure"]
 ```
 
+## Conversation and modelling memory
+
+The assistant uses several distinct memory layers. Current user instructions always take priority over retrieved memory when they conflict.
+
+| Layer | Scope | What is stored | How it is used |
+| --- | --- | --- | --- |
+| Working conversation | Current run | A bounded window of recent user and assistant messages | Supplied to the planner and specialists without allowing prompts to grow indefinitely |
+| Workflow checkpoints | Project/run | LangGraph execution state, plan progress, observations, and interrupts | Resumes incomplete or approval-gated work safely |
+| Structured project memory | Project | Objective, process, confirmed grain, KPIs, sources, decisions, assumptions, terminology, and preferences | Automatically refreshed after every successfully completed run and injected as durable modelling context |
+| Semantic memory | Project | Older requests, assistant responses, and generated summaries with embeddings | Retrieves the most relevant older context for a new request instead of replaying the full history |
+| User memory | Cross-project | Project summaries and manually saved facts, terminology, or preferences | Used only when **Cross-project memory** is explicitly enabled in Settings |
+
+Project memory is on by default and stays within its project. Cross-project memory is off by default. The Settings screen can enable or disable its use and permanently delete all cross-project entries. Project-scoped memory can be inspected or deleted with the project memory API.
+
+Embeddings are generated through the provider-neutral interface using LM Studio and `nomic-embed-text`. Vectors are stored locally in SQLite and ranked with cosine similarity. If LM Studio or the embedding model is unavailable, the workflow continues and uses lexical relevance; memory enhancement never makes the modelling run fail.
+
+This is application memory, not model fine-tuning. Deleting memory does not delete the separately persisted project conversation, artifacts, or LangGraph checkpoints.
+
 ## Providers and embeddings
 
 Agents depend only on the internal provider interface.
@@ -534,7 +567,7 @@ Agents depend only on the internal provider interface.
 | Custom OpenAI-compatible | Implemented | Configurable URL, model, and key |
 | Anthropic Claude | Placeholder | Contract and Settings option exist; transport is deferred |
 
-`EmbeddingService` provides a minimal `embed_documents()` boundary. The LM Studio embedding adapter checks available models, resolves `nomic-embed-text`, calls `/embeddings`, and restores input order. Vector indexing, retrieval, and RAG are not implemented yet.
+The provider-neutral embedding boundary is used by the memory service. The LM Studio adapter checks available models, resolves `nomic-embed-text`, calls `/embeddings`, and restores input order. The current local index stores vectors as SQLite JSON and performs bounded in-process cosine ranking. This is appropriate for the MVP's project-sized memory; a dedicated vector index and source-evidence RAG remain future scale work.
 
 ## Reliability and performance
 
@@ -563,6 +596,7 @@ Interactive OpenAPI documentation is available at `/docs`.
 | Sources | List and upload project sources |
 | Artifacts | List/get, review, revise, save canvas layout |
 | Settings | Read/save provider settings and test provider |
+| Memory | Inspect/delete project memory; enable/disable and list/delete cross-project memory |
 | Autonomy | List skills/tools, test MCP server, inspect project execution state |
 
 See [`docs/architecture.md`](./docs/architecture.md) and the product specification [`CODEX_AI_Data_Modelling_Assistant_MVP.md`](./CODEX_AI_Data_Modelling_Assistant_MVP.md).
@@ -637,7 +671,7 @@ Run `make setup` again. Installation is lockfile-based and safe to repeat.
 - JSON, mapping CSV, DQ CSV, Mermaid, Markdown, and optional SQL DDL exports
 - Completed Anthropic Claude transport
 - Remote A2A-style validation-agent endpoint and agent card
-- Embedding index, retrieval service, and evidence search
+- Scalable vector index and source-evidence search for large catalog collections
 - Trusted live database/catalog integrations through additional tools and MCP servers
 
 ### Outside the current MVP

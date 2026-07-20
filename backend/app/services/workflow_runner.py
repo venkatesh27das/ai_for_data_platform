@@ -1,25 +1,31 @@
 import asyncio
+import logging
 from time import perf_counter
 from typing import Any
 
 from sqlalchemy import select, update
+from sqlalchemy.orm import Session
 
 from app.autonomy.factory import build_autonomy_runtime
-from app.config import get_settings
+from app.config import Settings, get_settings
 from app.db.models import Artifact, Project, WorkflowRun
 from app.db.session import SessionLocal
+from app.llm.embeddings import OpenAICompatibleEmbeddingProvider
 from app.llm.registry import ProviderRegistry
+from app.repositories.memory import MemoryRepository
 from app.repositories.messages import MessageRepository
 from app.repositories.projects import ProjectRepository
 from app.repositories.sources import SourceRepository
 from app.repositories.workflow_runs import WorkflowRunRepository
 from app.runtime import ApplicationRuntime
 from app.services.agent_cache import AgentResultCache
+from app.services.memory import MemoryService
 from app.services.provider_settings import ProviderConfigurationService
 from app.services.workflow_persistence import WorkflowPersistenceService
 from app.services.workflows import WorkflowService, agent_progress_label
 
 TERMINAL_RUN_STATUSES = {"completed", "failed", "interrupted", "cancelled", "conflict"}
+logger = logging.getLogger(__name__)
 
 
 async def recover_incomplete_runs(runtime: ApplicationRuntime) -> None:
@@ -118,6 +124,13 @@ async def _execute_leased_run(
             for source in SourceRepository(db).list_for_project(project.id)
         ]
         config = ProviderConfigurationService(db, settings).get_model()
+        memory_context = (
+            await memory_service(db, settings).retrieve_context(
+                project.id, run.request_content
+            )
+            if settings.memory_enabled
+            else {}
+        )
         provider = ProviderRegistry(
             settings,
             client=runtime.http_client,
@@ -161,6 +174,7 @@ async def _execute_leased_run(
             resume_from_checkpoint=resume_from_checkpoint,
             approval_decision=approval_decision,
             run_id=run.id,
+            memory_context=memory_context,
         ):
             event_name = str(workflow_event.get("event"))
             if event_name in {"agent.started", "agent.completed", "tool.started", "tool.completed"}:
@@ -225,6 +239,15 @@ async def _execute_leased_run(
             status="completed",
             duration_ms=elapsed_ms(started),
         )
+        if settings.memory_enabled:
+            await _remember_completed_run(
+                run_id=run.id,
+                project_id=project.id,
+                state=final_state,
+                user_message=run.request_content,
+                response=response,
+                settings=settings,
+            )
 
 
 def _finalize_result(
@@ -344,6 +367,44 @@ def _cancel_run(run_id: str, started: float) -> None:
             run, status="cancelled", duration_ms=elapsed_ms(started), commit=False
         )
         db.commit()
+
+
+async def _remember_completed_run(
+    *,
+    run_id: str,
+    project_id: str,
+    state: dict[str, Any],
+    user_message: str,
+    response: str,
+    settings: Settings,
+) -> None:
+    try:
+        with SessionLocal() as db:
+            project = ProjectRepository(db).get(project_id)
+            if project is None:
+                return
+            await memory_service(db, settings).update_after_run(
+                project_id=project_id,
+                project_name=project.name,
+                run_id=run_id,
+                user_message=user_message,
+                assistant_response=response,
+                state=state,
+            )
+    except Exception:
+        logger.warning("Memory update failed for workflow run %s", run_id, exc_info=True)
+
+
+def memory_service(db: Session, settings: Settings) -> MemoryService:
+    provider = OpenAICompatibleEmbeddingProvider(
+        base_url=settings.lm_studio_base_url,
+        api_key=settings.lm_studio_api_key,
+        model=settings.embedding_model,
+        timeout=settings.memory_embedding_timeout,
+    )
+    return MemoryService(
+        MemoryRepository(db), provider, settings.memory_retrieval_limit
+    )
 
 
 def parse_approval_decision(content: str) -> str:

@@ -7,6 +7,7 @@ class ModellingGraphState(TypedDict, total=False):
     thread_id: str
     user_message: str | None
     conversation_messages: list[dict[str, Any]]
+    memory_context: dict[str, Any]
     modelling_brief: dict[str, Any] | None
     sources: list[dict[str, Any]]
     source_analysis: dict[str, Any] | None

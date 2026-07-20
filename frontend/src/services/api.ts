@@ -1,4 +1,4 @@
-import type { Artifact, ExecutionState, Message, Project, ProjectSource, ProviderSettings, ProviderSettingsPayload, StreamEvent } from '../types'
+import type { Artifact, ExecutionState, MemoryEntry, MemorySettings, Message, Project, ProjectSource, ProviderSettings, ProviderSettingsPayload, StreamEvent } from '../types'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000/api'
 
@@ -58,6 +58,16 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(input),
     }),
+  getMemorySettings: () => request<MemorySettings>('/memory/settings'),
+  saveMemorySettings: (crossProjectEnabled: boolean) =>
+    request<MemorySettings>('/memory/settings', {
+      method: 'PUT',
+      body: JSON.stringify({ cross_project_enabled: crossProjectEnabled }),
+    }),
+  listUserMemory: () => request<MemoryEntry[]>('/memory/user'),
+  deleteAllUserMemory: () => request<void>('/memory/user', { method: 'DELETE' }),
+  deleteProjectMemory: (projectId: string) =>
+    request<void>(`/projects/${projectId}/memory`, { method: 'DELETE' }),
   cancelRun: (projectId: string, runId: string) =>
     request<{ run_id: string; status: string }>(
       `/projects/${projectId}/messages/runs/${runId}/cancel`,
