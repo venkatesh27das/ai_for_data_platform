@@ -40,6 +40,8 @@ class Settings(BaseSettings):
     workflow_source_excerpt_limit: int = 8_000
     planner_fast_path: bool = True
     presenter_fast_path: bool = True
+    deterministic_source_analysis: bool = True
+    deterministic_structural_validation: bool = True
     agent_result_cache_enabled: bool = True
     agent_result_cache_ttl_seconds: int = 86_400
 

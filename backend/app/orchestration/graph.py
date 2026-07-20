@@ -56,6 +56,8 @@ class MasterOrchestrator:
         tool_executor: ToolExecutor | None = None,
         planner_fast_path: bool = False,
         result_cache: AgentResultCache | None = None,
+        deterministic_source_analysis: bool = False,
+        deterministic_structural_validation: bool = False,
     ) -> None:
         self.events: Queue[dict[str, Any]] = Queue()
         self.capabilities = capabilities or CapabilityRegistry()
@@ -63,11 +65,19 @@ class MasterOrchestrator:
         self.planner_agent = PlannerAgent(provider, agent_timeout_seconds, result_cache)
         self.requirement_agent = RequirementAgent(provider, agent_timeout_seconds, result_cache)
         self.source_analysis_agent = SourceAnalysisAgent(
-            provider, agent_timeout_seconds, result_cache
+            provider,
+            agent_timeout_seconds,
+            result_cache,
+            deterministic_fast_path=deterministic_source_analysis,
         )
         self.model_design_agent = ModelDesignAgent(provider, agent_timeout_seconds, result_cache)
         self.mapping_dq_agent = MappingDQAgent(provider, agent_timeout_seconds, result_cache)
-        self.validation_agent = ValidationAgent(provider, agent_timeout_seconds, result_cache)
+        self.validation_agent = ValidationAgent(
+            provider,
+            agent_timeout_seconds,
+            result_cache,
+            deterministic_fast_path=deterministic_structural_validation,
+        )
         self.planner_fast_path = planner_fast_path
         self.builder = self._build_graph()
         self.graph = self.builder.compile()

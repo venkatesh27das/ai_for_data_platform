@@ -14,9 +14,34 @@ class MessageRepository:
         )
         return list(self.db.scalars(statement))
 
-    def create(self, *, project_id: str, role: str, content: str) -> Message:
-        message = Message(project_id=project_id, role=role, content=content)
+    def create(
+        self,
+        *,
+        project_id: str,
+        role: str,
+        content: str,
+        workflow_run_id: str | None = None,
+        commit: bool = True,
+    ) -> Message:
+        if workflow_run_id is not None:
+            existing = self.db.scalar(
+                select(Message).where(
+                    Message.workflow_run_id == workflow_run_id,
+                    Message.role == role,
+                )
+            )
+            if existing is not None:
+                return existing
+        message = Message(
+            project_id=project_id,
+            role=role,
+            content=content,
+            workflow_run_id=workflow_run_id,
+        )
         self.db.add(message)
-        self.db.commit()
-        self.db.refresh(message)
+        if commit:
+            self.db.commit()
+            self.db.refresh(message)
+        else:
+            self.db.flush()
         return message

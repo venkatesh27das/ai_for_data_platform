@@ -6,7 +6,7 @@ from sqlalchemy import select, update
 
 from app.autonomy.factory import build_autonomy_runtime
 from app.config import get_settings
-from app.db.models import Project, WorkflowRun
+from app.db.models import Artifact, Project, WorkflowRun
 from app.db.session import SessionLocal
 from app.llm.registry import ProviderRegistry
 from app.repositories.messages import MessageRepository
@@ -96,12 +96,12 @@ async def _execute_leased_run(
         approval_decision = (
             parse_approval_decision(run.request_content) if awaiting_approval else None
         )
-        if not recovering:
-            MessageRepository(db).create(
-                project_id=project.id,
-                role="user",
-                content=run.request_content,
-            )
+        MessageRepository(db).create(
+            project_id=project.id,
+            role="user",
+            content=run.request_content,
+            workflow_run_id=run.id,
+        )
         projects.update(project, status="in_progress", workflow_stage="understanding")
         history = [
             {"role": message.role, "content": message.content}
@@ -143,6 +143,10 @@ async def _execute_leased_run(
                 AgentResultCache(settings.agent_result_cache_ttl_seconds)
                 if settings.agent_result_cache_enabled
                 else None
+            ),
+            deterministic_source_analysis=settings.deterministic_source_analysis,
+            deterministic_structural_validation=(
+                settings.deterministic_structural_validation
             ),
         )
         final_state: dict[str, Any] = {}
@@ -191,21 +195,12 @@ async def _execute_leased_run(
                 "I prepared a bounded execution plan that requires approval before using "
                 "the selected external capability."
             )
-            _persist_result(project.id, final_state, response)
-            runs.append_event(
-                run,
-                "done",
-                {
-                    "content": response,
-                    "artifact_count": 0,
-                    "workflow_stage": "awaiting_approval",
-                    "run_id": run.id,
-                },
-            )
-            runs.finish(
-                run,
+            _finalize_result(
+                run_id=run.id,
+                project_id=project.id,
+                state=final_state,
+                response=response,
                 status="interrupted",
-                response_content=response,
                 duration_ms=elapsed_ms(started),
             )
             return
@@ -222,33 +217,77 @@ async def _execute_leased_run(
         if pending:
             runs.append_event(run, "token", {"content": pending})
         response = "".join(response_chunks)
-        artifact_count = _persist_result(project.id, final_state, response)
+        _finalize_result(
+            run_id=run.id,
+            project_id=project.id,
+            state=final_state,
+            response=response,
+            status="completed",
+            duration_ms=elapsed_ms(started),
+        )
+
+
+def _finalize_result(
+    *,
+    run_id: str,
+    project_id: str,
+    state: dict[str, Any],
+    response: str,
+    status: str,
+    duration_ms: float,
+) -> int:
+    """Atomically publish all durable outputs for one workflow run.
+
+    Progress and token events intentionally commit independently. The project state,
+    generated artifact versions, assistant message, terminal event, run status, and
+    project lease are one transaction so recovery sees either all outputs or none.
+    """
+    with SessionLocal() as db:
+        runs = WorkflowRunRepository(db)
+        run = runs.get(run_id)
+        if run is None:
+            return 0
+        if run.status in TERMINAL_RUN_STATUSES:
+            return len(
+                list(
+                    db.scalars(
+                        select(Artifact).where(Artifact.generated_by_run_id == run_id)
+                    )
+                )
+            )
+        project = ProjectRepository(db).get(project_id)
+        artifacts: list[Artifact] = []
+        if project is not None:
+            artifacts = WorkflowPersistenceService(db).persist(
+                project, state, run_id=run_id, commit=False
+            )
+        MessageRepository(db).create(
+            project_id=project_id,
+            role="assistant",
+            content=response,
+            workflow_run_id=run_id,
+            commit=False,
+        )
         runs.append_event(
             run,
             "done",
             {
                 "content": response,
-                "artifact_count": artifact_count,
-                "workflow_stage": final_state.get("workflow_stage"),
+                "artifact_count": len(artifacts),
+                "workflow_stage": state.get("workflow_stage"),
                 "run_id": run.id,
-                "duration_ms": elapsed_ms(started),
+                "duration_ms": duration_ms,
             },
+            commit=False,
         )
         runs.finish(
             run,
-            status="completed",
+            status=status,
             response_content=response,
-            duration_ms=elapsed_ms(started),
+            duration_ms=duration_ms,
+            commit=False,
         )
-
-
-def _persist_result(project_id: str, state: dict[str, Any], response: str) -> int:
-    with SessionLocal() as db:
-        project = ProjectRepository(db).get(project_id)
-        artifacts = []
-        if project is not None:
-            artifacts = WorkflowPersistenceService(db).persist(project, state)
-        MessageRepository(db).create(project_id=project_id, role="assistant", content=response)
+        db.commit()
         return len(artifacts)
 
 
@@ -260,12 +299,31 @@ def _fail_run(run_id: str, exc: Exception, started: float) -> None:
         run = runs.get(run_id)
         if run is None:
             return
-        runs.append_event(run, "error", {"detail": detail, "run_id": run.id})
+        if run.status in TERMINAL_RUN_STATUSES:
+            return
+        runs.append_event(
+            run, "error", {"detail": detail, "run_id": run.id}, commit=False
+        )
         project = ProjectRepository(db).get(run.project_id)
         if project is not None:
-            ProjectRepository(db).update(project, status="failed", workflow_stage="error")
-        MessageRepository(db).create(project_id=run.project_id, role="assistant", content=detail)
-        runs.finish(run, status="failed", error=reason, duration_ms=elapsed_ms(started))
+            ProjectRepository(db).update(
+                project, status="failed", workflow_stage="error", commit=False
+            )
+        MessageRepository(db).create(
+            project_id=run.project_id,
+            role="assistant",
+            content=detail,
+            workflow_run_id=run.id,
+            commit=False,
+        )
+        runs.finish(
+            run,
+            status="failed",
+            error=reason,
+            duration_ms=elapsed_ms(started),
+            commit=False,
+        )
+        db.commit()
 
 
 def _cancel_run(run_id: str, started: float) -> None:
@@ -274,13 +332,18 @@ def _cancel_run(run_id: str, started: float) -> None:
         run = runs.get(run_id)
         if run is None:
             return
-        runs.append_event(run, "run.cancelled", {"run_id": run.id})
+        if run.status in TERMINAL_RUN_STATUSES:
+            return
+        runs.append_event(run, "run.cancelled", {"run_id": run.id}, commit=False)
         project = ProjectRepository(db).get(run.project_id)
         if project is not None:
             ProjectRepository(db).update(
-                project, status="in_progress", workflow_stage="cancelled"
+                project, status="in_progress", workflow_stage="cancelled", commit=False
             )
-        runs.finish(run, status="cancelled", duration_ms=elapsed_ms(started))
+        runs.finish(
+            run, status="cancelled", duration_ms=elapsed_ms(started), commit=False
+        )
+        db.commit()
 
 
 def parse_approval_decision(content: str) -> str:

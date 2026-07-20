@@ -48,6 +48,8 @@ class WorkflowService:
         message_char_limit: int = 4_000,
         source_excerpt_limit: int = 8_000,
         result_cache: AgentResultCache | None = None,
+        deterministic_source_analysis: bool = False,
+        deterministic_structural_validation: bool = False,
     ) -> None:
         self.provider = provider
         self.orchestrator = MasterOrchestrator(
@@ -57,6 +59,8 @@ class WorkflowService:
             tool_executor,
             planner_fast_path,
             result_cache,
+            deterministic_source_analysis,
+            deterministic_structural_validation,
         )
         self.checkpoint_path = checkpoint_path
         self.checkpointer = checkpointer

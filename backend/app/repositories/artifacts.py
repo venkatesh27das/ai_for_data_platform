@@ -39,7 +39,18 @@ class ArtifactRepository:
         version: int,
         status: str,
         payload: dict[str, Any],
+        generated_by_run_id: str | None = None,
+        commit: bool = True,
     ) -> Artifact:
+        if generated_by_run_id is not None:
+            existing = self.db.scalar(
+                select(Artifact).where(
+                    Artifact.generated_by_run_id == generated_by_run_id,
+                    Artifact.artifact_type == artifact_type,
+                )
+            )
+            if existing is not None:
+                return existing
         artifact = Artifact(
             project_id=project_id,
             artifact_type=artifact_type,
@@ -47,10 +58,14 @@ class ArtifactRepository:
             version=version,
             status=status,
             payload=payload,
+            generated_by_run_id=generated_by_run_id,
         )
         self.db.add(artifact)
-        self.db.commit()
-        self.db.refresh(artifact)
+        if commit:
+            self.db.commit()
+            self.db.refresh(artifact)
+        else:
+            self.db.flush()
         return artifact
 
     def update(self, artifact: Artifact, **values: object) -> Artifact:

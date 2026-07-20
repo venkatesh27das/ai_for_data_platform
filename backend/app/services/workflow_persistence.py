@@ -9,10 +9,18 @@ from app.repositories.projects import ProjectRepository
 
 class WorkflowPersistenceService:
     def __init__(self, db: Session) -> None:
+        self.db = db
         self.projects = ProjectRepository(db)
         self.artifacts = ArtifactRepository(db)
 
-    def persist(self, project: Project, state: dict[str, Any]) -> list[Artifact]:
+    def persist(
+        self,
+        project: Project,
+        state: dict[str, Any],
+        *,
+        run_id: str | None = None,
+        commit: bool = True,
+    ) -> list[Artifact]:
         stage = str(state.get("workflow_stage", "awaiting_input"))
         source_analysis = dictionary(state.get("source_analysis"))
         logical_model = dictionary(state.get("logical_model"))
@@ -33,6 +41,7 @@ class WorkflowPersistenceService:
 
         self.projects.update(
             project,
+            commit=False,
             workflow_state=state,
             state_version=project.state_version + 1,
             workflow_stage=stage,
@@ -48,6 +57,8 @@ class WorkflowPersistenceService:
             review_count=review_count,
         )
         if not logical_model:
+            if commit:
+                self.db.commit()
             return []
 
         target = state.get("regeneration_target")
@@ -63,6 +74,7 @@ class WorkflowPersistenceService:
                         "tables": list_of_dicts(source_analysis.get("sources")),
                         "generation": generation_metadata(source_analysis),
                     },
+                    run_id=run_id,
                 )
             )
         if "logical_model" in affected:
@@ -77,6 +89,7 @@ class WorkflowPersistenceService:
                         "dq_rule_count": len(dq_rules),
                         "review_count": review_count,
                     },
+                    run_id=run_id,
                 )
             )
         if "mappings" in affected:
@@ -86,6 +99,7 @@ class WorkflowPersistenceService:
                     "mappings",
                     "Source-to-Target Mappings",
                     {"items": mappings, "generation": generation_metadata(mapping_dq)},
+                    run_id=run_id,
                 )
             )
         if "dq_rules" in affected:
@@ -95,6 +109,7 @@ class WorkflowPersistenceService:
                     "dq_rules",
                     "Data Quality Rules",
                     {"items": dq_rules, "generation": generation_metadata(mapping_dq)},
+                    run_id=run_id,
                 )
             )
         if "validation" in affected:
@@ -109,8 +124,11 @@ class WorkflowPersistenceService:
                         "generation": generation_metadata(validation),
                     },
                     status="needs_review" if findings else "ready",
+                    run_id=run_id,
                 )
             )
+        if commit:
+            self.db.commit()
         return created
 
     def create_artifact(
@@ -121,6 +139,7 @@ class WorkflowPersistenceService:
         payload: dict[str, Any],
         *,
         status: str = "ready",
+        run_id: str | None = None,
     ) -> Artifact:
         return self.artifacts.create(
             project_id=project_id,
@@ -129,6 +148,8 @@ class WorkflowPersistenceService:
             version=self.artifacts.next_version(project_id, artifact_type),
             status=status,
             payload=payload,
+            generated_by_run_id=run_id,
+            commit=False,
         )
 
 

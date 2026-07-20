@@ -58,6 +58,9 @@ class Project(Base):
 
 class Message(Base):
     __tablename__ = "messages"
+    __table_args__ = (
+        UniqueConstraint("workflow_run_id", "role", name="uq_message_run_role"),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     project_id: Mapped[str] = mapped_column(
@@ -65,6 +68,9 @@ class Message(Base):
     )
     role: Mapped[str] = mapped_column(String(24))
     content: Mapped[str] = mapped_column(Text)
+    workflow_run_id: Mapped[str | None] = mapped_column(
+        ForeignKey("workflow_runs.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     project: Mapped[Project] = relationship(back_populates="messages")
 
@@ -74,6 +80,9 @@ class Artifact(Base):
     __table_args__ = (
         UniqueConstraint(
             "project_id", "artifact_type", "version", name="uq_artifact_project_type_version"
+        ),
+        UniqueConstraint(
+            "generated_by_run_id", "artifact_type", name="uq_artifact_run_type"
         ),
     )
 
@@ -88,6 +97,9 @@ class Artifact(Base):
     review_status: Mapped[str] = mapped_column(String(32), default="pending")
     review_note: Mapped[str] = mapped_column(Text, default="")
     payload: Mapped[dict[str, object]] = mapped_column(JSON)
+    generated_by_run_id: Mapped[str | None] = mapped_column(
+        ForeignKey("workflow_runs.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, onupdate=utcnow

@@ -24,6 +24,10 @@ The first runnable foundation of a local-first, chat-driven data modelling assis
 - Select versioned skills and allow-listed tools, record observations, and react to validation.
 - Interrupt for modeller approval before any configured MCP tool runs, then resume durably.
 - Inspect the plan, tool calls, decisions, and approval state directly in the workspace.
+- Finalize project state, artifacts, the assistant message, terminal event, and run status in
+  one run-idempotent database transaction.
+- Use deterministic source analysis for unambiguous profiled metadata and deterministic
+  structural validation for typed artifacts, escalating semantic uncertainty to the LLM.
 
 The logical-model viewer renders persisted structured artifact payloads and remains closed until a modeller selects an available asset. Retrieval, live database introspection, legacy `.xls` parsing, and export generation remain deferred.
 
@@ -117,7 +121,18 @@ Client idempotency keys prevent duplicate submissions, while a database-backed p
 
 The backend reuses one pooled HTTP client and one SQLite LangGraph checkpointer for its application lifetime. SQLite uses WAL and a busy timeout. Provider calls are protected by a configurable concurrency semaphore and circuit breaker. Specialist results are cached by provider, model, prompt version, input, and output schema; fallback results are never cached. MCP schemas also use a bounded TTL cache, and explicitly marked read-only tool calls can execute concurrently.
 
-After pulling these changes, apply migration `0006` before launching:
+Terminal publication is transactional: reconnectable progress events remain durable while a
+run is active, but its project state, artifact versions, assistant response, terminal event,
+status, and lease release become visible together. Messages and artifacts carry the workflow
+run ID, so retrying finalization cannot duplicate the response or create another version set.
+
+Clear source profiles and structural integrity checks take deterministic fast paths. Unknown
+source roles, open modelling decisions, low-confidence mappings, and human-review items still
+escalate to the configured LLM. Set `DETERMINISTIC_SOURCE_ANALYSIS=false` or
+`DETERMINISTIC_STRUCTURAL_VALIDATION=false` to force the corresponding specialist through the
+LLM path.
+
+After pulling these changes, apply migration `0007` before launching:
 
 ```bash
 cd backend

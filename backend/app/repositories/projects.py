@@ -66,13 +66,16 @@ class ProjectRepository:
         self.db.refresh(duplicate)
         return duplicate
 
-    def update(self, project: Project, **values: object) -> Project:
+    def update(self, project: Project, *, commit: bool = True, **values: object) -> Project:
         for key, value in values.items():
             if value is not None:
                 setattr(project, key, value)
         project.updated_at = utcnow()
-        self.db.commit()
-        self.db.refresh(project)
+        if commit:
+            self.db.commit()
+            self.db.refresh(project)
+        else:
+            self.db.flush()
         return project
 
     def delete(self, project: Project) -> None:

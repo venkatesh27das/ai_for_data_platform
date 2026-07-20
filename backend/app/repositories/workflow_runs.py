@@ -71,7 +71,12 @@ class WorkflowRunRepository:
         self.db.commit()
 
     def append_event(
-        self, run: WorkflowRun, event_type: str, payload: dict[str, object]
+        self,
+        run: WorkflowRun,
+        event_type: str,
+        payload: dict[str, object],
+        *,
+        commit: bool = True,
     ) -> WorkflowEvent:
         run.last_event_sequence += 1
         run.heartbeat_at = utcnow()
@@ -82,8 +87,11 @@ class WorkflowRunRepository:
             payload=payload,
         )
         self.db.add(event)
-        self.db.commit()
-        self.db.refresh(event)
+        if commit:
+            self.db.commit()
+            self.db.refresh(event)
+        else:
+            self.db.flush()
         return event
 
     def events_after(self, run_id: str, sequence: int) -> list[WorkflowEvent]:
@@ -103,6 +111,7 @@ class WorkflowRunRepository:
         response_content: str = "",
         error: str = "",
         duration_ms: float = 0,
+        commit: bool = True,
     ) -> None:
         now = utcnow()
         run.status = status
@@ -116,4 +125,7 @@ class WorkflowRunRepository:
             .where(Project.id == run.project_id, Project.active_run_id == run.id)
             .values(active_run_id=None)
         )
-        self.db.commit()
+        if commit:
+            self.db.commit()
+        else:
+            self.db.flush()
