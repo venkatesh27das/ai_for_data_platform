@@ -210,6 +210,8 @@ make seed-example
 
 Open **SAP Sales Order Analytics — Example**.
 
+The complete guided interaction, expected system behaviour, model-change exercise, and acceptance checklist are in [the SAP sales analytics example implementation](./examples/sap-sales-analytics/README.md).
+
 ### 3. Manage and reopen work
 
 Projects shows status, recency, source count, entity count, and mapping count. Search, filter, open, or duplicate a project.
