@@ -7,6 +7,8 @@ import { ErrorState, LoadingState } from '../../components/common/States'
 import { MessageBubble } from '../../components/chat/MessageBubble'
 import { ChatComposer } from '../../components/chat/ChatComposer'
 import { ExecutionPlanCard } from '../../components/chat/ExecutionPlanCard'
+import { ClarificationCard } from '../../components/chat/ClarificationCard'
+import { ImpactAnalysisCard } from '../../components/chat/ImpactAnalysisCard'
 import { ArtifactSummaryCard } from '../../components/artefacts/ArtifactSummaryCard'
 import { ModelCanvas } from '../../components/artefacts/ModelCanvas'
 import { StructuredArtifactViewer } from '../../components/artefacts/StructuredArtifactViewer'
@@ -169,6 +171,8 @@ export function WorkspacePage() {
             {visibleMessages.map((message) => <MessageBubble key={message.id} message={message} />)}
             {(streaming || streamingText) && <MessageBubble streaming message={{ role: 'assistant', content: streamingText || ' ', created_at: new Date().toISOString() }} />}
             {progress && <div className="progress-event"><span className="mini-spinner" /> {progress}</div>}
+            {execution?.clarification_questions && execution.clarification_questions.length > 0 && <ClarificationCard questions={execution.clarification_questions} disabled={streaming} onSubmit={(answer) => void send(answer)} />}
+            {execution?.operation_impact && <ImpactAnalysisCard impact={execution.operation_impact} />}
             {execution?.plan && <ExecutionPlanCard execution={execution} disabled={streaming} onApprove={() => void send('approve plan')} onReject={() => void send('reject plan')} />}
             {streamError && <div className="chat-error">{streamError}<button onClick={() => { const userMessages = visibleMessages.filter((item) => item.role === 'user'); const last = userMessages[userMessages.length - 1]; if (last) void send(last.content) }}>Retry</button></div>}
             {artifacts.length > 0 && <ArtifactSummaryCard artifacts={artifacts} onOpen={(artifact) => setActiveArtifactId(artifact.id)} />}

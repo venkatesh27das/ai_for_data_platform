@@ -28,6 +28,12 @@ The repository is an actively developed MVP foundation. Its primary path runs pr
 - Create, reopen, search, duplicate, and delete modelling projects.
 - Upload and profile CSV, JSON, DDL/SQL, XLSX, and XLSM sources.
 - Run a master planner with typed requirement, source-analysis, model-design, mapping/DQ, and validation specialists.
+- Resolve missing objective, grain, key, relationship, history, and KPI requirements through a persisted multi-turn clarification loop before generation.
+- Apply typed natural-language model operations for grain changes, dimension history strategies, and splitting attributes into dimensions, with deterministic validated mutations and operation history.
+- Analyse structural-change impact across entities, mappings, DQ rules, relationships and validation, then require checkpointed approval before applying material mutations.
+- Retrieve relevant uploaded source profiles, analysed tables and columns, prior generated artifacts, validation output, and MCP/catalog evidence through embedding-ranked project memory.
+- Automatically turn validation defects into bounded repair plans, rerunning only the affected specialist and its downstream dependants while recording supervisor decisions.
+- Profile completeness, distinctness, value ranges and candidate-key strength; retain declared PK/FK evidence; score relationships; infer cardinality/nullability and recommend dimensional history handling.
 - Stream progress and responses over reconnectable SSE.
 - Generate versioned source previews, logical models, mappings, DQ rules, and validation assets.
 - Review, revise, regenerate, and browse artifact history.
@@ -68,7 +74,7 @@ The logical-model canvas remains closed and empty until a generated asset is sel
 | Agent | What it does | Status |
 | --- | --- | --- |
 | Master planner | Builds the bounded plan, selects skills and tools, and controls approval and replanning | Implemented |
-| Requirement agent | Extracts the objective, KPIs, source context, candidate grain, and blocking questions | Implemented |
+| Requirement agent | Extracts the objective, KPIs, sources and grain, then drives typed multi-round clarification for missing keys, relationships, history and KPI definitions | Implemented |
 | Source-analysis agent | Interprets profiled metadata, source roles, keys, and relationship evidence | Implemented |
 | Model-design agent | Designs the dimensional fact, dimensions, attributes, keys, and relationships | Implemented |
 | Mapping and DQ agent | Generates source-to-target mappings and starter data-quality rules | Implemented |
@@ -471,7 +477,7 @@ The execution plan is authoritative and contains dependency-aware steps, complet
 | Agent | Responsibility | Typed output | Modes |
 | --- | --- | --- | --- |
 | Master planner | Selects steps, skills, tools, budgets, and approval policy | `ExecutionPlan` | Deterministic, LLM, fallback, cache |
-| Requirement and clarification | Extracts objective, process, KPIs, sources, outputs, grain, and blocking questions | `ModellingBrief` | LLM, fallback, cache |
+| Requirement and clarification | Extracts objective, process, KPIs, sources, outputs and grain; measures requirement coverage and resumes typed clarification rounds | `ModellingBrief` | LLM, deterministic clarification policy, fallback, cache |
 | Source analysis | Interprets profiles without inventing statistics; identifies roles, keys, and relationships | `SourceAnalysis` | Deterministic, LLM, fallback, cache |
 | Model design | Creates fact, dimensions, attributes, keys, measures, grain, and relationships | `LogicalModelProposal` | LLM, fallback, cache |
 | Mapping and DQ | Creates mappings, transformations, confidence, review items, and starter rules | `MappingDQProposal` | LLM, fallback, cache |
@@ -547,7 +553,7 @@ The assistant uses several distinct memory layers. Current user instructions alw
 | Working conversation | Current run | A bounded window of recent user and assistant messages | Supplied to the planner and specialists without allowing prompts to grow indefinitely |
 | Workflow checkpoints | Project/run | LangGraph execution state, plan progress, observations, and interrupts | Resumes incomplete or approval-gated work safely |
 | Structured project memory | Project | Objective, process, confirmed grain, KPIs, sources, decisions, assumptions, terminology, and preferences | Automatically refreshed after every successfully completed run and injected as durable modelling context |
-| Semantic memory | Project | Older requests, assistant responses, and generated summaries with embeddings | Retrieves the most relevant older context for a new request instead of replaying the full history |
+| Semantic memory | Project | Older requests, responses, uploaded profiles, analysed tables/columns, generated artifacts, validation output, catalog-tool evidence, and summaries | Retrieves the most relevant conversation and source evidence for a new request instead of replaying the full history |
 | User memory | Cross-project | Project summaries and manually saved facts, terminology, or preferences | Used only when **Cross-project memory** is explicitly enabled in Settings |
 
 Project memory is on by default and stays within its project. Cross-project memory is off by default. The Settings screen can enable or disable its use and permanently delete all cross-project entries. Project-scoped memory can be inspected or deleted with the project memory API.
@@ -661,25 +667,8 @@ Run `make setup` again. Installation is lockfile-based and safe to repeat.
 
 ## Roadmap
 
-### Next intelligence priorities
-
-These are the six most important enhancements for moving the assistant from a stable agentic foundation toward a more intelligent modelling collaborator.
-
-| Priority | Enhancement | Why it matters |
-| --- | --- | --- |
-| 1 | Conversational clarification loop | The assistant should detect missing grain, keys, source relationships, history requirements, and KPI definitions before generating a model. |
-| 2 | Natural-language model operations | Commands such as “make Customer SCD Type 2,” “split Geography into a dimension,” or “change the grain to invoice line” should produce controlled model mutations. |
-| 3 | Impact analysis before changes | The assistant should identify affected entities, mappings, DQ rules, relationships, and downstream artifacts before applying a modification. |
-| 4 | Source-evidence retrieval | Retrieve relevant tables, columns, profiles, prior artifacts, and catalog metadata—not only conversation memory—when an agent needs evidence. |
-| 5 | Iterative model critique and repair | Validation findings should automatically generate a bounded repair plan and rerun only the affected agents. |
-| 6 | Stronger semantic source analysis | Improve PK/FK inference, relationship scoring, business-key detection, cardinality, nullability, and slowly changing dimension recommendations. |
-
 ### Planned next
 
-- Richer deterministic profiling: distinct percentages, numeric statistics, candidate-key scores
-- Relationship scoring using normalized names, uniqueness, overlap, and data-type compatibility
-- Natural-language operation extraction and deterministic model mutations
-- Impact analysis and approval for material changes
 - Fine-grained model diff, operation history, undo, and redo
 - JSON, mapping CSV, DQ CSV, Mermaid, Markdown, and optional SQL DDL exports
 - Completed Anthropic Claude transport

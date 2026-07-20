@@ -122,6 +122,10 @@ class ScriptedProvider:
                 "source_objects": ["VBAK", "VBAP"],
                 "requested_outputs": ["Logical model", "Mappings", "DQ rules"],
                 "candidate_grain": "One row per sales order line",
+                "key_requirements": ["Use the supplied source business keys"],
+                "relationship_requirements": ["Infer joins from supplied source metadata"],
+                "history_requirement": "Current state only",
+                "kpi_definitions": {"Net sales": "Gross sales less discounts"},
                 "blocking_questions": (
                     [
                         {
@@ -412,10 +416,43 @@ async def test_master_orchestrator_stops_for_blocking_questions() -> None:
     assert "logical_model" not in events[-1]["state"]
 
 
+async def test_clarification_answer_reexecutes_requirements_and_continues() -> None:
+    provider = ScriptedProvider(blocking=True)
+    workflow = WorkflowService(provider)  # type: ignore[arg-type]
+    first_state = [
+        event
+        async for event in workflow.run(
+            project_id="clarification-loop",
+            user_message="Build a sales model",
+            conversation=[],
+        )
+    ][-1]["state"]
+    assert first_state["workflow_stage"] == "awaiting_clarification"
+
+    provider.blocking = False
+    provider.structured_calls.clear()
+    completed = [
+        event
+        async for event in workflow.run(
+            project_id="clarification-loop",
+            user_message="[clarification:grain] sales order line",
+            conversation=[],
+            existing_state=first_state,
+        )
+    ][-1]["state"]
+
+    assert provider.structured_calls[0:2] == ["ExecutionPlan", "ModellingBrief"]
+    assert "SourceAnalysis" in provider.structured_calls
+    assert completed["workflow_stage"] == "completed"
+    assert completed["modelling_brief"]["candidate_grain"] == (
+        "One row per sales order line"
+    )
+
+
 async def test_all_agents_have_conservative_fallbacks() -> None:
     provider = FailingStructuredProvider()
     workflow = WorkflowService(provider)  # type: ignore[arg-type]
-    message = """Build a sales model at one row per sales order line.
+    message = """Build a current-state sales model at one row per sales order line.
 
 Attached source metadata:
 --- sales.ddl (100 B) ---
@@ -497,6 +534,58 @@ async def test_targeted_model_regeneration_skips_unchanged_upstream_agents() -> 
         "ValidationReport",
     ]
     assert regenerated[-1]["state"]["regeneration_target"] == "logical_model"
+
+
+async def test_natural_language_model_operation_requires_impact_approval(
+    tmp_path: Path,
+) -> None:
+    provider = ScriptedProvider()
+    workflow = WorkflowService(  # type: ignore[arg-type]
+        provider, checkpoint_path=tmp_path / "operation-approval.db"
+    )
+    initial = [
+        event
+        async for event in workflow.run(
+            project_id="operation-project",
+            user_message="Build a sales model at one row per order line",
+            conversation=[],
+        )
+    ][-1]["state"]
+    provider.structured_calls.clear()
+
+    interrupted = [
+        event
+        async for event in workflow.run(
+            project_id="operation-project",
+            user_message="Change the grain to invoice line",
+            conversation=[],
+            existing_state=initial,
+        )
+    ]
+
+    assert interrupted[-1]["event"] == "workflow.interrupted"
+    assert interrupted[-1]["interrupt"]["impact"]["material"] is True
+    assert interrupted[-1]["interrupt"]["impact"]["affected_artifacts"] == [
+        "logical_model",
+        "mappings",
+        "dq_rules",
+        "validation",
+    ]
+
+    changed = [
+        event
+        async for event in workflow.run(
+            project_id="operation-project",
+            user_message="approve plan",
+            conversation=[],
+            approval_decision="approved",
+        )
+    ][-1]["state"]
+
+    assert "LogicalModelProposal" not in provider.structured_calls
+    assert "MappingDQProposal" in provider.structured_calls
+    assert changed["logical_model"]["fact_grain"] == "One row per invoice line"
+    assert changed["operation_history"][-1]["operation"] == "change_grain"
 
 
 async def test_failed_node_resumes_from_durable_checkpoint(tmp_path: Path) -> None:

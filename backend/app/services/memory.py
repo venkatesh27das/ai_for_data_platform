@@ -1,3 +1,4 @@
+import json
 import math
 import re
 from typing import Any
@@ -64,23 +65,29 @@ class MemoryService:
         existing = self.repository.get_project_memory(project_id)
         structured = build_structured_memory(state, user_message, existing)
         memory = self.repository.upsert_project_memory(project_id, **structured)
-        contents = {
-            "request": user_message,
-            "response": assistant_response,
-            "summary": structured["summary"],
-        }
-        missing = [
-            (kind, content)
-            for kind, content in contents.items()
-            if content and self.repository.entry_for_run(run_id, "project", kind) is None
+        contents = [
+            ("request", user_message, {"artifact_type": "conversation"}),
+            ("response", assistant_response, {"artifact_type": "conversation"}),
+            ("summary", structured["summary"], {"artifact_type": "project_summary"}),
+            *evidence_documents(state),
         ]
-        vectors = await self._embed([content for _, content in missing])
-        for (kind, content), vector in zip(missing, vectors, strict=True):
+        missing = [
+            (kind, content, metadata)
+            for kind, content, metadata in contents
+            if content
+            and self.repository.entry_for_run(
+                run_id, "project", kind, content
+            )
+            is None
+        ]
+        vectors = await self._embed([content for _, content, _ in missing])
+        for (kind, content, metadata), vector in zip(missing, vectors, strict=True):
             self.repository.add_entry(
                 scope="project",
                 kind=kind,
                 content=content,
                 embedding=vector,
+                metadata=metadata,
                 project_id=project_id,
                 source_project_id=project_id,
                 source_run_id=run_id,
@@ -119,7 +126,12 @@ class MemoryService:
             "decisions": memory.decisions if memory is not None else [],
             "preferences": memory.preferences if memory is not None else {},
             "relevant_memories": [
-                {"scope": item.scope, "kind": item.kind, "content": item.content}
+                {
+                    "scope": item.scope,
+                    "kind": item.kind,
+                    "content": item.content,
+                    "metadata": item.entry_metadata,
+                }
                 for item in ranked
                 if relevance(query, query_vector, item) > 0
             ],
@@ -242,3 +254,69 @@ def dictionary(value: object) -> dict[str, Any]:
 
 def list_of_dicts(value: object) -> list[dict[str, Any]]:
     return [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []
+
+
+def evidence_documents(
+    state: dict[str, Any],
+) -> list[tuple[str, str, dict[str, Any]]]:
+    documents: list[tuple[str, str, dict[str, Any]]] = []
+    for source in list_of_dicts(state.get("sources")):
+        name = str(source.get("name") or "source")
+        profile = dictionary(source.get("profile"))
+        documents.append(
+            (
+                "source_profile",
+                compact_json(
+                    {
+                        "source": name,
+                        "format": source.get("format"),
+                        "profile": profile,
+                        "content_excerpt": source.get("content_excerpt", ""),
+                    }
+                ),
+                {"source_name": name, "evidence_type": "uploaded_profile"},
+            )
+        )
+    analysis = dictionary(state.get("source_analysis"))
+    for source in list_of_dicts(analysis.get("sources")):
+        name = str(source.get("table_name") or "table")
+        documents.append(
+            (
+                "source_analysis",
+                compact_json(source),
+                {
+                    "source_name": name,
+                    "evidence_type": "analysed_table",
+                    "columns": source.get("columns", []),
+                },
+            )
+        )
+    artifact_values = {
+        "logical_model": state.get("logical_model"),
+        "mappings": dictionary(state.get("mapping_dq")).get("mappings"),
+        "dq_rules": dictionary(state.get("mapping_dq")).get("dq_rules"),
+        "validation": state.get("validation_report"),
+    }
+    for artifact_type, value in artifact_values.items():
+        if value:
+            documents.append(
+                (
+                    "artifact",
+                    compact_json({"artifact_type": artifact_type, "payload": value}),
+                    {"artifact_type": artifact_type, "evidence_type": "generated_artifact"},
+                )
+            )
+    for tool_name, result in dictionary(state.get("tool_results")).items():
+        if str(tool_name).startswith("mcp.") or "catalog" in str(tool_name).lower():
+            documents.append(
+                (
+                    "catalog_evidence",
+                    compact_json({"tool": tool_name, "result": result}),
+                    {"tool_name": tool_name, "evidence_type": "catalog_tool"},
+                )
+            )
+    return documents
+
+
+def compact_json(value: object, limit: int = 8_000) -> str:
+    return json.dumps(value, sort_keys=True, default=str)[:limit]

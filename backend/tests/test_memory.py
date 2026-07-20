@@ -26,6 +26,7 @@ class KeywordEmbeddings:
             [
                 float("order" in text.lower() or "sales" in text.lower()),
                 float("retention" in text.lower()),
+                float("vbap" in text.lower() or "posnr" in text.lower()),
             ]
             for text in texts
         ]
@@ -38,6 +39,24 @@ class FailingEmbeddings(KeywordEmbeddings):
 
 def workflow_state() -> dict[str, Any]:
     return {
+        "sources": [
+            {
+                "name": "sales.ddl",
+                "format": "sql",
+                "content_excerpt": "CREATE TABLE VBAP (VBELN TEXT, POSNR TEXT)",
+                "profile": {"columns": ["VBELN", "POSNR"]},
+            }
+        ],
+        "source_analysis": {
+            "sources": [
+                {
+                    "table_name": "VBAP",
+                    "role": "Transaction",
+                    "columns": ["VBELN", "POSNR"],
+                    "candidate_keys": ["VBELN + POSNR"],
+                }
+            ]
+        },
         "modelling_brief": {
             "domain": "Sales",
             "objective": "Analyse sales orders",
@@ -90,7 +109,15 @@ async def test_completed_run_updates_and_retrieves_project_memory() -> None:
         assert memory.facts["fact_grain"] == "one row per order line"
         assert "Confirmed grain: one row per order line" in memory.summary
         assert memory.terminology["FactSalesOrderLine"] == "fact"
-        assert len(MemoryRepository(db).list_entries(project_id=project.id)) == 3
+        entries = MemoryRepository(db).list_entries(project_id=project.id)
+        assert len(entries) == 7
+        assert {entry.kind for entry in entries} >= {
+            "source_profile",
+            "source_analysis",
+            "artifact",
+        }
+        source_entry = next(entry for entry in entries if entry.kind == "source_profile")
+        assert source_entry.entry_metadata["source_name"] == "sales.ddl"
         assert embeddings.calls
 
         context = await service.retrieve_context(project.id, "What is the order grain?")
@@ -98,6 +125,12 @@ async def test_completed_run_updates_and_retrieves_project_memory() -> None:
         assert context["facts"]["fact_grain"] == "one row per order line"
         assert context["relevant_memories"]
         assert context["cross_project_enabled"] is False
+
+        evidence = await service.retrieve_context(project.id, "VBAP POSNR columns")
+        assert any(
+            item["kind"] in {"source_profile", "source_analysis"}
+            for item in evidence["relevant_memories"]
+        )
 
 
 @pytest.mark.asyncio

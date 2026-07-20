@@ -1,6 +1,11 @@
 import re
 
-from app.agents.contracts import AnalysedSource, ModellingBrief, SourceMetadata
+from app.agents.contracts import (
+    AnalysedSource,
+    ModellingBrief,
+    SourceColumnAnalysis,
+    SourceMetadata,
+)
 
 
 def fallback_assumption(error: Exception) -> str:
@@ -32,6 +37,20 @@ def parse_ddl_sources(sources: list[SourceMetadata]) -> list[AnalysedSource]:
                 )
             ]
             keys = primary_keys(definitions)
+            column_profiles = [
+                SourceColumnAnalysis(
+                    name=column,
+                    key_role=(
+                        "PK"
+                        if any(column in key.split(" + ") for key in keys)
+                        else "none"
+                    ),
+                    nullable=False
+                    if any(column in key.split(" + ") for key in keys)
+                    else None,
+                )
+                for column in columns
+            ]
             analysed.append(
                 AnalysedSource(
                     table_name=table_name,
@@ -39,6 +58,9 @@ def parse_ddl_sources(sources: list[SourceMetadata]) -> list[AnalysedSource]:
                     column_count=len(columns),
                     columns=columns,
                     candidate_keys=keys,
+                    business_keys=infer_business_keys(column_profiles),
+                    column_profiles=column_profiles,
+                    **history_fields(table_name, column_profiles),
                     description=f"Source table parsed from {source.name}",
                     evidence=[f"DDL supplied in {source.name}"],
                 )
@@ -56,6 +78,11 @@ def profile_sources(sources: list[SourceMetadata]) -> list[AnalysedSource]:
             if not isinstance(table, dict):
                 continue
             columns_data = table.get("columns", [])
+            column_profiles = [
+                SourceColumnAnalysis.model_validate(column)
+                for column in columns_data
+                if isinstance(column, dict) and column.get("name")
+            ]
             columns = [
                 str(column.get("name"))
                 for column in columns_data
@@ -68,7 +95,14 @@ def profile_sources(sources: list[SourceMetadata]) -> list[AnalysedSource]:
                     role=infer_role(table_name),
                     column_count=len(columns),
                     columns=columns,
-                    candidate_keys=infer_candidate_keys(columns),
+                    candidate_keys=infer_candidate_keys(
+                        columns,
+                        column_profiles,
+                        [str(item) for item in table.get("primary_key", [])],
+                    ),
+                    business_keys=infer_business_keys(column_profiles),
+                    column_profiles=column_profiles,
+                    **history_fields(table_name, column_profiles),
                     description=f"Profiled from {source.name}",
                     evidence=[
                         f"Parsed {source.format.upper()} metadata from {source.name}",
@@ -79,11 +113,67 @@ def profile_sources(sources: list[SourceMetadata]) -> list[AnalysedSource]:
     return analysed
 
 
-def infer_candidate_keys(columns: list[str]) -> list[str]:
+def infer_candidate_keys(
+    columns: list[str],
+    profiles: list[SourceColumnAnalysis] | None = None,
+    primary_key: list[str] | None = None,
+) -> list[str]:
+    if primary_key:
+        return [" + ".join(primary_key)]
+    scored = [
+        profile.name
+        for profile in profiles or []
+        if profile.key_role in {"PK", "business_key"}
+        or (profile.candidate_key_score or 0) >= 0.98
+    ]
+    if scored:
+        return scored[:3]
     candidates = [
         column for column in columns if column.lower() == "id" or column.lower().endswith("_id")
     ]
     return candidates[:3]
+
+
+def infer_business_keys(profiles: list[SourceColumnAnalysis]) -> list[str]:
+    return [
+        profile.name
+        for profile in profiles
+        if profile.key_role == "business_key"
+        or (
+            (profile.candidate_key_score or 0) >= 0.98
+            and profile.name.lower() != "id"
+            and not profile.name.lower().endswith("_key")
+        )
+    ][:5]
+
+
+def history_fields(
+    table_name: str, profiles: list[SourceColumnAnalysis]
+) -> dict[str, object]:
+    names = {profile.name.lower() for profile in profiles}
+    temporal = names & {
+        "effective_from",
+        "effective_to",
+        "valid_from",
+        "valid_to",
+        "start_date",
+        "end_date",
+        "is_current",
+    }
+    role = infer_role(table_name)
+    if role != "Master data":
+        return {"history_recommendation": "not_applicable", "history_evidence": []}
+    if temporal:
+        return {
+            "history_recommendation": "type_2",
+            "history_evidence": [
+                "Temporal columns detected: " + ", ".join(sorted(temporal))
+            ],
+        }
+    return {
+        "history_recommendation": "type_1",
+        "history_evidence": ["No temporal history columns were profiled"],
+    }
 
 
 def named_sources(brief: ModellingBrief) -> list[AnalysedSource]:

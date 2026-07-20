@@ -190,6 +190,18 @@ async def _execute_leased_run(
                 value = workflow_event.get("state")
                 if isinstance(value, dict):
                     final_state = value
+                    if value.get("workflow_stage") == "awaiting_clarification":
+                        brief = value.get("modelling_brief", {})
+                        questions = (
+                            brief.get("blocking_questions", [])
+                            if isinstance(brief, dict)
+                            else []
+                        )
+                        runs.append_event(
+                            run,
+                            "clarification.required",
+                            {"questions": questions, "run_id": run.id},
+                        )
             elif event_name == "workflow.interrupted":
                 value = workflow_event.get("state")
                 if isinstance(value, dict):
@@ -205,9 +217,14 @@ async def _execute_leased_run(
                 )
 
         if interrupted:
+            impact = final_state.get("operation_impact")
             response = (
-                "I prepared a bounded execution plan that requires approval before using "
-                "the selected external capability."
+                "I analysed the requested structural model change and identified its "
+                "affected entities, downstream assets, and risks. Review the impact and "
+                "approve the plan before I apply it."
+                if impact
+                else "I prepared a bounded execution plan that requires approval before "
+                "using the selected external capability."
             )
             _finalize_result(
                 run_id=run.id,

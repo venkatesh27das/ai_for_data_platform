@@ -19,6 +19,8 @@ class ModellingGraphState(TypedDict, total=False):
     validation_report: dict[str, Any] | None
     open_decisions: list[dict[str, Any]]
     pending_operations: list[dict[str, Any]]
+    operation_history: list[dict[str, Any]]
+    operation_impact: dict[str, Any] | None
     workflow_stage: str
     run_status: str
     error: dict[str, Any] | None

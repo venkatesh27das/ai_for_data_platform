@@ -25,6 +25,7 @@ class MemoryEntryRead(BaseModel):
     scope: str
     kind: str
     content: str
+    entry_metadata: dict[str, Any]
     source_project_id: str | None
     created_at: datetime
     updated_at: datetime

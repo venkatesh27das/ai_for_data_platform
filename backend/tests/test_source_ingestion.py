@@ -18,6 +18,11 @@ def test_profiles_csv_json_ddl_and_xlsx() -> None:
     assert csv_table["columns"][0]["data_type"] == "integer"
     assert csv_table["columns"][1]["data_type"] == "number"
     assert csv_table["columns"][1]["null_count"] == 1
+    assert csv_table["columns"][1]["null_percentage"] == 50.0
+    assert csv_table["columns"][0]["distinct_percentage"] == 100.0
+    assert csv_table["columns"][0]["candidate_key_score"] == 1.0
+    assert csv_table["columns"][0]["key_role"] == "business_key"
+    assert csv_table["columns"][1]["minimum"] == "12.5"
 
     json_profile, _ = profile_source(
         "customers.json",
@@ -29,9 +34,20 @@ def test_profiles_csv_json_ddl_and_xlsx() -> None:
     ddl_profile, _ = profile_source(
         "sales.ddl",
         "ddl",
-        b"CREATE TABLE orders (order_id BIGINT, amount DECIMAL(18,2));",
+        b"""CREATE TABLE orders (
+          order_id BIGINT NOT NULL,
+          customer_id BIGINT,
+          amount DECIMAL(18,2),
+          PRIMARY KEY (order_id),
+          CONSTRAINT fk_customer FOREIGN KEY (customer_id) REFERENCES customer(customer_id)
+        );""",
     )
     assert ddl_profile["tables"][0]["name"] == "orders"
+    ddl_columns = {item["name"]: item for item in ddl_profile["tables"][0]["columns"]}
+    assert ddl_columns["order_id"]["key_role"] == "PK"
+    assert ddl_columns["order_id"]["nullable"] is False
+    assert ddl_columns["customer_id"]["key_role"] == "FK"
+    assert ddl_columns["customer_id"]["references"] == "customer.customer_id"
 
     workbook = Workbook()
     sheet = workbook.active

@@ -98,6 +98,27 @@ export interface ExecutionPlan {
   execution_mode: 'llm' | 'fallback' | 'deterministic' | 'cached'
 }
 
+export interface ClarificationQuestion {
+  id: string
+  category: 'objective' | 'grain' | 'keys' | 'relationships' | 'history' | 'kpis' | 'other'
+  question: string
+  rationale: string
+  blocking: boolean
+  options: string[]
+}
+
+export interface ModelOperationImpact {
+  summary: string
+  affected_entities: string[]
+  affected_artifacts: Array<'logical_model' | 'mappings' | 'dq_rules' | 'validation'>
+  changes: string[]
+  risks: string[]
+  validation_errors: string[]
+  valid: boolean
+  material: boolean
+  approval_required: boolean
+}
+
 export interface ExecutionState {
   plan: ExecutionPlan | null
   tool_trace: Array<{ tool_name: string; status: string; source: 'builtin' | 'mcp' }>
@@ -105,6 +126,9 @@ export interface ExecutionState {
   approval_status: string | null
   run_status: string | null
   workflow_stage: string | null
+  clarification_questions: ClarificationQuestion[]
+  requirement_coverage: Record<string, 'confirmed' | 'missing' | 'pending_source' | 'not_applicable'>
+  operation_impact: ModelOperationImpact | null
 }
 
 export interface ProviderSettings {
@@ -142,6 +166,6 @@ export interface MemoryEntry {
 }
 
 export interface StreamEvent {
-  event: 'progress' | 'token' | 'done' | 'error' | 'agent.started' | 'agent.completed' | 'tool.started' | 'tool.completed' | 'approval.required'
+  event: 'progress' | 'token' | 'done' | 'error' | 'agent.started' | 'agent.completed' | 'tool.started' | 'tool.completed' | 'approval.required' | 'clarification.required'
   data: { content?: string; label?: string; detail?: string; execution_mode?: 'llm' | 'fallback' | 'deterministic' | 'cached'; reason?: string; plan_id?: string; run_id?: string; duration_ms?: number }
 }

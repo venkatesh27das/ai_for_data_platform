@@ -66,14 +66,17 @@ class MemoryRepository:
             )
         )
 
-    def entry_for_run(self, run_id: str, scope: str, kind: str) -> MemoryEntry | None:
-        return self.db.scalar(
-            select(MemoryEntry).where(
+    def entry_for_run(
+        self, run_id: str, scope: str, kind: str, content: str | None = None
+    ) -> MemoryEntry | None:
+        statement = select(MemoryEntry).where(
                 MemoryEntry.source_run_id == run_id,
                 MemoryEntry.scope == scope,
                 MemoryEntry.kind == kind,
             )
-        )
+        if content is not None:
+            statement = statement.where(MemoryEntry.content == content)
+        return self.db.scalar(statement)
 
     def add_entry(
         self,
@@ -82,6 +85,7 @@ class MemoryRepository:
         kind: str,
         content: str,
         embedding: list[float],
+        metadata: dict[str, Any] | None = None,
         project_id: str | None = None,
         source_project_id: str | None = None,
         source_run_id: str | None = None,
@@ -91,6 +95,7 @@ class MemoryRepository:
             kind=kind,
             content=content,
             embedding=embedding,
+            entry_metadata=metadata or {},
             project_id=project_id,
             source_project_id=source_project_id,
             source_run_id=source_run_id,

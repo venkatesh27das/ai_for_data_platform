@@ -17,17 +17,38 @@ def test_profiled_sources_use_deterministic_analysis() -> None:
                                 "name": "order_line",
                                 "row_sample_count": 10,
                                 "columns": [
-                                    {"name": "order_line_id"},
-                                    {"name": "customer_id"},
-                                    {"name": "amount"},
+                                    {
+                                        "name": "order_line_id",
+                                        "data_type": "integer",
+                                        "candidate_key_score": 1.0,
+                                        "key_role": "business_key",
+                                        "nullable": False,
+                                    },
+                                    {
+                                        "name": "customer_id",
+                                        "data_type": "integer",
+                                        "candidate_key_score": 0.7,
+                                        "nullable": True,
+                                        "sample_values": [10, 20],
+                                    },
+                                    {"name": "amount", "data_type": "number"},
                                 ],
                             },
                             {
                                 "name": "customer",
                                 "row_sample_count": 10,
                                 "columns": [
-                                    {"name": "customer_id"},
+                                    {
+                                        "name": "customer_id",
+                                        "data_type": "integer",
+                                        "candidate_key_score": 1.0,
+                                        "key_role": "business_key",
+                                        "nullable": False,
+                                        "sample_values": [10, 20, 30],
+                                    },
                                     {"name": "customer_name"},
+                                    {"name": "effective_from", "data_type": "date"},
+                                    {"name": "is_current", "data_type": "boolean"},
                                 ],
                             },
                         ]
@@ -45,6 +66,12 @@ def test_profiled_sources_use_deterministic_analysis() -> None:
     assert result.relationships[0].join_expression == (
         "order_line.customer_id = customer.customer_id"
     )
+    assert result.relationships[0].cardinality == "many-to-one"
+    assert result.relationships[0].nullable_foreign_key is True
+    assert result.relationships[0].score_components["sample_overlap"] > 0
+    customer = next(source for source in result.sources if source.table_name == "customer")
+    assert customer.business_keys == ["customer_id"]
+    assert customer.history_recommendation == "type_2"
 
 
 def test_ambiguous_source_role_escalates() -> None:

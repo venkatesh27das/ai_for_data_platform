@@ -189,6 +189,7 @@ class WorkflowService:
                 "logical_model",
                 "mapping_dq",
                 "validation_report",
+                "operation_impact",
             )
             if state.get(key) is not None
         }
@@ -242,6 +243,12 @@ def deterministic_presenter(state: dict[str, Any]) -> str:
     stage = str(state.get("workflow_stage", "completed"))
     brief_value = state.get("modelling_brief")
     brief: dict[str, Any] = brief_value if isinstance(brief_value, dict) else {}
+    impact_value = state.get("operation_impact")
+    impact: dict[str, Any] = impact_value if isinstance(impact_value, dict) else {}
+    if impact.get("validation_errors"):
+        return "I could not apply the requested model change: " + "; ".join(
+            map(str, impact["validation_errors"])
+        )
     if stage == "awaiting_clarification":
         questions = brief.get("blocking_questions", []) if isinstance(brief, dict) else []
         rendered = " ".join(

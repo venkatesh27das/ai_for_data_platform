@@ -54,6 +54,10 @@ def get_execution_state(
     projects: Annotated[ProjectService, Depends(get_project_service)],
 ) -> dict[str, Any]:
     state = projects.get(project_id).workflow_state
+    brief = state.get("modelling_brief")
+    clarification_questions = (
+        brief.get("blocking_questions", []) if isinstance(brief, dict) else []
+    )
     return {
         "plan": state.get("execution_plan"),
         "tool_trace": state.get("tool_trace", []),
@@ -61,4 +65,11 @@ def get_execution_state(
         "approval_status": state.get("approval_status"),
         "run_status": state.get("run_status"),
         "workflow_stage": state.get("workflow_stage"),
+        "clarification_questions": clarification_questions
+        if state.get("workflow_stage") == "awaiting_clarification"
+        else [],
+        "requirement_coverage": brief.get("requirement_coverage", {})
+        if isinstance(brief, dict)
+        else {},
+        "operation_impact": state.get("operation_impact"),
     }

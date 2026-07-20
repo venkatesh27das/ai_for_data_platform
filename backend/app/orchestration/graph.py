@@ -20,12 +20,19 @@ from app.agents.contracts import (
     MappingDQProposal,
     ModelDesignAgentInput,
     ModellingBrief,
+    ModelOperation,
+    ModelOperationImpact,
     RequirementAgentInput,
     SourceAnalysis,
     SourceAnalysisAgentInput,
     SourceMetadata,
     ValidationAgentInput,
     ValidationReport,
+)
+from app.agents.model_operations import (
+    analyse_operation_impact,
+    apply_model_operations,
+    parse_model_operations,
 )
 from app.autonomy.capabilities import CapabilityRegistry
 from app.autonomy.contracts import (
@@ -86,11 +93,32 @@ class MasterOrchestrator:
         return self.builder.compile(checkpointer=checkpointer)
 
     async def load_project_state(self, state: ModellingGraphState) -> NodeResult:
+        operations = (
+            parse_model_operations(state.get("user_message") or "")
+            if state.get("logical_model")
+            else []
+        )
+        impact = (
+            analyse_operation_impact(
+                model_proposal(state), operations
+            )
+            if operations
+            else None
+        )
+        valid_operations = operations if impact is not None and impact.valid else []
         return {
             "workflow_stage": "understanding",
             "run_status": "running",
             "agent_trace": state.get("agent_trace", []),
-            "regeneration_target": detect_regeneration_target(state.get("user_message") or ""),
+            "regeneration_target": (
+                "logical_model"
+                if valid_operations
+                else detect_regeneration_target(state.get("user_message") or "")
+            ),
+            "pending_operations": [
+                item.model_dump(mode="json") for item in valid_operations
+            ],
+            "operation_impact": impact.model_dump(mode="json") if impact else None,
         }
 
     async def plan_execution(self, state: ModellingGraphState) -> NodeResult:
@@ -113,6 +141,16 @@ class MasterOrchestrator:
                 update={"execution_mode": "fallback", "fallback_reason": str(exc)}
             )
         plan = reconcile_plan_with_state(plan, state)
+        impact_data = state.get("operation_impact")
+        if impact_data:
+            impact = ModelOperationImpact.model_validate(impact_data)
+            if impact.approval_required:
+                plan = plan.model_copy(
+                    update={
+                        "requires_human_approval": True,
+                        "approval_reason": impact.summary,
+                    }
+                )
         approval_required = plan.requires_human_approval or any(
             step_requires_approval(step, self.capabilities)
             for step in plan.steps
@@ -159,6 +197,7 @@ class MasterOrchestrator:
                 "plan_id": plan.plan_id,
                 "reason": plan.approval_reason or "This plan requires modeller approval.",
                 "steps": [step.model_dump(mode="json") for step in plan.steps],
+                "impact": state.get("operation_impact"),
             }
         )
         approved = response == "approved" or (
@@ -370,14 +409,21 @@ class MasterOrchestrator:
         started = perf_counter()
         reworking = state.get("rework_target") == "model_design"
         await self.emit("agent.started", self.model_design_agent.identifier)
-        proposal = await self.model_design_agent.run(
-            ModelDesignAgentInput(
-                modelling_brief=ModellingBrief.model_validate(state["modelling_brief"]),
-                source_analysis=SourceAnalysis.model_validate(state["source_analysis"]),
-                existing_model=state.get("logical_model"),
-                validation_findings=validation_findings(state) if reworking else [],
+        operations = [
+            ModelOperation.model_validate(item)
+            for item in state.get("pending_operations", [])
+        ]
+        if operations and state.get("logical_model"):
+            proposal = apply_model_operations(model_proposal(state), operations)
+        else:
+            proposal = await self.model_design_agent.run(
+                ModelDesignAgentInput(
+                    modelling_brief=ModellingBrief.model_validate(state["modelling_brief"]),
+                    source_analysis=SourceAnalysis.model_validate(state["source_analysis"]),
+                    existing_model=state.get("logical_model"),
+                    validation_findings=validation_findings(state) if reworking else [],
+                )
             )
-        )
         await self.emit(
             "agent.completed",
             self.model_design_agent.identifier,
@@ -390,6 +436,11 @@ class MasterOrchestrator:
             "workflow_stage": "model_designed",
             "rework_count": state.get("rework_count", 0) + (1 if reworking else 0),
             "rework_target": None,
+            "pending_operations": [],
+            "operation_history": [
+                *state.get("operation_history", []),
+                *(item.model_dump(mode="json") for item in operations),
+            ],
             "agent_trace": append_trace(
                 state,
                 self.model_design_agent.identifier,
@@ -872,8 +923,15 @@ def reconcile_plan_with_state(
 ) -> ExecutionPlan:
     prior_data = state.get("execution_plan")
     prior = ExecutionPlan.model_validate(prior_data) if prior_data else None
+    brief_data = state.get("modelling_brief")
+    brief = ModellingBrief.model_validate(brief_data) if brief_data else None
+    requirements_confirmed = bool(
+        brief
+        and brief.can_proceed
+        and not any(question.blocking for question in brief.blocking_questions)
+    )
     verified_outputs = {
-        "requirement_agent": bool(state.get("modelling_brief")),
+        "requirement_agent": requirements_confirmed,
         "source_analysis_agent": bool(state.get("source_analysis")),
         "model_design_agent": bool(state.get("logical_model")),
         "mapping_dq_agent": bool(state.get("mapping_dq")),
@@ -902,6 +960,8 @@ def reconcile_plan_with_state(
         "mapping_dq_agent",
         "validation_agent",
     ]
+    if not requirements_confirmed:
+        completed_agents.difference_update(order)
     target_agents = {
         "source_preview": "source_analysis_agent",
         "logical_model": "model_design_agent",
@@ -966,6 +1026,8 @@ def planning_context(state: ModellingGraphState) -> dict[str, Any]:
         "execution_plan",
         "tool_results",
         "memory_context",
+        "operation_impact",
+        "pending_operations",
     )
     context = {key: state.get(key) for key in keys if state.get(key) is not None}
     context["sources"] = [

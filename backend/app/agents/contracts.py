@@ -14,9 +14,27 @@ class AgentResult(BaseModel):
 
 
 class ClarificationQuestion(BaseModel):
+    id: str = "clarification"
+    category: Literal[
+        "objective", "grain", "keys", "relationships", "history", "kpis", "other"
+    ] = "other"
     question: str
     rationale: str
     blocking: bool = True
+    options: list[str] = Field(default_factory=list)
+
+
+class RequirementCoverage(BaseModel):
+    objective: Literal["confirmed", "missing"] = "missing"
+    grain: Literal["confirmed", "missing"] = "missing"
+    keys: Literal["confirmed", "missing", "pending_source", "not_applicable"] = (
+        "pending_source"
+    )
+    relationships: Literal[
+        "confirmed", "missing", "pending_source", "not_applicable"
+    ] = "pending_source"
+    history: Literal["confirmed", "missing"] = "missing"
+    kpis: Literal["confirmed", "missing", "not_applicable"] = "not_applicable"
 
 
 class RequirementAgentInput(BaseModel):
@@ -37,6 +55,11 @@ class ModellingBrief(AgentResult):
     source_objects: list[str] = Field(default_factory=list)
     requested_outputs: list[str] = Field(default_factory=list)
     candidate_grain: str | None = None
+    key_requirements: list[str] = Field(default_factory=list)
+    relationship_requirements: list[str] = Field(default_factory=list)
+    history_requirement: str | None = None
+    kpi_definitions: dict[str, str] = Field(default_factory=dict)
+    requirement_coverage: RequirementCoverage = Field(default_factory=RequirementCoverage)
     blocking_questions: list[ClarificationQuestion] = Field(default_factory=list)
     can_proceed: bool
 
@@ -46,6 +69,18 @@ class SourceMetadata(BaseModel):
     content_excerpt: str = ""
     format: str = "unknown"
     profile: dict[str, Any] = Field(default_factory=dict)
+
+
+class SourceColumnAnalysis(BaseModel):
+    name: str
+    data_type: str = "unknown"
+    nullable: bool | None = None
+    null_percentage: float | None = Field(default=None, ge=0, le=100)
+    distinct_percentage: float | None = Field(default=None, ge=0, le=100)
+    candidate_key_score: float | None = Field(default=None, ge=0, le=1)
+    key_role: Literal["PK", "FK", "business_key", "none"] = "none"
+    references: str | None = None
+    sample_values: list[str | int | float | bool] = Field(default_factory=list)
 
 
 class SourceAnalysisAgentInput(BaseModel):
@@ -61,6 +96,12 @@ class AnalysedSource(BaseModel):
     column_count: int = Field(default=0, ge=0)
     columns: list[str] = Field(default_factory=list)
     candidate_keys: list[str] = Field(default_factory=list)
+    business_keys: list[str] = Field(default_factory=list)
+    column_profiles: list[SourceColumnAnalysis] = Field(default_factory=list)
+    history_recommendation: Literal[
+        "type_1", "type_2", "not_applicable", "needs_review"
+    ] = "needs_review"
+    history_evidence: list[str] = Field(default_factory=list)
     description: str
     evidence: list[str] = Field(default_factory=list)
 
@@ -70,6 +111,11 @@ class SourceRelationship(BaseModel):
     to_source: str
     join_expression: str
     confidence: float = Field(ge=0, le=1)
+    cardinality: Literal["many-to-one", "one-to-many", "one-to-one", "unknown"] = (
+        "unknown"
+    )
+    nullable_foreign_key: bool | None = None
+    score_components: dict[str, float] = Field(default_factory=dict)
     evidence: list[str] = Field(default_factory=list)
 
 
@@ -102,6 +148,7 @@ class ModelEntity(BaseModel):
     kind: Literal["fact", "dimension"]
     description: str
     grain: str | None = None
+    history_strategy: Literal["type_0", "type_1", "type_2"] | None = None
     attributes: list[ModelAttribute]
 
 
@@ -122,6 +169,28 @@ class LogicalModelProposal(AgentResult):
     relationships: list[ModelRelationship]
     measures: list[str] = Field(default_factory=list)
     open_decisions: list[str] = Field(default_factory=list)
+
+
+class ModelOperation(BaseModel):
+    operation: Literal["change_grain", "set_dimension_history", "split_dimension"]
+    target: str
+    value: str
+    instruction: str
+    confidence: float = Field(default=1.0, ge=0, le=1)
+
+
+class ModelOperationImpact(BaseModel):
+    summary: str
+    affected_entities: list[str] = Field(default_factory=list)
+    affected_artifacts: list[
+        Literal["logical_model", "mappings", "dq_rules", "validation"]
+    ] = Field(default_factory=list)
+    changes: list[str] = Field(default_factory=list)
+    risks: list[str] = Field(default_factory=list)
+    validation_errors: list[str] = Field(default_factory=list)
+    valid: bool = True
+    material: bool
+    approval_required: bool
 
 
 class MappingDQAgentInput(BaseModel):

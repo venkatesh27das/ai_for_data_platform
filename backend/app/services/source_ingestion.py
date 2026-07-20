@@ -114,7 +114,10 @@ def profile_ddl(text: str) -> list[dict[str, Any]]:
         re.IGNORECASE | re.DOTALL,
     ):
         columns: list[dict[str, Any]] = []
-        for definition in split_ddl_definitions(match.group("body")):
+        definitions = split_ddl_definitions(match.group("body"))
+        primary_keys = ddl_primary_keys(definitions)
+        foreign_keys = ddl_foreign_keys(definitions)
+        for definition in definitions:
             if definition.upper().startswith(
                 ("PRIMARY KEY", "FOREIGN KEY", "CONSTRAINT", "UNIQUE", "CHECK")
             ):
@@ -126,6 +129,21 @@ def profile_ddl(text: str) -> list[dict[str, Any]]:
                         "name": parts[0].strip('"`[]'),
                         "data_type": parts[1] if len(parts) > 1 else "unknown",
                         "null_count": None,
+                        "null_percentage": None,
+                        "distinct_count": None,
+                        "distinct_percentage": None,
+                        "candidate_key_score": None,
+                        "is_candidate_key": parts[0].strip('"`[]') in primary_keys,
+                        "key_role": (
+                            "PK"
+                            if parts[0].strip('"`[]') in primary_keys
+                            else "FK"
+                            if parts[0].strip('"`[]') in foreign_keys
+                            else "none"
+                        ),
+                        "references": foreign_keys.get(parts[0].strip('"`[]')),
+                        "nullable": "NOT NULL" not in definition.upper()
+                        and parts[0].strip('"`[]') not in primary_keys,
                         "sample_values": [],
                     }
                 )
@@ -134,6 +152,8 @@ def profile_ddl(text: str) -> list[dict[str, Any]]:
                 "name": match.group("name").strip('"`[]').split(".")[-1],
                 "row_sample_count": 0,
                 "columns": columns,
+                "primary_key": sorted(primary_keys),
+                "foreign_keys": foreign_keys,
             }
         )
     return tables
@@ -151,12 +171,32 @@ def profile_rows(
     for index, column_name in enumerate(names):
         values = [row[index] if index < len(row) else None for row in materialized]
         populated = [value for value in values if value not in (None, "")]
+        serialized = [serialize_value(value) for value in populated]
+        distinct = len(set(map(str, serialized)))
+        row_count = len(values)
+        candidate_key_score = distinct / row_count if row_count else 0.0
         columns.append(
             {
                 "name": column_name,
                 "data_type": infer_type(populated),
                 "null_count": len(values) - len(populated),
-                "sample_values": [serialize_value(value) for value in populated[:3]],
+                "null_percentage": round(
+                    ((len(values) - len(populated)) / row_count * 100) if row_count else 0,
+                    2,
+                ),
+                "distinct_count": distinct,
+                "distinct_percentage": round(
+                    (distinct / len(populated) * 100) if populated else 0,
+                    2,
+                ),
+                "candidate_key_score": round(candidate_key_score, 4),
+                "is_candidate_key": bool(row_count and candidate_key_score == 1),
+                "key_role": infer_profile_key_role(column_name, candidate_key_score),
+                "references": None,
+                "nullable": len(values) != len(populated),
+                "minimum": profile_minimum(populated),
+                "maximum": profile_maximum(populated),
+                "sample_values": serialized[:3],
             }
         )
     return {"name": name, "row_sample_count": len(materialized), "columns": columns}
@@ -222,3 +262,55 @@ def split_ddl_definitions(body: str) -> list[str]:
     if current:
         result.append("".join(current).strip())
     return result
+
+
+def ddl_primary_keys(definitions: list[str]) -> set[str]:
+    keys: set[str] = set()
+    for definition in definitions:
+        if definition.upper().startswith(("PRIMARY KEY", "CONSTRAINT")):
+            match = re.search(r"PRIMARY\s+KEY\s*\((.*?)\)", definition, re.IGNORECASE)
+            if match:
+                keys.update(part.strip(' "`[]') for part in match.group(1).split(","))
+        elif "PRIMARY KEY" in definition.upper():
+            keys.add(definition.split()[0].strip('"`[]'))
+    return keys
+
+
+def ddl_foreign_keys(definitions: list[str]) -> dict[str, str]:
+    keys: dict[str, str] = {}
+    for definition in definitions:
+        match = re.search(
+            r"FOREIGN\s+KEY\s*\((.*?)\)\s+REFERENCES\s+"
+            r"([A-Za-z0-9_.\"`\[\]]+)\s*\((.*?)\)",
+            definition,
+            re.IGNORECASE,
+        )
+        if match:
+            local = [part.strip(' "`[]') for part in match.group(1).split(",")]
+            remote = [part.strip(' "`[]') for part in match.group(3).split(",")]
+            table = match.group(2).strip('"`[]')
+            keys.update(
+                {left: f"{table}.{right}" for left, right in zip(local, remote, strict=False)}
+            )
+    return keys
+
+
+def infer_profile_key_role(name: str, score: float) -> str:
+    normalized = name.lower()
+    if score >= 0.98 and (normalized == "id" or normalized.endswith("_id")):
+        return "business_key"
+    return "none"
+
+
+def profile_minimum(values: list[Any]) -> str | int | float | bool | None:
+    try:
+        return serialize_value(min(values)) if values else None
+    except TypeError:
+        return None
+
+
+def profile_maximum(values: list[Any]) -> str | int | float | bool | None:
+    try:
+        return serialize_value(max(values)) if values else None
+    except TypeError:
+        return None

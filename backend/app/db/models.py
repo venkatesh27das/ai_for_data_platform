@@ -259,6 +259,7 @@ class MemoryEntry(Base):
     kind: Mapped[str] = mapped_column(String(32), index=True)
     content: Mapped[str] = mapped_column(Text)
     embedding: Mapped[list[float]] = mapped_column(JSON, default=list)
+    entry_metadata: Mapped[dict[str, Any]] = mapped_column("metadata", JSON, default=dict)
     source_run_id: Mapped[str | None] = mapped_column(
         ForeignKey("workflow_runs.id", ondelete="SET NULL"), nullable=True, index=True
     )
