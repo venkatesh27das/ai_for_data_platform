@@ -661,6 +661,19 @@ Run `make setup` again. Installation is lockfile-based and safe to repeat.
 
 ## Roadmap
 
+### Next intelligence priorities
+
+These are the six most important enhancements for moving the assistant from a stable agentic foundation toward a more intelligent modelling collaborator.
+
+| Priority | Enhancement | Why it matters |
+| --- | --- | --- |
+| 1 | Conversational clarification loop | The assistant should detect missing grain, keys, source relationships, history requirements, and KPI definitions before generating a model. |
+| 2 | Natural-language model operations | Commands such as “make Customer SCD Type 2,” “split Geography into a dimension,” or “change the grain to invoice line” should produce controlled model mutations. |
+| 3 | Impact analysis before changes | The assistant should identify affected entities, mappings, DQ rules, relationships, and downstream artifacts before applying a modification. |
+| 4 | Source-evidence retrieval | Retrieve relevant tables, columns, profiles, prior artifacts, and catalog metadata—not only conversation memory—when an agent needs evidence. |
+| 5 | Iterative model critique and repair | Validation findings should automatically generate a bounded repair plan and rerun only the affected agents. |
+| 6 | Stronger semantic source analysis | Improve PK/FK inference, relationship scoring, business-key detection, cardinality, nullability, and slowly changing dimension recommendations. |
+
 ### Planned next
 
 - Richer deterministic profiling: distinct percentages, numeric statistics, candidate-key scores
