@@ -4,6 +4,7 @@ from app.autonomy.capabilities import CapabilityRegistry
 from app.autonomy.mcp_client import MCPClient
 from app.autonomy.tools import ToolExecutor, ToolRegistry
 from app.config import Settings
+from app.services.tool_operations import ToolOperationStore
 
 
 def build_autonomy_runtime(
@@ -13,13 +14,23 @@ def build_autonomy_runtime(
 ) -> tuple[CapabilityRegistry, ToolExecutor]:
     servers = parse_string_map(settings.mcp_servers_json)
     allowlist = {item.strip() for item in settings.mcp_tool_allowlist.split(",") if item.strip()}
-    mcp_client = MCPClient(servers, allowlist, settings.mcp_request_timeout) if servers else None
+    mcp_client = (
+        MCPClient(
+            servers,
+            allowlist,
+            settings.mcp_request_timeout,
+            settings.mcp_schema_cache_ttl_seconds,
+        )
+        if servers
+        else None
+    )
     capabilities = CapabilityRegistry()
     registry = ToolRegistry(mcp_client, enabled=tool_calling_enabled)
     return capabilities, ToolExecutor(
         registry,
         capabilities,
         timeout_seconds=settings.tool_request_timeout,
+        operation_store=ToolOperationStore(),
     )
 
 

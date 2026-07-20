@@ -8,10 +8,12 @@ from pydantic import BaseModel, Field
 from app.autonomy.capabilities import CapabilityRegistry
 from app.autonomy.contracts import ToolExecutionRecord, ToolRequest
 from app.autonomy.mcp_client import MCPClient
+from app.services.tool_operations import ToolOperationStore
 
 
 class ToolContext(BaseModel):
     project_id: str
+    run_id: str | None = None
     state: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -113,10 +115,12 @@ class ToolExecutor:
         registry: ToolRegistry,
         capabilities: CapabilityRegistry,
         timeout_seconds: float = 30,
+        operation_store: ToolOperationStore | None = None,
     ) -> None:
         self.registry = registry
         self.capabilities = capabilities
         self.timeout_seconds = timeout_seconds
+        self.operation_store = operation_store
 
     async def execute(self, request: ToolRequest, context: ToolContext) -> ToolExecutionRecord:
         started = perf_counter()
@@ -133,15 +137,41 @@ class ToolExecutor:
                 arguments=request.arguments,
                 error="The selected skill does not allow this tool.",
             )
+        fingerprint: str | None = None
         try:
             definition = await self.registry.resolve(request.tool_name)
             validate_tool_arguments(request.arguments, definition.input_schema)
+            fingerprint = self._fingerprint(request, context)
+            if fingerprint is not None and self.operation_store is not None:
+                cached = self.operation_store.completed_result(fingerprint)
+                if cached is not None:
+                    return ToolExecutionRecord(
+                        request_id=request.id,
+                        tool_name=request.tool_name,
+                        requested_by=request.requested_by,
+                        skill_id=request.skill_id,
+                        plan_step_id=request.plan_step_id,
+                        status="completed",
+                        arguments=request.arguments,
+                        result=cached,
+                        source="mcp" if definition.source == "mcp" else "builtin",
+                        cached=True,
+                    )
+                self.operation_store.mark_pending(
+                    fingerprint=fingerprint,
+                    project_id=context.project_id,
+                    run_id=context.run_id,
+                    tool_name=request.tool_name,
+                    arguments=request.arguments,
+                )
             result = await asyncio.wait_for(
                 definition.handler(request.arguments, context),
                 timeout=self.timeout_seconds,
             )
             if result.get("is_error") is True:
                 raise RuntimeError(mcp_error_message(result))
+            if fingerprint is not None and self.operation_store is not None:
+                self.operation_store.finish(fingerprint, status="completed", result=result)
             return ToolExecutionRecord(
                 request_id=request.id,
                 tool_name=request.tool_name,
@@ -155,6 +185,12 @@ class ToolExecutor:
                 source="mcp" if definition.source == "mcp" else "builtin",
             )
         except Exception as exc:
+            if fingerprint is not None and self.operation_store:
+                self.operation_store.finish(
+                    fingerprint,
+                    status="failed",
+                    error=str(exc) or type(exc).__name__,
+                )
             return ToolExecutionRecord(
                 request_id=request.id,
                 tool_name=request.tool_name,
@@ -167,6 +203,21 @@ class ToolExecutor:
                 duration_ms=round((perf_counter() - started) * 1000, 2),
                 source="mcp" if request.tool_name.startswith("mcp.") else "builtin",
             )
+
+    def _fingerprint(self, request: ToolRequest, context: ToolContext) -> str | None:
+        if self.operation_store is None or request.plan_step_id is None:
+            return None
+        plan = context.state.get("execution_plan")
+        plan_id = str(plan.get("plan_id", "")) if isinstance(plan, dict) else ""
+        if not plan_id:
+            return None
+        return self.operation_store.fingerprint(
+            project_id=context.project_id,
+            plan_id=plan_id,
+            step_id=request.plan_step_id,
+            tool_name=request.tool_name,
+            arguments=request.arguments,
+        )
 
 
 async def source_profile_summary(_: dict[str, Any], context: ToolContext) -> dict[str, Any]:

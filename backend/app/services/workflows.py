@@ -14,6 +14,7 @@ from app.autonomy.tools import ToolExecutor
 from app.llm.base import LLMProvider
 from app.orchestration.graph import MasterOrchestrator
 from app.orchestration.state import ModellingGraphState
+from app.services.agent_cache import AgentResultCache
 
 PRESENTER_PROMPT = """You present the result of a multi-agent data-modelling workflow.
 Use only the supplied structured workflow state. If blocking questions exist, briefly restate
@@ -40,6 +41,13 @@ class WorkflowService:
         checkpoint_path: Path | None = None,
         capabilities: CapabilityRegistry | None = None,
         tool_executor: ToolExecutor | None = None,
+        checkpointer: Any | None = None,
+        planner_fast_path: bool = False,
+        presenter_fast_path: bool = False,
+        recent_message_limit: int = 12,
+        message_char_limit: int = 4_000,
+        source_excerpt_limit: int = 8_000,
+        result_cache: AgentResultCache | None = None,
     ) -> None:
         self.provider = provider
         self.orchestrator = MasterOrchestrator(
@@ -47,8 +55,15 @@ class WorkflowService:
             agent_timeout_seconds,
             capabilities,
             tool_executor,
+            planner_fast_path,
+            result_cache,
         )
         self.checkpoint_path = checkpoint_path
+        self.checkpointer = checkpointer
+        self.presenter_fast_path = presenter_fast_path
+        self.recent_message_limit = recent_message_limit
+        self.message_char_limit = message_char_limit
+        self.source_excerpt_limit = source_excerpt_limit
 
     async def run(
         self,
@@ -60,15 +75,23 @@ class WorkflowService:
         sources: list[dict[str, Any]] | None = None,
         resume_from_checkpoint: bool = False,
         approval_decision: str | None = None,
+        run_id: str | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
+        compact_conversation = compact_messages(
+            conversation, self.recent_message_limit, self.message_char_limit
+        )
+        compact_sources = compact_source_metadata(
+            sources or (existing_state or {}).get("sources", []), self.source_excerpt_limit
+        )
         initial = cast(
             ModellingGraphState,
             {
                 **(existing_state or {}),
                 "project_id": project_id,
+                "run_id": run_id,
                 "thread_id": project_id,
                 "user_message": user_message,
-                "conversation_messages": conversation,
+                "conversation_messages": compact_conversation,
                 "workflow_stage": "new",
                 "run_status": "queued",
                 "rework_count": 0,
@@ -80,13 +103,16 @@ class WorkflowService:
                 "tool_steps_completed": [],
                 "replan_count": 0,
                 "replanning_reason": None,
-                "sources": sources or (existing_state or {}).get("sources", []),
+                "sources": compact_sources,
             },
         )
         connection: aiosqlite.Connection | None = None
         graph = self.orchestrator.graph
         config: RunnableConfig | None = None
-        if self.checkpoint_path is not None:
+        if self.checkpointer is not None:
+            graph = self.orchestrator.compile(self.checkpointer)
+            config = {"configurable": {"thread_id": project_id, "checkpoint_ns": "modelling"}}
+        elif self.checkpoint_path is not None:
             self.checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
             connection = await aiosqlite.connect(self.checkpoint_path)
             checkpointer = AsyncSqliteSaver(connection)
@@ -129,6 +155,9 @@ class WorkflowService:
     async def stream_response(
         self, state: dict[str, Any], conversation: list[dict[str, Any]]
     ) -> AsyncIterator[str]:
+        if self.presenter_fast_path:
+            yield deterministic_presenter(state)
+            return
         relevant_state = {
             key: state.get(key)
             for key in (
@@ -155,6 +184,67 @@ class WorkflowService:
         ]
         async for token in self.provider.stream_text(messages):
             yield token
+
+
+def compact_messages(
+    messages: list[dict[str, Any]], limit: int, character_limit: int
+) -> list[dict[str, Any]]:
+    return [
+        {
+            "role": item.get("role", "user"),
+            "content": str(item.get("content", ""))[-character_limit:],
+        }
+        for item in messages[-limit:]
+    ]
+
+
+def compact_source_metadata(
+    sources: list[dict[str, Any]], excerpt_limit: int
+) -> list[dict[str, Any]]:
+    return [
+        {
+            **source,
+            "content_excerpt": str(source.get("content_excerpt", ""))[:excerpt_limit],
+        }
+        for source in sources
+    ]
+
+
+def deterministic_presenter(state: dict[str, Any]) -> str:
+    stage = str(state.get("workflow_stage", "completed"))
+    brief_value = state.get("modelling_brief")
+    brief: dict[str, Any] = brief_value if isinstance(brief_value, dict) else {}
+    if stage == "awaiting_clarification":
+        questions = brief.get("blocking_questions", []) if isinstance(brief, dict) else []
+        rendered = " ".join(
+            str(item.get("question", "")) for item in questions if isinstance(item, dict)
+        )
+        return f"I need one modelling decision before continuing: {rendered}".strip()
+    if stage == "awaiting_sources":
+        return "I understand the scenario, but I need source metadata or files before modelling."
+    model_value = state.get("logical_model")
+    mapping_value = state.get("mapping_dq")
+    validation_value = state.get("validation_report")
+    model: dict[str, Any] = model_value if isinstance(model_value, dict) else {}
+    mapping: dict[str, Any] = mapping_value if isinstance(mapping_value, dict) else {}
+    validation: dict[str, Any] = (
+        validation_value if isinstance(validation_value, dict) else {}
+    )
+    entity_count = len(model.get("entities", []))
+    mapping_count = len(mapping.get("mappings", []))
+    dq_count = len(mapping.get("dq_rules", []))
+    finding_count = len(validation.get("findings", []))
+    grain = str(model.get("fact_grain") or brief.get("candidate_grain") or "Not confirmed")
+    review = (
+        f" {finding_count} validation finding(s) need review."
+        if finding_count
+        else " Validation completed without findings."
+    )
+    return (
+        f"The modelling run is complete. Grain: {grain}. Generated {entity_count} entities, "
+        f"{mapping_count} mappings, and {dq_count} data-quality rules.{review} "
+        "Open a generated asset to inspect or revise it."
+    )
 
 
 def agent_progress_label(event: dict[str, Any]) -> str:

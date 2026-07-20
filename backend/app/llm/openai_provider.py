@@ -1,4 +1,7 @@
+import httpx
+
 from app.llm.openai_compatible import OpenAICompatibleProvider
+from app.runtime import ProviderGuard
 
 
 class OpenAIProvider(OpenAICompatibleProvider):
@@ -12,6 +15,8 @@ class OpenAIProvider(OpenAICompatibleProvider):
         model: str,
         timeout: int = 120,
         temperature: float = 0.2,
+        client: httpx.AsyncClient | None = None,
+        guard: ProviderGuard | None = None,
     ) -> None:
         super().__init__(
             name="openai",
@@ -20,4 +25,6 @@ class OpenAIProvider(OpenAICompatibleProvider):
             model=model,
             timeout=timeout,
             temperature=temperature,
+            client=client,
+            guard=guard,
         )

@@ -3,6 +3,7 @@ from typing import Any, TypedDict
 
 class ModellingGraphState(TypedDict, total=False):
     project_id: str
+    run_id: str | None
     thread_id: str
     user_message: str | None
     conversation_messages: list[dict[str, Any]]

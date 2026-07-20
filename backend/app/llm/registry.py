@@ -1,14 +1,25 @@
+import httpx
+
 from app.config import Settings
 from app.llm.anthropic_provider import AnthropicProvider
 from app.llm.base import LLMProvider
 from app.llm.lm_studio import LMStudioProvider
 from app.llm.openai_compatible import OpenAICompatibleProvider
 from app.llm.openai_provider import OpenAIProvider
+from app.runtime import ProviderGuard
 
 
 class ProviderRegistry:
-    def __init__(self, settings: Settings) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        *,
+        client: httpx.AsyncClient | None = None,
+        guard: ProviderGuard | None = None,
+    ) -> None:
         self.settings = settings
+        self.client = client
+        self.guard = guard
 
     def get(
         self,
@@ -25,6 +36,8 @@ class ProviderRegistry:
                 model=model or self.settings.lm_studio_model,
                 timeout=self.settings.llm_request_timeout,
                 temperature=self.settings.llm_temperature,
+                client=self.client,
+                guard=self.guard,
             )
         if provider_name == "openai":
             return OpenAIProvider(
@@ -32,6 +45,8 @@ class ProviderRegistry:
                 api_key=api_key or self.settings.openai_api_key,
                 model=model or self.settings.openai_model,
                 timeout=self.settings.llm_request_timeout,
+                client=self.client,
+                guard=self.guard,
             )
         if provider_name == "anthropic":
             return AnthropicProvider(
@@ -45,5 +60,7 @@ class ProviderRegistry:
                 api_key=api_key or self.settings.custom_llm_api_key,
                 model=model or self.settings.custom_llm_model,
                 timeout=self.settings.llm_request_timeout,
+                client=self.client,
+                guard=self.guard,
             )
         raise ValueError(f"Unknown provider: {provider_name}")

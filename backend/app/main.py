@@ -6,12 +6,19 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import artifacts, autonomy, conversations, health, projects, settings, sources
 from app.config import get_settings
+from app.runtime import application_runtime
+from app.services.workflow_runner import recover_incomplete_runs
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     get_settings().data_dir.mkdir(parents=True, exist_ok=True)
-    yield
+    await application_runtime.start()
+    await recover_incomplete_runs(application_runtime)
+    try:
+        yield
+    finally:
+        await application_runtime.stop()
 
 
 app = FastAPI(title="AI Data Modelling Assistant API", version="0.1.0", lifespan=lifespan)

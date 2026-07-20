@@ -109,6 +109,21 @@ Built-in tools currently expose persisted source profiles and workflow context. 
 
 The Settings **Tool calling enabled** toggle controls application tool execution. Local defaults enable bounded tools. MCP remains disabled until at least one server and one fully qualified allow-listed tool are provided through environment configuration.
 
+### Performance and recovery runtime
+
+Workflow execution is independent of the browser's SSE connection. Every request receives a durable run ID, persists ordered events, continues if the browser disconnects, and can be replayed on reconnect. A page reopened during generation automatically follows the project's active run. The Stop button cancels the backend task rather than only closing the browser stream.
+
+Client idempotency keys prevent duplicate submissions, while a database-backed project lease and an in-process project lock serialize conflicting runs. External tool operations use stable request fingerprints so completed results can be reused safely after checkpoint resume. Standard full-model requests use a deterministic bounded plan and structured presenter, saving two LLM calls; regeneration, recovery, and external-capability requests still use the reactive planner.
+
+The backend reuses one pooled HTTP client and one SQLite LangGraph checkpointer for its application lifetime. SQLite uses WAL and a busy timeout. Provider calls are protected by a configurable concurrency semaphore and circuit breaker. Specialist results are cached by provider, model, prompt version, input, and output schema; fallback results are never cached. MCP schemas also use a bounded TTL cache, and explicitly marked read-only tool calls can execute concurrently.
+
+After pulling these changes, apply migration `0006` before launching:
+
+```bash
+cd backend
+uv run alembic upgrade head
+```
+
 ## Verification
 
 ```bash

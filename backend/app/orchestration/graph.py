@@ -1,3 +1,4 @@
+import asyncio
 import re
 from asyncio import Queue
 from time import perf_counter
@@ -39,6 +40,7 @@ from app.autonomy.planner import PlannerAgent
 from app.autonomy.tools import ToolContext, ToolExecutor, ToolRegistry
 from app.llm.base import LLMProvider
 from app.orchestration.state import ModellingGraphState
+from app.services.agent_cache import AgentResultCache
 
 NodeResult = dict[str, Any]
 
@@ -52,16 +54,21 @@ class MasterOrchestrator:
         agent_timeout_seconds: float = 45,
         capabilities: CapabilityRegistry | None = None,
         tool_executor: ToolExecutor | None = None,
+        planner_fast_path: bool = False,
+        result_cache: AgentResultCache | None = None,
     ) -> None:
         self.events: Queue[dict[str, Any]] = Queue()
         self.capabilities = capabilities or CapabilityRegistry()
         self.tool_executor = tool_executor or ToolExecutor(ToolRegistry(), self.capabilities)
-        self.planner_agent = PlannerAgent(provider, agent_timeout_seconds)
-        self.requirement_agent = RequirementAgent(provider, agent_timeout_seconds)
-        self.source_analysis_agent = SourceAnalysisAgent(provider, agent_timeout_seconds)
-        self.model_design_agent = ModelDesignAgent(provider, agent_timeout_seconds)
-        self.mapping_dq_agent = MappingDQAgent(provider, agent_timeout_seconds)
-        self.validation_agent = ValidationAgent(provider, agent_timeout_seconds)
+        self.planner_agent = PlannerAgent(provider, agent_timeout_seconds, result_cache)
+        self.requirement_agent = RequirementAgent(provider, agent_timeout_seconds, result_cache)
+        self.source_analysis_agent = SourceAnalysisAgent(
+            provider, agent_timeout_seconds, result_cache
+        )
+        self.model_design_agent = ModelDesignAgent(provider, agent_timeout_seconds, result_cache)
+        self.mapping_dq_agent = MappingDQAgent(provider, agent_timeout_seconds, result_cache)
+        self.validation_agent = ValidationAgent(provider, agent_timeout_seconds, result_cache)
+        self.planner_fast_path = planner_fast_path
         self.builder = self._build_graph()
         self.graph = self.builder.compile()
 
@@ -79,13 +86,16 @@ class MasterOrchestrator:
     async def plan_execution(self, state: ModellingGraphState) -> NodeResult:
         payload = PlanningInput(
             user_message=state.get("user_message") or "",
-            existing_state=dict(state),
+            existing_state=planning_context(state),
             available_skills=self.capabilities.all(),
             available_tools=self.tool_executor.registry.names(),
             validation_findings=state.get("validation_findings", []),
         )
         await self.emit("agent.started", self.planner_agent.identifier)
-        plan = await self.planner_agent.run(payload)
+        if self.planner_fast_path and standard_plan_is_sufficient(state):
+            plan = self.planner_agent.deterministic_plan(payload)
+        else:
+            plan = await self.planner_agent.run(payload)
         try:
             validate_plan(plan, self.capabilities, set(self.tool_executor.registry.names()))
         except ValueError as exc:
@@ -170,6 +180,7 @@ class MasterOrchestrator:
                 "tool_steps_completed": [*state.get("tool_steps_completed", []), step.id],
             }
         remaining = max(0, plan.tool_call_budget - len(state.get("tool_trace", [])))
+        selected_calls = calls[:remaining]
         requests = [
             ToolRequest(
                 tool_name=call.tool_name,
@@ -178,18 +189,21 @@ class MasterOrchestrator:
                 skill_id=step.skill_id,
                 plan_step_id=step.id,
             )
-            for call in calls[:remaining]
+            for call in selected_calls
         ]
         records = []
         results = dict(state.get("tool_results", {}))
         budget_exhausted = len(requests) < len(calls)
-        for request in requests:
+        async def execute_request(request: ToolRequest) -> Any:
             await self.emit("tool.started", request.tool_name)
             record = await self.tool_executor.execute(
                 request,
-                ToolContext(project_id=state.get("project_id", ""), state=dict(state)),
+                ToolContext(
+                    project_id=state.get("project_id", ""),
+                    run_id=state.get("run_id"),
+                    state=dict(state),
+                ),
             )
-            records.append(record)
             if record.status == "completed":
                 results[record.tool_name] = record.result
             await self.emit(
@@ -197,6 +211,13 @@ class MasterOrchestrator:
                 request.tool_name,
                 execution_mode=record.status,
             )
+            return record
+
+        if len(requests) > 1 and all(call.parallel_safe for call in selected_calls):
+            records.extend(await asyncio.gather(*(execute_request(item) for item in requests)))
+        else:
+            for request in requests:
+                records.append(await execute_request(request))
         failed = [record for record in records if record.status != "completed"]
         reason: str | None = None
         if budget_exhausted:
@@ -906,3 +927,45 @@ def agent_rework_target(plan: ExecutionPlan | None, step_id: str | None) -> str 
         return None
     step = next((item for item in plan.steps if item.id == step_id), None)
     return step.agent_id if step else None
+
+
+def standard_plan_is_sufficient(state: ModellingGraphState) -> bool:
+    message = (state.get("user_message") or "").lower()
+    return (
+        not state.get("regeneration_target")
+        and not state.get("replanning_reason")
+        and not state.get("approval_status") == "required"
+        and "mcp." not in message
+        and "external catalog" not in message
+    )
+
+
+def planning_context(state: ModellingGraphState) -> dict[str, Any]:
+    keys = (
+        "project_id",
+        "workflow_stage",
+        "modelling_brief",
+        "source_analysis",
+        "logical_model",
+        "mapping_dq",
+        "validation_report",
+        "validation_findings",
+        "regeneration_target",
+        "replanning_reason",
+        "active_step_id",
+        "execution_plan",
+        "tool_results",
+    )
+    context = {key: state.get(key) for key in keys if state.get(key) is not None}
+    context["sources"] = [
+        {
+            "name": source.get("name"),
+            "format": source.get("format"),
+            "profile": source.get("profile", {}),
+        }
+        for source in state.get("sources", [])
+        if isinstance(source, dict)
+    ]
+    context["recent_tool_trace"] = state.get("tool_trace", [])[-8:]
+    context["recent_decisions"] = state.get("decision_trace", [])[-8:]
+    return context

@@ -10,8 +10,8 @@ import { ExecutionPlanCard } from '../../components/chat/ExecutionPlanCard'
 import { ArtifactSummaryCard } from '../../components/artefacts/ArtifactSummaryCard'
 import { ModelCanvas } from '../../components/artefacts/ModelCanvas'
 import { StructuredArtifactViewer } from '../../components/artefacts/StructuredArtifactViewer'
-import { api, streamMessage } from '../../services/api'
-import type { Artifact, LogicalModelPayload, Message } from '../../types'
+import { api, followMessageRun, streamMessage } from '../../services/api'
+import type { Artifact, LogicalModelPayload, Message, StreamEvent } from '../../types'
 
 interface LocationState { initialScenario?: string }
 
@@ -33,8 +33,19 @@ export function WorkspacePage() {
   const [activeArtifactId, setActiveArtifactId] = useState<string | null>(null)
   const [historyOpen, setHistoryOpen] = useState(false)
   const controllerRef = useRef<AbortController | null>(null)
+  const activeRunRef = useRef<string | null>(null)
   const initialSent = useRef(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  const handleStreamEvent = useCallback((event: StreamEvent) => {
+    if (event.event === 'progress') {
+      const mode = event.data.execution_mode === 'fallback' ? ' · safe fallback used' : ''
+      setProgress(`${event.data.label ?? ''}${mode}`)
+    }
+    if (event.event === 'token') setStreamingText((current) => current + (event.data.content ?? ''))
+    if (event.event === 'error') setStreamError(event.data.detail ?? 'The provider returned an error.')
+    if (event.event === 'done') setProgress('')
+  }, [])
 
   const send = useCallback(async (content: string) => {
     const now = new Date().toISOString()
@@ -45,15 +56,7 @@ export function WorkspacePage() {
     const controller = new AbortController()
     controllerRef.current = controller
     try {
-      await streamMessage(projectId, content, (event) => {
-        if (event.event === 'progress') {
-          const mode = event.data.execution_mode === 'fallback' ? ' · safe fallback used' : ''
-          setProgress(`${event.data.label ?? ''}${mode}`)
-        }
-        if (event.event === 'token') setStreamingText((current) => current + (event.data.content ?? ''))
-        if (event.event === 'error') setStreamError(event.data.detail ?? 'The provider returned an error.')
-        if (event.event === 'done') setProgress('')
-      }, controller.signal)
+      await streamMessage(projectId, content, handleStreamEvent, controller.signal, (runId) => { activeRunRef.current = runId })
       setOptimistic([])
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['messages', projectId] }),
@@ -66,10 +69,17 @@ export function WorkspacePage() {
     } catch (error) {
       if (!(error instanceof DOMException && error.name === 'AbortError')) setStreamError(error instanceof Error ? error.message : 'Streaming failed')
     } finally {
+      activeRunRef.current = null
       setStreaming(false)
       setProgress('')
     }
-  }, [projectId, queryClient])
+  }, [handleStreamEvent, projectId, queryClient])
+
+  const stopRun = useCallback(async () => {
+    const runId = activeRunRef.current
+    if (runId) await api.cancelRun(projectId, runId).catch(() => undefined)
+    controllerRef.current?.abort()
+  }, [projectId])
 
   useEffect(() => {
     if (initialScenario && !initialSent.current && !messagesLoading && savedMessages.length === 0) {
@@ -78,6 +88,36 @@ export function WorkspacePage() {
       void send(initialScenario)
     }
   }, [initialScenario, location.pathname, messagesLoading, navigate, savedMessages.length, send])
+
+  useEffect(() => {
+    if (!projectId || initialScenario) return
+    const controller = new AbortController()
+    void api.getActiveRun(projectId).then(async (run) => {
+      if (!run || controller.signal.aborted) return
+      activeRunRef.current = run.run_id
+      controllerRef.current = controller
+      setStreamingText('')
+      setStreamError('')
+      setStreaming(true)
+      try {
+        await followMessageRun(projectId, run.run_id, handleStreamEvent, controller.signal)
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['messages', projectId] }),
+          queryClient.invalidateQueries({ queryKey: ['project', projectId] }),
+          queryClient.invalidateQueries({ queryKey: ['artifacts', projectId] }),
+          queryClient.invalidateQueries({ queryKey: ['execution', projectId] }),
+        ])
+        setStreamingText('')
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === 'AbortError')) setStreamError(error instanceof Error ? error.message : 'Run reconnect failed')
+      } finally {
+        activeRunRef.current = null
+        setStreaming(false)
+        setProgress('')
+      }
+    }).catch((error: unknown) => setStreamError(error instanceof Error ? error.message : 'Could not inspect the active run'))
+    return () => controller.abort()
+  }, [handleStreamEvent, initialScenario, projectId, queryClient])
 
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }) }, [optimistic, progress, savedMessages, streamingText])
   useEffect(() => () => controllerRef.current?.abort(), [])
@@ -133,7 +173,7 @@ export function WorkspacePage() {
             {streamError && <div className="chat-error">{streamError}<button onClick={() => { const userMessages = visibleMessages.filter((item) => item.role === 'user'); const last = userMessages[userMessages.length - 1]; if (last) void send(last.content) }}>Retry</button></div>}
             {artifacts.length > 0 && <ArtifactSummaryCard artifacts={artifacts} onOpen={(artifact) => setActiveArtifactId(artifact.id)} />}
           </div>
-          <div className="composer-wrap"><ChatComposer disabled={streaming} streaming={streaming} onSend={(value) => void send(value)} onStop={() => controllerRef.current?.abort()} /><div className="composer-tip">♧ Tip: add source-system names and the desired fact grain when you know them.</div></div>
+          <div className="composer-wrap"><ChatComposer disabled={streaming} streaming={streaming} onSend={(value) => void send(value)} onStop={() => void stopRun()} /><div className="composer-tip">♧ Tip: add source-system names and the desired fact grain when you know them.</div></div>
         </section>
         {activeArtifact && isLogicalModelArtifact(activeArtifact) && <ModelCanvas artifact={activeArtifact} onClose={() => setActiveArtifactId(null)} onReview={(decision) => void reviewArtifact(decision)} onSaveLayout={saveLayout} onRegenerate={regenerateArtifact} />}
         {activeArtifact && !isLogicalModelArtifact(activeArtifact) && <StructuredArtifactViewer artifact={activeArtifact} onClose={() => setActiveArtifactId(null)} onReview={(decision) => void reviewArtifact(decision)} onRevise={reviseArtifact} onRegenerate={regenerateArtifact} />}

@@ -22,6 +22,7 @@ class PlannedToolCall(BaseModel):
     tool_name: str
     arguments: dict[str, Any] = Field(default_factory=dict)
     rationale: str = ""
+    parallel_safe: bool = False
 
 
 class PlanStep(BaseModel):
@@ -78,6 +79,7 @@ class ToolExecutionRecord(BaseModel):
     error: str | None = None
     duration_ms: float = 0
     source: Literal["builtin", "mcp"] = "builtin"
+    cached: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 

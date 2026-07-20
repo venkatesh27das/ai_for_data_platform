@@ -34,6 +34,7 @@ class WorkflowPersistenceService:
         self.projects.update(
             project,
             workflow_state=state,
+            state_version=project.state_version + 1,
             workflow_stage=stage,
             status=project_status,
             source_count=(

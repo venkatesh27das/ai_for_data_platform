@@ -1,5 +1,7 @@
 from fastapi import APIRouter
 
+from app.runtime import runtime_snapshot
+
 router = APIRouter(tags=["health"])
 
 
@@ -9,5 +11,7 @@ def health() -> dict[str, str]:
 
 
 @router.get("/ready")
-def ready() -> dict[str, str]:
-    return {"status": "ready"}
+def ready() -> dict[str, object]:
+    snapshot = runtime_snapshot()
+    available = bool(snapshot["http_client_ready"] and snapshot["checkpointer_ready"])
+    return {"status": "ready" if available else "starting", **snapshot}

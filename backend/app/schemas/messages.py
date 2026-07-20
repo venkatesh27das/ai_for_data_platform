@@ -1,10 +1,14 @@
 from datetime import UTC, datetime
+from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 
 class MessageCreate(BaseModel):
     content: str = Field(min_length=1, max_length=50_000)
+    idempotency_key: str = Field(
+        default_factory=lambda: str(uuid4()), min_length=8, max_length=64
+    )
 
 
 class MessageRead(BaseModel):

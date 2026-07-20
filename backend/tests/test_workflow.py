@@ -655,3 +655,32 @@ async def test_validation_observation_replans_and_reexecutes_affected_steps() ->
     ]
     assert events[-1]["state"]["workflow_stage"] == "completed"
     assert events[-1]["state"]["replan_count"] == 1
+
+
+async def test_standard_fast_paths_skip_planner_and_presenter_model_calls() -> None:
+    provider = ScriptedProvider()
+    workflow = WorkflowService(  # type: ignore[arg-type]
+        provider,
+        planner_fast_path=True,
+        presenter_fast_path=True,
+    )
+    events = [
+        event
+        async for event in workflow.run(
+            project_id="fast-path",
+            user_message="Build a sales model at order-line grain",
+            conversation=[],
+        )
+    ]
+    state = events[-1]["state"]
+    response = "".join([token async for token in workflow.stream_response(state, [])])
+
+    assert provider.structured_calls == [
+        "ModellingBrief",
+        "SourceAnalysis",
+        "LogicalModelProposal",
+        "MappingDQProposal",
+        "ValidationReport",
+    ]
+    assert state["execution_plan"]["execution_mode"] == "deterministic"
+    assert response.startswith("The modelling run is complete")

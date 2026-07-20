@@ -1,4 +1,6 @@
+import asyncio
 from datetime import timedelta
+from time import monotonic
 from typing import Any
 
 from mcp import ClientSession
@@ -9,13 +11,36 @@ class MCPClient:
     """Short-lived, allow-listed Streamable HTTP MCP client."""
 
     def __init__(
-        self, servers: dict[str, str], allowlist: set[str], timeout_seconds: int = 30
+        self,
+        servers: dict[str, str],
+        allowlist: set[str],
+        timeout_seconds: int = 30,
+        schema_cache_ttl_seconds: int = 300,
     ) -> None:
         self.servers = servers
         self.allowlist = allowlist
         self.timeout = timedelta(seconds=timeout_seconds)
+        self.schema_cache_ttl_seconds = schema_cache_ttl_seconds
+        self._tool_cache: dict[str, tuple[float, list[dict[str, Any]]]] = {}
+        self._cache_locks: dict[str, asyncio.Lock] = {}
 
     async def list_tools(self, server_name: str) -> list[dict[str, Any]]:
+        cached = self._tool_cache.get(server_name)
+        if cached is not None and cached[0] > monotonic():
+            return cached[1]
+        lock = self._cache_locks.setdefault(server_name, asyncio.Lock())
+        async with lock:
+            cached = self._tool_cache.get(server_name)
+            if cached is not None and cached[0] > monotonic():
+                return cached[1]
+            tools = await self._fetch_tools(server_name)
+            self._tool_cache[server_name] = (
+                monotonic() + self.schema_cache_ttl_seconds,
+                tools,
+            )
+            return tools
+
+    async def _fetch_tools(self, server_name: str) -> list[dict[str, Any]]:
         url = self._server_url(server_name)
         async with streamable_http_client(url) as (read, write, _):
             async with ClientSession(read, write) as session:

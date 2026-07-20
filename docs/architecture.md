@@ -4,11 +4,16 @@
 flowchart LR
   UI[React + TypeScript] -->|JSON CRUD| API[FastAPI routes]
   UI -->|SSE stream| API
+  API --> Runs[Durable workflow runs and ordered events]
+  Runs --> SQLite
+  API --> Runtime[Application runtime and project leases]
   API --> Services[Application services]
   Services --> Repositories[SQLAlchemy repositories]
   Repositories --> SQLite[(SQLite)]
   Services --> Graph[LangGraph master orchestrator]
   Graph --> Checkpoints[(SQLite node checkpoints)]
+  Runtime --> Checkpoints
+  Runtime --> Pool[Pooled HTTP client and provider guard]
   Graph --> Planner[Typed master planner]
   Planner --> Skills[Versioned skill registry]
   Planner --> Tools[Allow-listed tool executor]
@@ -30,6 +35,10 @@ MCP uses short-lived Streamable HTTP sessions. Server URLs and fully-qualified t
 Each specialist has a versioned system prompt, typed Pydantic contract, declared identity, and provider-independent `LLMProvider` dependency. Structured responses are schema-validated and receive one JSON-repair attempt. Transient transport failures receive one bounded retry; persistent provider or validation failures use an evidence-labelled deterministic fallback without pretending that invented analysis came from the model.
 
 Project, message, source profile, artifact, review, and latest workflow state are authoritative in SQLite. A separate SQLite LangGraph checkpointer saves every node transition under the project ID. Browser state is used only for transient composer, canvas interaction, and streaming presentation state.
+
+Workflow runs and their ordered SSE events are durable SQLite records. The HTTP stream follows those events but does not own graph execution, so disconnecting or refreshing the browser does not terminate a run. A project-level database lease prevents conflicting work across processes; an in-process lock queues requests for the same project. Client idempotency keys deduplicate submission retries. Startup recovery clears orphaned leases and resumes queued or running work from LangGraph checkpoints.
+
+Application lifespan owns the pooled HTTP client, provider concurrency guard, circuit state, and async LangGraph checkpointer. Standard full-model requests use a deterministic validated plan and presenter; requests requiring external capabilities, regeneration, or recovery retain LLM planning. Agent inputs use bounded recent history and source excerpts. Successful specialist results are cached only when provider, model, prompt version, payload, and output schema all match.
 
 Generated assets are also authoritative SQLite records. A workspace fetches the project's artifact list but does not select one automatically. The chat displays an asset summary only when records exist, and the relevant viewer is mounted only after the modeller explicitly opens an asset.
 

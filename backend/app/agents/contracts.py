@@ -9,7 +9,7 @@ class AgentResult(BaseModel):
     confidence: float = Field(ge=0, le=1)
     evidence: list[str] = Field(default_factory=list)
     assumptions: list[str] = Field(default_factory=list)
-    execution_mode: Literal["llm", "fallback"] = "llm"
+    execution_mode: Literal["llm", "fallback", "deterministic", "cached"] = "llm"
     fallback_reason: str | None = None
 
 

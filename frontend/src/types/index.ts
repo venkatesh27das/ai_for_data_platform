@@ -95,7 +95,7 @@ export interface ExecutionPlan {
   approval_reason?: string | null
   iteration_budget: number
   tool_call_budget: number
-  execution_mode: 'llm' | 'fallback'
+  execution_mode: 'llm' | 'fallback' | 'deterministic' | 'cached'
 }
 
 export interface ExecutionState {
@@ -127,5 +127,5 @@ export interface ProviderSettingsPayload extends Omit<ProviderSettings, 'api_key
 
 export interface StreamEvent {
   event: 'progress' | 'token' | 'done' | 'error' | 'agent.started' | 'agent.completed' | 'tool.started' | 'tool.completed' | 'approval.required'
-  data: { content?: string; label?: string; detail?: string; execution_mode?: 'llm' | 'fallback'; reason?: string; plan_id?: string }
+  data: { content?: string; label?: string; detail?: string; execution_mode?: 'llm' | 'fallback' | 'deterministic' | 'cached'; reason?: string; plan_id?: string; run_id?: string; duration_ms?: number }
 }

@@ -2,7 +2,7 @@ from pathlib import Path
 
 from app.agents.base import StructuredAgent
 from app.agents.fallbacks import fallback_assumption
-from app.autonomy.contracts import ExecutionPlan, PlanningInput, PlanStep
+from app.autonomy.contracts import ExecutionPlan, PlannedToolCall, PlanningInput, PlanStep
 
 
 class PlannerAgent(StructuredAgent[PlanningInput, ExecutionPlan]):
@@ -19,6 +19,15 @@ class PlannerAgent(StructuredAgent[PlanningInput, ExecutionPlan]):
         )
 
     def fallback(self, payload: PlanningInput, error: Exception) -> ExecutionPlan:
+        return self.deterministic_plan(payload).model_copy(
+            update={
+                "execution_mode": "fallback",
+                "fallback_reason": str(error) or type(error).__name__,
+                "assumptions": [fallback_assumption(error)],
+            }
+        )
+
+    def deterministic_plan(self, payload: PlanningInput) -> ExecutionPlan:
         steps = default_steps(
             has_sources=bool(payload.existing_state.get("sources")),
             profile_tool_available="source.profile_summary" in payload.available_tools,
@@ -32,7 +41,7 @@ class PlannerAgent(StructuredAgent[PlanningInput, ExecutionPlan]):
             tool_call_budget=4,
             confidence=0.75,
             evidence=["Available skill manifests and current project state"],
-            assumptions=[fallback_assumption(error)],
+            execution_mode="deterministic",
         )
 
 
@@ -51,9 +60,17 @@ def default_steps(*, has_sources: bool, profile_tool_available: bool = True) -> 
             agent_id="source_analysis_agent",
             skill_id="sources.evidence-analysis",
             depends_on=["requirements"],
-            required_tools=["source.profile_summary"]
-            if has_sources and profile_tool_available
-            else [],
+            tool_calls=(
+                [
+                    PlannedToolCall(
+                        tool_name="source.profile_summary",
+                        rationale="Use the persisted profile rather than re-reading source files.",
+                        parallel_safe=True,
+                    )
+                ]
+                if has_sources and profile_tool_available
+                else []
+            ),
             completion_criteria=["Source roles and relevant columns are evidence-backed"],
         ),
         PlanStep(

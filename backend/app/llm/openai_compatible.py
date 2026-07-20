@@ -1,9 +1,12 @@
 import json
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Any, TypeVar
 
 import httpx
 from pydantic import BaseModel, ValidationError
+
+from app.runtime import ProviderGuard
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -18,6 +21,8 @@ class OpenAICompatibleProvider:
         model: str,
         timeout: int = 120,
         temperature: float = 0.2,
+        client: httpx.AsyncClient | None = None,
+        guard: ProviderGuard | None = None,
     ) -> None:
         self.name = name
         self.base_url = base_url.rstrip("/")
@@ -25,13 +30,16 @@ class OpenAICompatibleProvider:
         self.model = model
         self.timeout = timeout
         self.temperature = temperature
+        self.client = client
+        self.guard = guard
+        self.guard_key = f"{self.name}:{self.base_url}"
 
     @property
     def headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
 
     async def list_models(self) -> list[str]:
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with self.request_client() as client:
             response = await client.get(f"{self.base_url}/models", headers=self.headers)
             response.raise_for_status()
             return [item["id"] for item in response.json().get("data", [])]
@@ -88,7 +96,7 @@ class OpenAICompatibleProvider:
         self, messages: list[dict[str, Any]], *, temperature: float | None = None
     ) -> str:
         model = await self._model_for_request()
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with self.request_client() as client:
             response = await client.post(
                 f"{self.base_url}/chat/completions",
                 headers=self.headers,
@@ -114,7 +122,7 @@ class OpenAICompatibleProvider:
             },
         }
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
+            async with self.request_client() as client:
                 response = await client.post(
                     f"{self.base_url}/chat/completions", headers=self.headers, json=payload
                 )
@@ -151,7 +159,7 @@ class OpenAICompatibleProvider:
         model = await self._model_for_request()
         payload = self._payload(messages, temperature, model=model)
         payload["stream"] = True
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with self.request_client() as client:
             async with client.stream(
                 "POST", f"{self.base_url}/chat/completions", headers=self.headers, json=payload
             ) as response:
@@ -170,12 +178,34 @@ class OpenAICompatibleProvider:
         model = await self._model_for_request()
         payload = self._payload(messages, None, model=model)
         payload["tools"] = tools
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with self.request_client() as client:
             response = await client.post(
                 f"{self.base_url}/chat/completions", headers=self.headers, json=payload
             )
             response.raise_for_status()
             return dict(response.json()["choices"][0]["message"])
+
+    @asynccontextmanager
+    async def request_client(self) -> AsyncIterator[httpx.AsyncClient]:
+        if self.guard is not None:
+            self.guard.ensure_available(self.guard_key)
+            await self.guard.semaphore.acquire()
+        owned = self.client is None
+        client = self.client or httpx.AsyncClient(timeout=self.timeout)
+        try:
+            yield client
+        except httpx.HTTPError as exc:
+            if self.guard is not None and is_retryable_transport_error(exc):
+                self.guard.failure(self.guard_key)
+            raise
+        else:
+            if self.guard is not None:
+                self.guard.success(self.guard_key)
+        finally:
+            if owned:
+                await client.aclose()
+            if self.guard is not None:
+                self.guard.semaphore.release()
 
 
 def extract_json(content: object) -> str:
@@ -188,3 +218,9 @@ def extract_json(content: object) -> str:
     if start < 0 or end < start:
         raise ValueError("Structured model response did not contain a JSON object")
     return text[start : end + 1]
+
+
+def is_retryable_transport_error(exc: httpx.HTTPError) -> bool:
+    if isinstance(exc, httpx.HTTPStatusError):
+        return exc.response.status_code == 429 or exc.response.status_code >= 500
+    return True

@@ -26,8 +26,22 @@ class Settings(BaseSettings):
     workflow_checkpoint_path: Path = Path("./data/workflow_checkpoints.db")
     tool_request_timeout: int = 30
     mcp_request_timeout: int = 30
+    mcp_schema_cache_ttl_seconds: int = 300
     mcp_servers_json: str = "{}"
     mcp_tool_allowlist: str = ""
+    llm_max_concurrency: int = 2
+    llm_circuit_failure_threshold: int = 3
+    llm_circuit_reset_seconds: float = 20
+    http_max_connections: int = 20
+    http_max_keepalive_connections: int = 10
+    workflow_event_poll_interval: float = 0.15
+    workflow_recent_message_limit: int = 12
+    workflow_message_char_limit: int = 4_000
+    workflow_source_excerpt_limit: int = 8_000
+    planner_fast_path: bool = True
+    presenter_fast_path: bool = True
+    agent_result_cache_enabled: bool = True
+    agent_result_cache_ttl_seconds: int = 86_400
 
     openai_base_url: str = "https://api.openai.com/v1"
     openai_api_key: str = ""

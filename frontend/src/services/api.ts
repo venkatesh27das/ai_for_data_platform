@@ -58,6 +58,15 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(input),
     }),
+  cancelRun: (projectId: string, runId: string) =>
+    request<{ run_id: string; status: string }>(
+      `/projects/${projectId}/messages/runs/${runId}/cancel`,
+      { method: 'POST' },
+    ),
+  getActiveRun: (projectId: string) =>
+    request<{ run_id: string; status: string } | null>(
+      `/projects/${projectId}/messages/runs/active`,
+    ),
 }
 
 export async function streamMessage(
@@ -65,18 +74,60 @@ export async function streamMessage(
   content: string,
   onEvent: (event: StreamEvent) => void,
   signal?: AbortSignal,
+  onRunId?: (runId: string) => void,
 ): Promise<void> {
+  const idempotencyKey = crypto.randomUUID()
   const response = await fetch(`${API_URL}/projects/${projectId}/messages/stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content }),
+    body: JSON.stringify({ content, idempotency_key: idempotencyKey }),
     signal,
   })
   if (!response.ok || !response.body) throw new Error(`Streaming request failed (${response.status})`)
+  const runId = response.headers.get('X-Workflow-Run-ID') ?? ''
+  if (runId) onRunId?.(runId)
+  let lastSequence = 0
+  try {
+    lastSequence = await consumeEventStream(response, onEvent, signal, lastSequence)
+  } catch (error) {
+    if (signal?.aborted || !runId) throw error
+    const resumed = await fetch(
+      `${API_URL}/projects/${projectId}/messages/runs/${runId}/stream?after=${lastSequence}`,
+      { signal },
+    )
+    if (!resumed.ok || !resumed.body) throw error
+    await consumeEventStream(resumed, onEvent, signal, lastSequence)
+  }
+}
+
+export async function followMessageRun(
+  projectId: string,
+  runId: string,
+  onEvent: (event: StreamEvent) => void,
+  signal?: AbortSignal,
+  after = 0,
+): Promise<void> {
+  const response = await fetch(
+    `${API_URL}/projects/${projectId}/messages/runs/${runId}/stream?after=${after}`,
+    { signal },
+  )
+  if (!response.ok || !response.body) throw new Error(`Run reconnect failed (${response.status})`)
+  await consumeEventStream(response, onEvent, signal, after)
+}
+
+async function consumeEventStream(
+  response: Response,
+  onEvent: (event: StreamEvent) => void,
+  signal: AbortSignal | undefined,
+  initialSequence: number,
+): Promise<number> {
+  if (!response.body) return initialSequence
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
+  let sequence = initialSequence
   while (true) {
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
     const { done, value } = await reader.read()
     if (done) break
     buffer += decoder.decode(value, { stream: true })
@@ -86,10 +137,12 @@ export async function streamMessage(
       let event = 'message'
       let data = ''
       for (const line of chunk.split('\n')) {
+        if (line.startsWith('id: ')) sequence = Number(line.slice(4)) || sequence
         if (line.startsWith('event: ')) event = line.slice(7)
         if (line.startsWith('data: ')) data += line.slice(6)
       }
       if (data) onEvent({ event, data: JSON.parse(data) } as StreamEvent)
     }
   }
+  return sequence
 }
