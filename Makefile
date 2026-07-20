@@ -1,19 +1,27 @@
-.PHONY: install dev backend frontend test lint migrate seed-example
+.PHONY: setup install dev start stop status backend frontend test lint migrate seed-example clean
 
-UV_CACHE_DIR ?= /tmp/uv-ai-data-model-cache
+export UV_CACHE_DIR ?= $(CURDIR)/.cache/uv
 
-install:
-	cd backend && uv sync --extra dev
-	cd frontend && npm install
+setup install:
+	./scripts/setup.sh
 
 dev:
-	@echo "Run 'make backend' and 'make frontend' in separate terminals."
+	./scripts/dev.sh
+
+start:
+	./scripts/start.sh
+
+stop:
+	./scripts/stop.sh
+
+status:
+	./scripts/status.sh
 
 backend:
 	cd backend && uv run alembic upgrade head && uv run uvicorn app.main:app --reload --port 8000
 
 frontend:
-	cd frontend && npm run dev
+	cd frontend && npm run dev -- --host 127.0.0.1
 
 test:
 	cd backend && uv run python -m pytest
@@ -27,4 +35,7 @@ migrate:
 	cd backend && uv run alembic upgrade head
 
 seed-example:
-	cd backend && UV_CACHE_DIR=$(UV_CACHE_DIR) uv run python -m scripts.seed_example
+	cd backend && uv run python -m scripts.seed_example
+
+clean:
+	./scripts/clean.sh

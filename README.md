@@ -1,152 +1,189 @@
 # AI Data Modelling Assistant MVP
 
-The first runnable foundation of a local-first, chat-driven data modelling assistant. It provides a screenshot-aligned React interface, a FastAPI/SQLite API, provider-independent LLM and embedding boundaries, and a LangGraph master orchestrator that coordinates specialist modelling agents.
+A local-first, chat-driven assistant for turning source metadata and modelling scenarios into reviewable dimensional-model assets. It combines a React workspace, FastAPI, durable LangGraph orchestration, SQLite persistence, and local LM Studio models.
 
-## What works now
+## What works
 
-- Create a project from the Home scenario composer.
-- Stream agent progress and the final LM Studio response from `gemma-4-12b-qat` over SSE.
-- Persist projects and both sides of the conversation in SQLite.
-- Persist generated artifacts separately from chat and open viewers only from generated-asset cards.
-- Reopen a project from Home or Projects and continue its conversation.
-- Search, filter, duplicate, and delete projects.
-- Configure and test LM Studio, OpenAI, Anthropic, or a custom provider preset. The Anthropic transport is a deliberate placeholder in this iteration.
-- Call `nomic-embed-text` through a minimal embedding service boundary (retrieval is not built yet).
-- Run five typed specialists: requirements, source analysis, model design, mappings/DQ, and validation.
-- Route deterministically through clarification, generation, bounded rework, persistence, and presentation.
-- Generate and version source analysis, logical model, mapping, DQ, and validation assets.
-- Fall back to conservative, evidence-labelled DDL analysis if a local structured-model call times out or returns invalid JSON.
-- Checkpoint every LangGraph node to a dedicated SQLite database for durable recovery.
-- Parse and profile CSV, JSON, DDL/SQL, XLSX, and XLSM source files on the backend.
-- Approve assets, request changes, edit JSON as a new version, browse history, and run dependency-aware targeted regeneration.
-- Zoom, inspect, select, drag, and persist entity positions on the logical-model canvas.
-- Create a typed, budgeted execution plan before specialist work begins.
-- Select versioned skills and allow-listed tools, record observations, and react to validation.
-- Interrupt for modeller approval before any configured MCP tool runs, then resume durably.
-- Inspect the plan, tool calls, decisions, and approval state directly in the workspace.
-- Finalize project state, artifacts, the assistant message, terminal event, and run status in
-  one run-idempotent database transaction.
-- Use deterministic source analysis for unambiguous profiled metadata and deterministic
-  structural validation for typed artifacts, escalating semantic uncertainty to the LLM.
+- Create, reopen, search, duplicate, and delete modelling projects.
+- Upload and profile CSV, JSON, DDL/SQL, XLSX, and XLSM sources.
+- Run a master planner with typed requirement, source-analysis, model-design, mapping/DQ, and validation specialists.
+- Stream progress and responses over reconnectable SSE.
+- Generate versioned source previews, logical models, mappings, DQ rules, and validation assets.
+- Review, revise, regenerate, and browse artifact history.
+- Use allow-listed local tools and approval-gated MCP tools.
+- Resume durable runs and prevent duplicate requests, tool operations, messages, and artifact versions.
+- Use deterministic fast paths for clear source metadata and structural validation, with LLM escalation when semantics are ambiguous.
+- Call `nomic-embed-text` through an embedding-provider interface. Retrieval is intentionally deferred.
 
-The logical-model viewer renders persisted structured artifact payloads and remains closed until a modeller selects an available asset. Retrieval, live database introspection, legacy `.xls` parsing, and export generation remain deferred.
+The logical-model canvas remains closed and empty until a generated asset is selected.
+
+## Stack
+
+| Layer | Technology |
+| --- | --- |
+| Frontend | React 18, strict TypeScript, Vite, TanStack Query |
+| API | Python 3.12, FastAPI, Pydantic |
+| Agents | LangGraph, typed specialists, bounded reactive planning |
+| Persistence | SQLite, SQLAlchemy, Alembic |
+| Local AI | LM Studio OpenAI-compatible chat and embedding APIs |
+| Quality | Pytest, Ruff, mypy, Vitest, ESLint, TypeScript |
 
 ## Prerequisites
 
 - Python 3.12 or newer
-- [`uv`](https://docs.astral.sh/uv/)
-- Node.js 20 or newer and npm
-- LM Studio running its local server on `http://localhost:1234`
-- In LM Studio, load:
-  - chat model: `gemma-4-12b-qat`
-  - embedding model: `nomic-embed-text`
+- [uv](https://docs.astral.sh/uv/getting-started/installation/)
+- Node.js 20.19 or newer (or 22.12 or newer) with npm
+- LM Studio with its local API server enabled
 
-## First-time setup
+Load these models in LM Studio:
+
+- Chat: `gemma-4-12b-qat`
+- Embeddings: `nomic-embed-text`
+- Base URL: `http://localhost:1234/v1`
+
+The interface and project CRUD run without LM Studio. Model generation and provider health checks require the chat model to be loaded.
+
+## Quick start
 
 From the repository root:
 
 ```bash
-cp .env.example .env
-make install
+make setup
+make dev
 ```
 
-The defaults already target the supplied LM Studio models. Edit `.env` only if your URL or model identifiers differ.
+`make setup` creates `.env` when needed, installs locked dependencies, and applies every database migration. `make dev` starts both services with live reload. Press `Ctrl+C` to stop them.
 
-Apply the database migration:
+Open:
+
+- App: [http://127.0.0.1:5173](http://127.0.0.1:5173)
+- API docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+- Readiness: [http://127.0.0.1:8000/api/ready](http://127.0.0.1:8000/api/ready)
+
+### Background hosting
 
 ```bash
-make migrate
+make start
+make status
+make stop
 ```
 
-## Launch locally
+Logs and PID files are stored in the ignored `.run/` directory. `make start` applies pending migrations before launching.
 
-Start the backend in one terminal:
+### Separate terminals
 
 ```bash
 make backend
 ```
 
-Start the frontend in a second terminal:
+In a second terminal:
 
 ```bash
 make frontend
 ```
 
-Open [http://localhost:5173](http://localhost:5173). API documentation is available at [http://localhost:8000/docs](http://localhost:8000/docs).
+## Modeller walkthrough
 
-To create or refresh the durable showcase project:
+Create the bundled showcase project:
 
 ```bash
 make seed-example
 ```
 
-Open **SAP Sales Order Analytics — Example** from Projects. It includes a realistic modelling conversation plus source assessment, logical model, source-to-target mappings, DQ rules, and validation findings. Each viewer opens only when its generated-asset button is selected.
+Open **SAP Sales Order Analytics — Example** from Projects. It includes a representative conversation, source assessment, logical model, mappings, DQ rules, and validation findings.
 
-The complete flow is: enter a scenario and attach source files on Home → submit → the backend profiles the files → specialists analyse and generate assets → select an asset card to review or edit it → optionally regenerate that asset → reopen the persisted project from Projects.
+To test a new project:
 
-## Autonomous agent workflow
+1. Enter this scenario on Home:
 
-```mermaid
-flowchart TD
-  P[Master planner] --> A{Manifest or action approval?}
-  A -->|yes| H[Human approval interrupt]
-  A -->|no| D[Authoritative plan dispatcher]
-  H -->|approved| D
-  D -->|tool action| T[Allow-listed tool executor]
-  T --> O{Observation}
-  O -->|success| D
-  O -->|recoverable failure and budget remains| P
-  O -->|budget exhausted| R[Human review]
-  D -->|ready specialist step| S[Typed specialist agent]
-  S -->|completed| D
-  S -->|clarification needed| R
-  S -->|validation defect| P
-  D -->|plan complete| V[Persist versioned assets]
-  V --> X[Present response]
+   > Build a sales-order analytics model at one row per order line. The source contains order headers, order lines, customers, products, and order dates. I need net sales, quantity, discount, order count, customer, product, territory, and monthly trend analysis. Generate a logical dimensional model, source-to-target mappings, and core data-quality rules.
+
+2. Create the project and optionally upload matching CSV, JSON, DDL, or spreadsheet metadata.
+3. Answer any blocking grain or source questions.
+4. Follow the streamed plan and specialist progress.
+5. Select the generated **Logical model** asset to open the canvas.
+6. Inspect relationships and keys, then review mappings and DQ rules.
+7. Approve, request changes, or regenerate only the affected asset.
+8. Return to Projects and reopen the project to verify persistence.
+
+Clear profiled metadata is classified locally. Unknown source roles, low-confidence mappings, and explicit review decisions are sent to the configured chat model.
+
+## Configuration
+
+Configuration lives in the ignored root `.env`. Safe defaults are documented in [`.env.example`](./.env.example).
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `DATABASE_URL` | `sqlite:///./data/assistant.db` | Database relative to `backend/` |
+| `APP_HOST` / `APP_PORT` | `127.0.0.1` / `8000` | Backend bind address |
+| `FRONTEND_HOST` / `FRONTEND_PORT` | `127.0.0.1` / `5173` | Frontend bind address |
+| `VITE_API_URL` | `http://127.0.0.1:8000/api` | Browser-visible API URL |
+| `LM_STUDIO_BASE_URL` | `http://localhost:1234/v1` | LM Studio API |
+| `LM_STUDIO_MODEL` | `gemma-4-12b-qat` | Chat model |
+| `EMBEDDING_MODEL` | `nomic-embed-text` | Embedding model |
+| `WORKFLOW_CHECKPOINT_PATH` | `./data/workflow_checkpoints.db` | LangGraph checkpoints |
+| `MCP_SERVERS_JSON` | `{}` | Named MCP Streamable HTTP servers |
+| `MCP_TOOL_ALLOWLIST` | empty | Fully qualified allowed MCP tools |
+
+Provider settings saved in the Settings screen take precedence for runtime chat requests. API keys remain backend-only and are never returned to the frontend.
+
+### Performance and resilience
+
+- `PLANNER_FAST_PATH` and `PRESENTER_FAST_PATH` remove two LLM calls from standard workflows.
+- `DETERMINISTIC_SOURCE_ANALYSIS` handles unambiguous profiled sources locally.
+- `DETERMINISTIC_STRUCTURAL_VALIDATION` performs typed referential checks locally.
+- `AGENT_RESULT_CACHE_ENABLED` enables provider/model/prompt/input-aware caching.
+- `LLM_MAX_CONCURRENCY` bounds simultaneous provider calls.
+- Circuit-breaker, timeout, SSE polling, context-size, and cache TTL settings are in `.env.example`.
+
+Set either deterministic option to `false` to force the corresponding specialist through the LLM.
+
+### MCP tools
+
+MCP is disabled until a server and an allow-listed tool are configured:
+
+```dotenv
+MCP_SERVERS_JSON={"catalog":"http://127.0.0.1:9000/mcp"}
+MCP_TOOL_ALLOWLIST=mcp.catalog.list_tables,mcp.catalog.describe_table
 ```
 
-The planner and every specialist have versioned prompts and typed Pydantic contracts. Versioned JSON skill manifests bind capabilities to one agent, an explicit tool allow-list, and approval policy. The plan is executable and authoritative: only dependency-ready steps run. The supervisor validates every model-selected skill/tool combination, enforces plan iteration and tool-call budgets, and sends failed observations or validation defects back to the planner for bounded replanning.
+MCP plans require modeller approval. Schemas are validated before execution, calls are budgeted, and failed observations can trigger bounded replanning. Configure only trusted servers.
 
-Built-in tools currently expose persisted source profiles and workflow context. MCP uses the official stable Python SDK with Streamable HTTP; servers and fully qualified tools must be explicitly configured in `MCP_SERVERS_JSON` and `MCP_TOOL_ALLOWLIST`. MCP plans always require human approval, advertised input schemas are validated before execution, and MCP error responses are recorded as failed observations. Configure only trusted local or authenticated servers.
+## Trusted LAN hosting
 
-`WORKFLOW_CHECKPOINT_PATH` controls the node-level LangGraph checkpoint database. A project's latest domain state is also stored with the project, while checkpoints retain execution progress for recovery and audit. Targeted regeneration uses explicit artifact markers internally and skips unchanged upstream agents.
+The default binds to localhost. For a trusted LAN, replace `192.168.1.20` with the host address in `.env`:
 
-The Settings **Tool calling enabled** toggle controls application tool execution. Local defaults enable bounded tools. MCP remains disabled until at least one server and one fully qualified allow-listed tool are provided through environment configuration.
+```dotenv
+APP_HOST=0.0.0.0
+FRONTEND_HOST=0.0.0.0
+FRONTEND_ORIGIN=http://192.168.1.20:5173
+VITE_API_URL=http://192.168.1.20:8000/api
+```
 
-### Performance and recovery runtime
+Then run `make start`. This is a local development deployment without TLS, authentication, or production process supervision. Do not expose it directly to the public internet.
 
-Workflow execution is independent of the browser's SSE connection. Every request receives a durable run ID, persists ordered events, continues if the browser disconnects, and can be replayed on reconnect. A page reopened during generation automatically follows the project's active run. The Stop button cancels the backend task rather than only closing the browser stream.
-
-Client idempotency keys prevent duplicate submissions, while a database-backed project lease and an in-process project lock serialize conflicting runs. External tool operations use stable request fingerprints so completed results can be reused safely after checkpoint resume. Standard full-model requests use a deterministic bounded plan and structured presenter, saving two LLM calls; regeneration, recovery, and external-capability requests still use the reactive planner.
-
-The backend reuses one pooled HTTP client and one SQLite LangGraph checkpointer for its application lifetime. SQLite uses WAL and a busy timeout. Provider calls are protected by a configurable concurrency semaphore and circuit breaker. Specialist results are cached by provider, model, prompt version, input, and output schema; fallback results are never cached. MCP schemas also use a bounded TTL cache, and explicitly marked read-only tool calls can execute concurrently.
-
-Terminal publication is transactional: reconnectable progress events remain durable while a
-run is active, but its project state, artifact versions, assistant response, terminal event,
-status, and lease release become visible together. Messages and artifacts carry the workflow
-run ID, so retrying finalization cannot duplicate the response or create another version set.
-
-Clear source profiles and structural integrity checks take deterministic fast paths. Unknown
-source roles, open modelling decisions, low-confidence mappings, and human-review items still
-escalate to the configured LLM. Set `DETERMINISTIC_SOURCE_ANALYSIS=false` or
-`DETERMINISTIC_STRUCTURAL_VALIDATION=false` to force the corresponding specialist through the
-LLM path.
-
-After pulling these changes, apply migration `0007` before launching:
+## Database and generated files
 
 ```bash
-cd backend
-uv run alembic upgrade head
+make migrate       # apply Alembic migrations
+make seed-example  # create or refresh the showcase project
+make clean         # remove caches, logs, PIDs, and frontend build output
 ```
 
-## Verification
+Application state is stored under ignored `backend/data/`. `make clean` does not delete databases, uploads, `.env`, installed dependencies, or virtual environments. To reset data, first back it up, stop the app, and manually remove `backend/data/`.
+
+Terminal workflow publication is transactional: project state, artifact versions, assistant message, terminal event, status, and lease release become visible together. Progress events remain independently durable for SSE reconnection.
+
+## Tests and checks
 
 ```bash
 make test
 make lint
 ```
 
-Or run checks independently:
+`make test` runs backend and frontend tests. `make lint` runs Ruff, strict mypy, ESLint, TypeScript, and a production frontend build.
+
+Individual commands:
 
 ```bash
 cd backend
@@ -160,25 +197,67 @@ npm run lint
 npm run build
 ```
 
+## Architecture
+
+```mermaid
+flowchart LR
+  UI[React workspace] -->|REST and SSE| API[FastAPI]
+  API --> RUN[Durable workflow runner]
+  RUN --> PLAN[LangGraph master planner]
+  PLAN --> AGENTS[Typed specialist agents]
+  PLAN --> TOOLS[Allow-listed tools and MCP]
+  AGENTS --> LLM[Provider abstraction]
+  LLM --> LM[LM Studio]
+  RUN --> DB[(SQLite)]
+```
+
+The planner produces an authoritative dependency-aware plan with iteration and tool-call budgets. The supervisor validates capabilities, reacts to observations, interrupts for approval, and performs bounded replanning. Agents contain no provider-specific logic.
+
+See [`docs/architecture.md`](./docs/architecture.md) and the product specification [`CODEX_AI_Data_Modelling_Assistant_MVP.md`](./CODEX_AI_Data_Modelling_Assistant_MVP.md).
+
 ## Repository layout
 
 ```text
 backend/
-  alembic/             SQLite migrations
+  alembic/             database migrations
   app/api/             thin FastAPI routes
+  app/agents/          typed specialists and prompts
+  app/autonomy/        planning, skills, tools, and MCP
+  app/orchestration/   LangGraph state and master graph
   app/repositories/    persistence boundaries
   app/services/        application workflows
-  app/llm/             provider and embedding abstractions/adapters
-  app/agents/          typed specialists and versioned prompts
-  app/orchestration/   LangGraph state and master graph
-  tests/
+  tests/               backend tests
 frontend/
-  src/components/      reusable chat, artefact, and common UI
-  src/features/        Home, Projects, Workspace, and Settings routes
+  src/components/      reusable UI components
+  src/features/        Home, Projects, Workspace, Settings
   src/services/        typed API and SSE client
-  src/types/           shared frontend contracts
-docs/
-  architecture.md
+scripts/               setup and local process helpers
+docs/                   architecture notes
 ```
 
-Configuration is environment-driven. API keys are stored only by the backend, are excluded from Git, and are represented to the frontend only as `api_key_configured: true|false` after saving.
+## Troubleshooting
+
+### LM Studio health check fails
+
+- Confirm the LM Studio server is running on port `1234`.
+- Load `gemma-4-12b-qat` and verify its identifier in Settings.
+- Test `http://localhost:1234/v1/models` locally.
+
+### Frontend cannot reach the API
+
+- Check `make status` or the terminal running `make dev`.
+- Open `/api/ready` on port `8000`.
+- Confirm `VITE_API_URL` and `FRONTEND_ORIGIN` are browser-reachable.
+- Restart the frontend after changing `.env`.
+
+### A port is already in use
+
+Run `make stop`, or change `APP_PORT`, `FRONTEND_PORT`, and `VITE_API_URL` consistently.
+
+### Dependencies or migrations are stale
+
+Run `make setup` again. Installation is lockfile-based and safe to repeat.
+
+## Deferred scope
+
+Full retrieval/vector search, live database introspection, legacy `.xls` parsing, production authentication, and production export/deployment infrastructure are outside this MVP slice.

@@ -41,7 +41,6 @@ select = ["E", "F", "I", "UP"]
 python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
-exclude = [".* 2\\.py$"]
 
 [build-system]
 requires = ["hatchling"]
