@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowRight, BookOpen, Box, FileText, Mic, Paperclip, PlusSquare, Send, Sparkles, UploadCloud, Users, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../../services/api'
+import { givenName, useUserProfile } from '../../contexts/userProfile'
 
 const examples = [
   { title: 'Sales Analytics Model', description: 'Build a sales model from SAP order and pricing tables', icon: Box, color: 'green' },
@@ -12,6 +13,7 @@ const examples = [
 ]
 
 export function HomePage() {
+  const { displayName } = useUserProfile()
   const [scenario, setScenario] = useState('')
   const [sources, setSources] = useState<ImportedSource[]>([])
   const [sourceError, setSourceError] = useState('')
@@ -112,7 +114,7 @@ export function HomePage() {
     <div className="home-page">
       <section className="home-primary">
         <div className="hero-copy">
-          <h1>Welcome, Ananya! <span>👋</span></h1>
+          <h1>Welcome, {givenName(displayName)}! <span>👋</span></h1>
           <h2>Let’s build your data model with the power of AI.</h2>
           <p>Describe your business scenario in natural language and I’ll help you create the right data model, mappings and quality rules.</p>
         </div>

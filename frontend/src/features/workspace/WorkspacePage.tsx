@@ -13,6 +13,7 @@ import { ArtifactSummaryCard } from '../../components/artefacts/ArtifactSummaryC
 import { ModelCanvas } from '../../components/artefacts/ModelCanvas'
 import { StructuredArtifactViewer } from '../../components/artefacts/StructuredArtifactViewer'
 import { api, followMessageRun, streamMessage } from '../../services/api'
+import { displayInitials, useUserProfile } from '../../contexts/userProfile'
 import type { Artifact, LogicalModelPayload, Message, StreamEvent } from '../../types'
 
 interface LocationState { initialScenario?: string }
@@ -22,6 +23,7 @@ export function WorkspacePage() {
   const location = useLocation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { displayName } = useUserProfile()
   const initialScenario = (location.state as LocationState | null)?.initialScenario
   const { data: project, isLoading: projectLoading, error: projectError } = useQuery({ queryKey: ['project', projectId], queryFn: () => api.getProject(projectId), enabled: Boolean(projectId) })
   const { data: savedMessages = [], isLoading: messagesLoading } = useQuery({ queryKey: ['messages', projectId], queryFn: () => api.listMessages(projectId), enabled: Boolean(projectId) })
@@ -162,7 +164,7 @@ export function WorkspacePage() {
         <div className="save-state"><span /> {streaming ? 'Generating…' : 'Draft saved'}</div>
         <div className="workspace-actions"><button title="Undo"><Undo2 size={19} /></button><button title="Redo"><Redo2 size={19} /></button><button title="Artifact history" onClick={() => setHistoryOpen(true)}><Clock3 size={19} /></button><button className="export-button"><Download size={17} /> Export <ChevronDown size={14} /></button><button title="More"><MoreVertical size={20} /></button></div>
       </header>
-      <aside className="workspace-nav"><Brand compact /><NavLink to="/"><Home size={22} /><span>Home</span></NavLink><NavLink to="/projects" className="active"><span className="folder-icon">▱</span><span>Projects</span></NavLink><NavLink to="/settings"><Settings size={22} /><span>Settings</span></NavLink><button className="workspace-avatar">AS</button></aside>
+      <aside className="workspace-nav"><Brand compact /><NavLink to="/"><Home size={22} /><span>Home</span></NavLink><NavLink to="/projects" className="active"><span className="folder-icon">▱</span><span>Projects</span></NavLink><NavLink to="/settings"><Settings size={22} /><span>Settings</span></NavLink><button className="workspace-avatar" aria-label={`${displayName} profile`}>{displayInitials(displayName)}</button></aside>
       <main className={`workspace-main ${activeArtifact ? 'viewer-open' : 'chat-only'}`}>
         <section className="conversation-panel">
           <div className="conversation-scroll" ref={scrollRef}>

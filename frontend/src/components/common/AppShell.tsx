@@ -5,6 +5,7 @@ import { Brand } from './Brand'
 import { ProviderStatus } from './ProviderStatus'
 import { api } from '../../services/api'
 import { relativeTime } from '../../utils/date'
+import { displayInitials, useUserProfile } from '../../contexts/userProfile'
 
 const nav = [
   { to: '/', label: 'Home', icon: Home, end: true },
@@ -14,6 +15,7 @@ const nav = [
 
 export function AppShell() {
   const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: api.listProjects })
+  const { displayName } = useUserProfile()
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -22,8 +24,8 @@ export function AppShell() {
           <ProviderStatus />
           <span className="divider" />
           <Settings size={20} />
-          <span className="avatar">AS</span>
-          <span className="user-name">Ananya Sen</span>
+          <span className="avatar" aria-label={`${displayName} avatar`}>{displayInitials(displayName)}</span>
+          <span className="user-name">{displayName}</span>
           <ChevronDown size={15} />
         </div>
       </header>

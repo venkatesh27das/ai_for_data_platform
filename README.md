@@ -210,6 +210,12 @@ Compatible endpoints must implement `GET /models` and `POST /chat/completions`. 
 
 Application-saved provider settings take precedence for runtime chat calls. API keys stay backend-only and are never returned to the browser. A stored key is reused only for the same provider and base URL; changing either requires the appropriate key for the new endpoint.
 
+### Personalize the displayed user
+
+Open **Settings → User profile**, enter a display name, and select **Save profile**. The header, avatar initials, workspace avatar, and home-page greeting update from that profile. The name is stored in the current browser profile, so different people or browser profiles using the same local server can keep different display names.
+
+This MVP does not include authentication, so the display name is a local preference rather than a verified account identity. `VITE_USER_NAME` sets the initial fallback name; once a browser saves a profile, its saved name takes precedence.
+
 ### 2. Describe the modelling outcome
 
 On Home, describe the analytical decision, business process, measures, likely fact grain, and known sources. Attach metadata when available.
@@ -309,6 +315,7 @@ Configuration lives in the ignored root `.env`. Safe defaults are documented in 
 | `APP_HOST` / `APP_PORT` | `127.0.0.1` / `8000` | Backend bind address |
 | `FRONTEND_HOST` / `FRONTEND_PORT` | `127.0.0.1` / `5173` | Frontend bind address |
 | `VITE_API_URL` | `http://127.0.0.1:8000/api` | Browser-visible API URL |
+| `VITE_USER_NAME` | `Local User` | Initial display name before a browser saves its own profile |
 | `LM_STUDIO_BASE_URL` | `http://localhost:1234/v1` | LM Studio API |
 | `LM_STUDIO_MODEL` | `gemma-4-12b-qat` | Chat model |
 | `OPENAI_BASE_URL` / `OPENAI_MODEL` | `https://api.openai.com/v1` / empty | OpenAI chat endpoint and model |
