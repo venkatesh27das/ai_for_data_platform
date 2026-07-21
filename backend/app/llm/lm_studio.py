@@ -13,6 +13,7 @@ class LMStudioProvider(OpenAICompatibleProvider):
         model: str,
         timeout: int = 120,
         temperature: float = 0.2,
+        structured_output: bool = True,
         client: httpx.AsyncClient | None = None,
         guard: ProviderGuard | None = None,
     ) -> None:
@@ -23,6 +24,7 @@ class LMStudioProvider(OpenAICompatibleProvider):
             model=model,
             timeout=timeout,
             temperature=temperature,
+            structured_output=structured_output,
             client=client,
             guard=guard,
         )

@@ -11,16 +11,27 @@ const defaults: ProviderSettingsPayload = {
   data_dir: './data', max_upload_mb: 25, log_level: 'INFO',
 }
 
+const providerHelp: Record<string, string> = {
+  lm_studio: 'Start the LM Studio local server, load a chat model, and use its OpenAI-compatible /v1 URL.',
+  openai: 'Use the OpenAI API base URL, an API key, and an exact model ID available to that key.',
+  custom: 'Use any endpoint that implements GET /models and POST /chat/completions in the OpenAI format.',
+  anthropic: 'The native Anthropic adapter is planned but is not enabled in this release.',
+}
+
 export function SettingsPage() {
   const queryClient = useQueryClient()
   const { data, isLoading, error } = useQuery({ queryKey: ['provider-settings'], queryFn: api.getProviderSettings })
   const memory = useQuery({ queryKey: ['memory-settings'], queryFn: api.getMemorySettings })
   const userMemory = useQuery({ queryKey: ['user-memory'], queryFn: api.listUserMemory })
   const [form, setForm] = useState<ProviderSettingsPayload>(defaults)
-  const [testResult, setTestResult] = useState<{ ok: boolean; detail: string } | null>(null)
+  const [testResult, setTestResult] = useState<{ ok: boolean; detail: string; models: string[] } | null>(null)
   useEffect(() => { if (data) setForm({ ...data, api_key: '' }) }, [data])
   const save = useMutation({ mutationFn: api.saveProviderSettings, onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['provider-settings'] }) })
-  const test = useMutation({ mutationFn: api.testProvider, onSuccess: setTestResult, onError: (err) => setTestResult({ ok: false, detail: err.message }) })
+  const test = useMutation({
+    mutationFn: api.testProvider,
+    onSuccess: setTestResult,
+    onError: (err) => setTestResult({ ok: false, detail: err.message, models: [] }),
+  })
   const saveMemory = useMutation({
     mutationFn: api.saveMemorySettings,
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['memory-settings'] }),
@@ -31,8 +42,15 @@ export function SettingsPage() {
   })
 
   function update<K extends keyof ProviderSettingsPayload>(key: K, value: ProviderSettingsPayload[K]) {
+    if (key === 'provider' || key === 'base_url' || key === 'model' || key === 'api_key') setTestResult(null)
     setForm((current) => ({ ...current, [key]: value }))
   }
+
+  const savedKeyApplies = Boolean(
+    data?.api_key_configured
+    && data.provider === form.provider
+    && data.base_url.replace(/\/$/, '') === form.base_url.replace(/\/$/, ''),
+  )
 
   if (isLoading) return <div className="settings-page"><LoadingState label="Loading settings" /></div>
   if (error) return <div className="settings-page"><ErrorState message={error.message} /></div>
@@ -42,19 +60,20 @@ export function SettingsPage() {
       <div className="page-title-row"><div><h1>Settings</h1><p>Configure model providers and local application defaults.</p></div></div>
       <form onSubmit={(event: FormEvent) => { event.preventDefault(); save.mutate(form) }}>
         <section className="settings-card">
-          <div className="settings-heading"><span><Server size={22} /></span><div><h2>LLM provider</h2><p>All agent model calls use this provider abstraction.</p></div></div>
+          <div className="settings-heading"><span><Server size={22} /></span><div><h2>Chat model provider</h2><p>Choose LM Studio, OpenAI, or another OpenAI-compatible endpoint for all agent calls.</p></div></div>
           <div className="form-grid">
-            <label>Active provider<select value={form.provider} onChange={(event) => update('provider', event.target.value)}><option value="lm_studio">LM Studio</option><option value="openai">OpenAI</option><option value="anthropic">Anthropic Claude</option><option value="custom">Custom OpenAI-compatible</option></select></label>
-            <label>Model name<input value={form.model} onChange={(event) => update('model', event.target.value)} /></label>
-            <label className="full">Provider base URL<input type="url" value={form.base_url} onChange={(event) => update('base_url', event.target.value)} /></label>
-            <label className="full">API key <span className="field-hint">{data?.api_key_configured ? 'A key is stored; leave blank to keep it.' : 'Optional for LM Studio.'}</span><div className="input-icon"><KeyRound size={18} /><input type="password" value={form.api_key} onChange={(event) => update('api_key', event.target.value)} placeholder={data?.api_key_configured ? '••••••••••••' : 'Enter API key'} autoComplete="new-password" /></div></label>
+            <label>Active provider<select value={form.provider} onChange={(event) => update('provider', event.target.value)}><option value="lm_studio">LM Studio</option><option value="openai">OpenAI</option><option value="custom">Other OpenAI-compatible</option><option value="anthropic" disabled>Anthropic Claude (planned)</option></select></label>
+            <label>Model name <span className="field-hint">Enter an ID or test first to discover models.</span><input required list="available-chat-models" value={form.model} onChange={(event) => update('model', event.target.value)} placeholder="e.g. gemma-4-12b-qat" /><datalist id="available-chat-models">{testResult?.models.map((model) => <option key={model} value={model} />)}</datalist></label>
+            <div className="provider-guidance full">{providerHelp[form.provider] ?? providerHelp.custom}</div>
+            <label className="full">Provider base URL<input required type="url" value={form.base_url} onChange={(event) => update('base_url', event.target.value)} placeholder="https://provider.example/v1" /></label>
+            <label className="full">API key <span className="field-hint">{savedKeyApplies ? 'A key is stored for this endpoint; leave blank to keep it.' : form.provider === 'lm_studio' ? 'Usually optional for LM Studio.' : 'Required when the endpoint authenticates requests.'}</span><div className="input-icon"><KeyRound size={18} /><input type="password" value={form.api_key} onChange={(event) => update('api_key', event.target.value)} placeholder={savedKeyApplies ? '••••••••••••' : 'Enter API key'} autoComplete="new-password" /></div></label>
             <label>Temperature<input type="number" step="0.1" min="0" max="2" value={form.temperature} onChange={(event) => update('temperature', Number(event.target.value))} /></label>
             <label>Request timeout (seconds)<input type="number" min="5" max="600" value={form.request_timeout} onChange={(event) => update('request_timeout', Number(event.target.value))} /></label>
             <Toggle label="Structured-output mode" checked={form.structured_output} onChange={(checked) => update('structured_output', checked)} />
             <Toggle label="Tool calling enabled" checked={form.tool_calling} onChange={(checked) => update('tool_calling', checked)} />
           </div>
-          <div className="settings-actions"><button type="button" className="button secondary" onClick={() => { setTestResult(null); test.mutate(form) }} disabled={test.isPending}>{test.isPending ? 'Testing…' : 'Test connection'}</button><button className="button primary" disabled={save.isPending}>{save.isPending ? 'Saving…' : 'Save settings'}</button></div>
-          {testResult && <div className={testResult.ok ? 'connection-result ok' : 'connection-result bad'}>{testResult.ok ? <CheckCircle2 size={18} /> : <CircleAlert size={18} />} {testResult.detail}</div>}
+          <div className="settings-actions"><button type="button" className="button secondary" onClick={() => { setTestResult(null); test.mutate(form) }} disabled={test.isPending || !form.base_url.trim()}>{test.isPending ? 'Testing…' : 'Test & load models'}</button><button className="button primary" disabled={save.isPending}>{save.isPending ? 'Saving…' : 'Save settings'}</button></div>
+          {testResult && <div className={testResult.ok ? 'connection-result ok' : 'connection-result bad'}>{testResult.ok ? <CheckCircle2 size={18} /> : <CircleAlert size={18} />} <span>{testResult.detail}{testResult.models.length ? ` · ${testResult.models.length} model${testResult.models.length === 1 ? '' : 's'} available in Model name.` : ''}</span></div>}
           {save.isSuccess && <div className="connection-result ok"><CheckCircle2 size={18} /> Settings saved. Secrets will not be returned by the API.</div>}
         </section>
         <section className="settings-card">

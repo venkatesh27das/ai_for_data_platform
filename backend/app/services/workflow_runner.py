@@ -140,6 +140,9 @@ async def _execute_leased_run(
             base_url=config.base_url,
             model=config.model,
             api_key=config.api_key,
+            timeout=config.request_timeout,
+            temperature=config.temperature,
+            structured_output=config.structured_output,
         )
         workflow = WorkflowService(
             provider,

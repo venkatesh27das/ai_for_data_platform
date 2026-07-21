@@ -2,7 +2,7 @@
 
 A local-first, chat-driven workspace that helps data modellers turn business requirements and source metadata into reviewable dimensional models, source-to-target mappings, data-quality rules, and validation findings.
 
-The repository is an actively developed MVP foundation. Its primary path runs privately on local models through LM Studio, while the agent layer remains provider-independent.
+The repository is an actively developed MVP foundation. It can run privately on local models through LM Studio or use OpenAI and other OpenAI-compatible chat-completions endpoints.
 
 ![Current AI Data Modelling Assistant home screen](docs/images/app-home.jpg)
 
@@ -111,7 +111,7 @@ No external MCP tools are bundled or enabled by default. Their actual list comes
 | API | Python 3.12, FastAPI, Pydantic |
 | Agents | LangGraph, typed specialists, bounded reactive planning |
 | Persistence | SQLite, SQLAlchemy, Alembic |
-| Local AI | LM Studio OpenAI-compatible chat and embedding APIs |
+| AI providers | LM Studio, OpenAI, or a custom OpenAI-compatible chat API |
 | Quality | Pytest, Ruff, mypy, Vitest, ESLint, TypeScript |
 
 ## Prerequisites
@@ -119,15 +119,15 @@ No external MCP tools are bundled or enabled by default. Their actual list comes
 - Python 3.12 or newer
 - [uv](https://docs.astral.sh/uv/getting-started/installation/)
 - Node.js 20.19 or newer (or 22.12 or newer) with npm
-- LM Studio with its local API server enabled
+- One chat-model endpoint: LM Studio, OpenAI, or another OpenAI-compatible service
 
-Load these models in LM Studio:
+For the default local setup, enable LM Studio's local API server and load:
 
 - Chat: `gemma-4-12b-qat`
 - Embeddings: `nomic-embed-text`
 - Base URL: `http://localhost:1234/v1`
 
-The interface and project CRUD run without LM Studio. Model generation and provider health checks require the chat model to be loaded.
+The interface and project CRUD run without a model endpoint. Model generation requires a configured and reachable chat model. Embedding-enhanced memory currently uses LM Studio when available and falls back to lexical retrieval when it is not.
 
 ## Installation and local hosting
 
@@ -186,13 +186,29 @@ npm ci
 
 ## How a modeller uses the application
 
-### 1. Configure and test LM Studio
+### 1. Select and test a chat model
 
-Open **Settings** and confirm the provider, model, base URL, structured-output mode, and tool-calling preference. Use **Test connection** before a modelling run.
+Open **Settings → Chat model provider**, then:
+
+1. Select **LM Studio**, **OpenAI**, or **Other OpenAI-compatible**.
+2. Enter the provider's base URL. Include the API version prefix, usually `/v1`.
+3. Enter an API key when the endpoint requires one. LM Studio normally does not.
+4. Select **Test & load models**, then choose a reported ID in **Model name**. You can also enter an exact model ID before testing.
+5. Confirm the connection succeeds, then select **Save settings**. The saved provider, endpoint, model, temperature, and timeout are used by subsequent modelling runs.
+
+Common configurations:
+
+| Provider choice | Base URL | Model |
+| --- | --- | --- |
+| LM Studio | `http://localhost:1234/v1` | The identifier shown for the model loaded in LM Studio |
+| OpenAI | `https://api.openai.com/v1` | A chat model available to the supplied API key |
+| Other OpenAI-compatible | The service's OpenAI-compatible `/v1` URL | An ID returned by that endpoint's `/models` route |
+
+Compatible endpoints must implement `GET /models` and `POST /chat/completions`. Structured-output mode first requests the OpenAI JSON-schema response format and automatically retries with JSON-only prompting if that feature is not supported. Turn off tool calling when the selected model or server does not implement OpenAI-format tool calls.
 
 ![Current provider settings screen](docs/images/app-settings.jpg)
 
-Application-saved provider settings take precedence for runtime chat calls. API keys stay backend-only and are never returned to the browser.
+Application-saved provider settings take precedence for runtime chat calls. API keys stay backend-only and are never returned to the browser. A stored key is reused only for the same provider and base URL; changing either requires the appropriate key for the new endpoint.
 
 ### 2. Describe the modelling outcome
 
@@ -295,6 +311,8 @@ Configuration lives in the ignored root `.env`. Safe defaults are documented in 
 | `VITE_API_URL` | `http://127.0.0.1:8000/api` | Browser-visible API URL |
 | `LM_STUDIO_BASE_URL` | `http://localhost:1234/v1` | LM Studio API |
 | `LM_STUDIO_MODEL` | `gemma-4-12b-qat` | Chat model |
+| `OPENAI_BASE_URL` / `OPENAI_MODEL` | `https://api.openai.com/v1` / empty | OpenAI chat endpoint and model |
+| `CUSTOM_LLM_BASE_URL` / `CUSTOM_LLM_MODEL` | empty | Other OpenAI-compatible endpoint and model |
 | `EMBEDDING_MODEL` | `nomic-embed-text` | Embedding model |
 | `MEMORY_ENABLED` | `true` | Enable automatic project-memory update and retrieval |
 | `MEMORY_RETRIEVAL_LIMIT` | `5` | Maximum relevant older memories injected per run |
@@ -571,8 +589,8 @@ Agents depend only on the internal provider interface.
 | Provider | Status | Notes |
 | --- | --- | --- |
 | LM Studio | Implemented and primary | OpenAI-compatible structured output and streaming |
-| OpenAI | Implemented through compatible transport | Requires model and API key |
-| Custom OpenAI-compatible | Implemented | Configurable URL, model, and key |
+| OpenAI | Implemented through compatible transport | Configurable model; normally requires an API key |
+| Custom OpenAI-compatible | Implemented | Configurable URL, model, and optional key; requires `/models` and `/chat/completions` |
 | Anthropic Claude | Placeholder | Contract and Settings option exist; transport is deferred |
 
 The provider-neutral embedding boundary is used by the memory service. The LM Studio adapter checks available models, resolves `nomic-embed-text`, calls `/embeddings`, and restores input order. The current local index stores vectors as SQLite JSON and performs bounded in-process cosine ranking. This is appropriate for the MVP's project-sized memory; a dedicated vector index and source-evidence RAG remain future scale work.
@@ -640,6 +658,13 @@ Current screenshots live under `docs/images/`. Local `.env`, application databas
 - Confirm the LM Studio server is running on port `1234`.
 - Load `gemma-4-12b-qat` and verify its identifier in Settings.
 - Test `http://localhost:1234/v1/models` locally.
+
+### OpenAI-compatible provider test fails
+
+- Include the API version prefix in the base URL, commonly `/v1`.
+- Confirm the endpoint exposes `GET /models` and `POST /chat/completions` using the OpenAI response shapes.
+- Enter a key that is valid for that endpoint, then select **Test & load models** again.
+- Select or copy the exact reported model ID before saving.
 
 ### Frontend cannot reach the API
 

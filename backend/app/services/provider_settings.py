@@ -2,7 +2,11 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings
 from app.db.models import ProviderSettings
-from app.schemas.settings import ProviderSettingsRead, ProviderSettingsUpdate
+from app.schemas.settings import (
+    ProviderConnectionTest,
+    ProviderSettingsRead,
+    ProviderSettingsUpdate,
+)
 
 
 class ProviderConfigurationService:
@@ -48,11 +52,28 @@ class ProviderConfigurationService:
 
     def update(self, payload: ProviderSettingsUpdate) -> ProviderSettingsRead:
         model = self.get_model()
+        endpoint_changed = model.provider != payload.provider or model.base_url.rstrip(
+            "/"
+        ) != payload.base_url.rstrip("/")
         values = payload.model_dump(exclude={"api_key"})
         for key, value in values.items():
             setattr(model, key, value)
         if payload.api_key:
             model.api_key = payload.api_key
+        elif endpoint_changed:
+            # Never carry a secret over to a different provider or host.
+            model.api_key = ""
         self.db.commit()
         self.db.refresh(model)
         return self.get()
+
+    def api_key_for(self, payload: ProviderSettingsUpdate | ProviderConnectionTest) -> str:
+        """Use a saved secret only when testing the same provider endpoint."""
+        if payload.api_key:
+            return payload.api_key
+        model = self.get_model()
+        if model.provider == payload.provider and model.base_url.rstrip(
+            "/"
+        ) == payload.base_url.rstrip("/"):
+            return model.api_key
+        return ""

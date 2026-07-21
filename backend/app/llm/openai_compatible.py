@@ -21,6 +21,7 @@ class OpenAICompatibleProvider:
         model: str,
         timeout: int = 120,
         temperature: float = 0.2,
+        structured_output: bool = True,
         client: httpx.AsyncClient | None = None,
         guard: ProviderGuard | None = None,
     ) -> None:
@@ -30,6 +31,7 @@ class OpenAICompatibleProvider:
         self.model = model
         self.timeout = timeout
         self.temperature = temperature
+        self.structured_output = structured_output
         self.client = client
         self.guard = guard
         self.guard_key = f"{self.name}:{self.base_url}"
@@ -69,6 +71,8 @@ class OpenAICompatibleProvider:
 
     @staticmethod
     def _match_model(configured: str, available: list[str]) -> str | None:
+        if not configured:
+            return None
         if configured in available:
             return configured
         normalized = configured.lower()
@@ -113,26 +117,40 @@ class OpenAICompatibleProvider:
         temperature: float | None = None,
     ) -> T:
         model = await self._model_for_request()
-        payload = self._payload(messages, temperature, model=model)
-        payload["response_format"] = {
-            "type": "json_schema",
-            "json_schema": {
-                "name": response_model.__name__,
-                "schema": response_model.model_json_schema(),
-            },
-        }
-        try:
-            async with self.request_client() as client:
-                response = await client.post(
-                    f"{self.base_url}/chat/completions", headers=self.headers, json=payload
-                )
-                response.raise_for_status()
-                content = response.json()["choices"][0]["message"]["content"]
-        except httpx.HTTPStatusError:
+        if self.structured_output:
+            payload = self._payload(messages, temperature, model=model)
+            payload["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": response_model.__name__,
+                    "schema": response_model.model_json_schema(),
+                },
+            }
+            try:
+                async with self.request_client() as client:
+                    response = await client.post(
+                        f"{self.base_url}/chat/completions",
+                        headers=self.headers,
+                        json=payload,
+                    )
+                    response.raise_for_status()
+                    content = response.json()["choices"][0]["message"]["content"]
+            except httpx.HTTPStatusError:
+                fallback = messages + [
+                    {
+                        "role": "system",
+                        "content": "Return only valid JSON matching the requested schema.",
+                    }
+                ]
+                content = await self.generate_text(fallback, temperature=temperature)
+        else:
             fallback = messages + [
                 {
                     "role": "system",
-                    "content": "Return only valid JSON matching the requested schema.",
+                    "content": (
+                        "Return only valid JSON matching this schema: "
+                        f"{json.dumps(response_model.model_json_schema())}"
+                    ),
                 }
             ]
             content = await self.generate_text(fallback, temperature=temperature)
