@@ -1,9 +1,0 @@
-{
-  "id": "models.dimensional-design",
-  "version": "1.0",
-  "name": "Dimensional model design",
-  "description": "Design a fact-grained dimensional logical model using verified source evidence.",
-  "agent_id": "model_design_agent",
-  "capabilities": ["dimensional-modelling", "entity-design", "relationship-design"],
-  "allowed_tools": ["project.workflow_context"]
-}

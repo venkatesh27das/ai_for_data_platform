@@ -1,9 +1,0 @@
-{
-  "id": "sources.evidence-analysis",
-  "version": "1.0",
-  "name": "Source evidence analysis",
-  "description": "Summarize profiled source metadata and infer evidence-backed source roles and relationships.",
-  "agent_id": "source_analysis_agent",
-  "capabilities": ["source-analysis", "schema-profiling", "key-identification"],
-  "allowed_tools": ["source.profile_summary"]
-}

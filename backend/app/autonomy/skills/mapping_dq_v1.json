@@ -1,9 +1,0 @@
-{
-  "id": "governance.mapping-dq",
-  "version": "1.0",
-  "name": "Mapping and data quality design",
-  "description": "Generate evidence-backed mappings and starter data-quality controls.",
-  "agent_id": "mapping_dq_agent",
-  "capabilities": ["source-target-mapping", "data-quality", "review-triage"],
-  "allowed_tools": ["project.workflow_context"]
-}

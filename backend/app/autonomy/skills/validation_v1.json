@@ -1,9 +1,0 @@
-{
-  "id": "governance.model-validation",
-  "version": "1.0",
-  "name": "Independent model validation",
-  "description": "Validate grain, model integrity, mapping coverage and DQ coverage and recommend bounded rework.",
-  "agent_id": "validation_agent",
-  "capabilities": ["validation", "critique", "reactive-replanning"],
-  "allowed_tools": ["project.workflow_context"]
-}
