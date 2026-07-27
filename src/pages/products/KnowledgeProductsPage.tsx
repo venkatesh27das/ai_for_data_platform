@@ -1,4 +1,4 @@
-import { Box, CheckCircle2, Clock3, Copy, Eye, FlaskConical, Network, PackagePlus, Plus, Search, Users, X } from "lucide-react";
+import { Box, CheckCircle2, Clock3, Copy, Eye, Network, Rocket, Search, Users, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button, MiniBar, Ring, Status, TextAction, WorkspaceKpi, WorkspaceKpis, WorkspacePanel } from "../../components/workspace/WorkspaceUi";
@@ -9,48 +9,40 @@ type KnowledgeProduct = (typeof knowledgeProducts)[number];
 export function KnowledgeProductsPage() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("All");
-  const [type, setType] = useState("All");
   const [selected, setSelected] = useState<KnowledgeProduct>(knowledgeProducts[0]);
   const [inspectorOpen, setInspectorOpen] = useState(true);
   const [inspectorTab, setInspectorTab] = useState("Overview");
-  const [created, setCreated] = useState(false);
   const [copied, setCopied] = useState("");
   const products = useMemo(
     () =>
       knowledgeProducts.filter(
         (product) =>
-          `${product.name} ${product.description} ${product.domain} ${product.owner}`.toLowerCase().includes(query.toLowerCase()) &&
-          (status === "All" || product.status === status) &&
-          (type === "All" || product.type === type),
+          `${product.name} ${product.description} ${product.domain} ${product.owner}`.toLowerCase().includes(query.toLowerCase()),
       ),
-    [query, status, type],
+    [query],
   );
 
   return (
     <div className="page global-feature-page">
       <div className="global-feature-header">
-        <div><h1>Knowledge Products</h1><p>Browse, manage and publish governed knowledge products for AI and analytics consumption.</p></div>
-        <div><Button onClick={()=>setCreated(true)}><Plus size={15}/>New Knowledge Product</Button><Button onClick={()=>navigate("/projects/customer-360/publish")} variant="primary"><PackagePlus size={15}/>Publish from Project</Button></div>
+        <div><h1>Knowledge Products</h1><p>Inspect governed knowledge products, releases, serving endpoints, downstream consumers, and operational status.</p></div>
+        <div><Button onClick={()=>navigate("/projects/customer-360")}><Box size={15}/>View Product</Button><Button onClick={()=>navigate("/projects/customer-360/publish")} variant="primary"><Rocket size={15}/>Publish & Serve</Button></div>
       </div>
-      {created&&<div className="global-action-notice"><CheckCircle2 size={14}/>New knowledge product draft created. Complete its metadata to begin assembly.</div>}
       <WorkspaceKpis>
-        <WorkspaceKpi icon={Box} label="Published Products" note="Ready for consumption" tone="orange" value={4}/>
-        <WorkspaceKpi icon={FlaskConical} label="In Progress" note="Being assembled" tone="orange" value={created?4:3}/>
-        <WorkspaceKpi icon={CheckCircle2} label="Approved" note="Awaiting publication" tone="green" value={5}/>
-        <WorkspaceKpi icon={Network} label="Total Consumers" note="Across all products" tone="blue" value={17}/>
-        <WorkspaceKpi icon={Clock3} label="Avg. Freshness" note="Data currency" tone="purple" value="18h"/>
+        <WorkspaceKpi icon={Box} label="Published Version" note="Current governed release" tone="orange" value="v1.3.0"/>
+        <WorkspaceKpi icon={Users} label="Active Consumers" note="Copilots, agents and apps" tone="blue" value={17}/>
+        <WorkspaceKpi icon={Network} label="Serving Endpoints" note="Graph, REST, vector and MCP" tone="green" value={5}/>
+        <WorkspaceKpi icon={CheckCircle2} label="Quality & Trust" note="Approved for consumption" tone="green" value="92%"/>
+        <WorkspaceKpi icon={Clock3} label="Data Freshness" note="Last synchronized" tone="purple" value="2h"/>
       </WorkspaceKpis>
       <div className={`products-portfolio${inspectorOpen?" products-portfolio--inspector":""}`}>
         <main className="products-main">
           <div className="enterprise-filter-bar products-filter-bar">
             <label className="table-search enterprise-search"><Search size={14}/><input aria-label="Search knowledge products" onChange={(event)=>setQuery(event.target.value)} placeholder="Search knowledge products..." value={query}/></label>
-            <label>Status<select aria-label="Product Status" onChange={(event)=>setStatus(event.target.value)} value={status}><option>All</option><option>Published</option><option>Approved</option><option>In Progress</option><option>Draft</option></select></label>
-            <label>Domain<select aria-label="Product Domain"><option>All</option><option>Customer</option><option>Governance</option></select></label>
-            <label>Product Type<select aria-label="Product Type" onChange={(event)=>setType(event.target.value)} value={type}><option>All</option>{["Knowledge Graph","Vector Index","Graph + Vector","Semantic Model","Document Index"].map((value)=><option key={value}>{value}</option>)}</select></label>
-            <label>Consumption Type<select aria-label="Consumption Type"><option>All</option><option>RAG</option><option>Agent</option></select></label>
-            <label>Owner<select aria-label="Product Owner"><option>All</option><option>Data Team</option></select></label>
-            <Button>Filters</Button><TextAction onClick={()=>{setQuery("");setStatus("All");setType("All")}}>Clear All</TextAction>
+            <label>Status<select aria-label="Product Status" disabled><option>Published</option></select></label>
+            <label>Domain<select aria-label="Product Domain" disabled><option>Customer</option></select></label>
+            <label>Product Type<select aria-label="Product Type" disabled><option>Knowledge Graph</option></select></label>
+            <TextAction onClick={()=>setQuery("")}>Clear Search</TextAction>
           </div>
           <section className="knowledge-products-table-panel">
             <div className="table-scroll"><table className="workspace-table knowledge-products-table"><thead><tr><th>Product Name</th><th>Domain</th><th>Product Type</th><th>Status</th><th>Knowledge Readiness</th><th>Version</th><th>Last Updated</th><th>Consumers</th><th>Owner</th><th>Actions</th></tr></thead><tbody>{products.map((product,index)=><tr className={selected.name===product.name?"is-selected":""} key={product.name} onClick={()=>{setSelected(product);setInspectorOpen(true)}}><td><span className="product-name-cell"><i className={`icon-tile icon-tile--${product.tone}`}><Box size={17}/></i><span><strong>{product.name}</strong><small>{product.description}</small></span></span></td><td>{product.domain}</td><td>{product.type}</td><td><Status tone={product.status==="Published"?"green":product.status==="Approved"?"blue":product.status==="Draft"?"purple":"amber"}>{product.status}</Status></td><td><span className="product-readiness"><b>{product.readiness}%</b><MiniBar value={product.readiness}/></span></td><td>{product.version}</td><td>{product.updated}</td><td>{product.consumers}</td><td>{product.owner}</td><td><div className="product-actions"><button aria-label={`Inspect ${product.name}`} onClick={(event)=>{event.stopPropagation();setSelected(product);setInspectorOpen(true)}}><Eye size={13}/></button><button aria-label={`Open ${product.name}`} onClick={(event)=>{event.stopPropagation();if(index===0)navigate("/projects/customer-360/publish")}}><Box size={13}/></button><button aria-label={`More actions for ${product.name}`}>•••</button></div></td></tr>)}</tbody></table></div>

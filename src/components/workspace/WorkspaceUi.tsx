@@ -89,10 +89,31 @@ export function MiniBar({ value, tone = "green" }: { value: number; tone?: "gree
   return <span className="mini-bar"><i className={`mini-bar--${tone}`} style={{ width: `${value}%` }} /></span>;
 }
 
-export function Ring({ value, label, tone = "green" }: { value: number; label: string; tone?: "green" | "blue" | "orange" }) {
+export function Ring({
+  value,
+  label,
+  displayValue,
+  tone = "green",
+}: {
+  value: number;
+  label?: string;
+  displayValue?: string;
+  tone?: "green" | "blue" | "orange";
+}) {
+  const primaryValue = displayValue ?? `${value}%`;
+  const accessibleLabel = label ? `${primaryValue} ${label}` : primaryValue;
+
   return (
-    <div className={`metric-ring metric-ring--${tone}`} style={{ "--ring-value": `${value * 3.6}deg` } as React.CSSProperties}>
-      <div><strong>{value}%</strong><span>{label}</span></div>
+    <div
+      aria-label={accessibleLabel}
+      className={`metric-ring metric-ring--${tone}`}
+      role="img"
+      style={{ "--ring-value": `${value * 3.6}deg` } as React.CSSProperties}
+    >
+      <div>
+        <strong>{primaryValue}</strong>
+        {label && <span>{label}</span>}
+      </div>
     </div>
   );
 }

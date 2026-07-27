@@ -4,9 +4,9 @@ import {
   ArrowRight,
   Box,
   Building2,
-  CheckCircle2,
   CircleCheck,
   CloudUpload,
+  Database,
   Edit3,
   FlaskConical,
   Folder,
@@ -29,6 +29,7 @@ import { LoadingState } from "../../components/ui/LoadingState";
 import { ProgressBar } from "../../components/ui/ProgressBar";
 import { SectionHeader } from "../../components/ui/SectionHeader";
 import { getProjectsData } from "../../services/api/mockKnowledgeApi";
+import { useNewProjectStore } from "../../stores/newProjectStore";
 import type { Project, ProjectStage, Tone } from "../../types/knowledge";
 
 const projectIcons = {
@@ -110,9 +111,8 @@ function ProjectRow({ project }: { project: Project }) {
 
 export function ProjectsPage() {
   const navigate = useNavigate();
-  const [domain, setDomain] = useState("All Domains");
+  const resetProject = useNewProjectStore((state) => state.resetProject);
   const [query, setQuery] = useState("");
-  const [importMessage, setImportMessage] = useState("");
   const { data, isPending } = useQuery({
     queryKey: ["projects"],
     queryFn: getProjectsData,
@@ -121,95 +121,74 @@ export function ProjectsPage() {
   const filteredProjects = useMemo(() => {
     if (!data) return [];
     return data.projects.filter((project) => {
-      const matchesDomain =
-        domain === "All Domains" || project.domain === domain;
       const normalizedQuery = query.trim().toLowerCase();
       const matchesQuery =
         !normalizedQuery ||
         `${project.name} ${project.domain} ${project.owner}`
           .toLowerCase()
           .includes(normalizedQuery);
-      return matchesDomain && matchesQuery;
+      return matchesQuery;
     });
-  }, [data, domain, query]);
+  }, [data, query]);
 
   if (isPending || !data) {
     return <LoadingState label="Loading knowledge projects" />;
   }
-
-  const domains = Array.from(
-    new Set(data.projects.map((project) => project.domain)),
-  );
 
   return (
     <div className="page page--projects">
       <PageHeader
         actions={
           <>
-            <Button onClick={() => navigate("/projects/new")} variant="primary">
+            <Button
+              onClick={() => {
+                resetProject();
+                navigate("/projects/new");
+              }}
+              variant="primary"
+            >
               <Plus aria-hidden="true" size={17} />
               New Knowledge Project
             </Button>
-            <Button
-              onClick={() => {
-                setImportMessage("Project package validated and ready to import.");
-                window.setTimeout(() => setImportMessage(""), 3200);
-              }}
-            >
-              <CloudUpload aria-hidden="true" size={17} />
-              Import Project
+            <Button onClick={() => navigate("/assets")}>
+              <Database aria-hidden="true" size={17} />
+              Browse Assets
             </Button>
-            <label className="select-control">
-              <span className="sr-only">Filter by domain</span>
-              <select onChange={(event) => setDomain(event.target.value)} value={domain}>
-                <option>All Domains</option>
-                {domains.map((item) => (
-                  <option key={item}>{item}</option>
-                ))}
-              </select>
-            </label>
           </>
         }
-        description="Create, monitor and manage enterprise knowledge-layer initiatives across domains and use cases."
+        description="Manage enterprise knowledge assembly initiatives from source selection through publishing and consumption."
         title="Knowledge Projects"
       />
-
-      {importMessage && (
-        <div aria-live="polite" className="inline-notice" role="status">
-          <CheckCircle2 aria-hidden="true" size={17} />
-          {importMessage}
-        </div>
-      )}
 
       <div className="project-kpis">
         <KpiCard
           icon={FolderKanban}
-          label="Active Projects"
-          note="2 vs last 30 days"
+          label="Active Project"
+          note="Customer 360"
           tone="blue"
           trend="up"
           value={data.totals.active}
         />
         <KpiCard
           icon={Box}
-          label="In Assembly"
-          note="1 vs last 30 days"
+          label="Assembly Stage"
+          note="68% complete"
           tone="purple"
           trend="up"
           value={data.totals.assembly}
         />
         <KpiCard
           icon={Hourglass}
-          label="Awaiting Review"
-          note="1 vs last 30 days"
+          label="Open Reviews"
+          note="Human decisions required"
           tone="amber"
           trend="down"
           value={data.totals.review}
         />
         <KpiCard
           icon={CircleCheck}
-          label="Published"
-          note="1 vs last 30 days"
+          label="Published Product"
+          note="Version 1.3.0"
           tone="green"
           trend="up"
           value={data.totals.published}
@@ -231,7 +210,7 @@ export function ProjectsPage() {
                   />
                 </label>
               }
-              title="Project Portfolio"
+              title="Customer 360 Knowledge Layer"
             />
             <div className="table-scroll">
               <table className="data-table project-table">
@@ -260,8 +239,8 @@ export function ProjectsPage() {
                 <span>Try another domain or project name.</span>
               </div>
             ) : (
-              <button className="card-link" type="button">
-                View all projects <ArrowRight aria-hidden="true" size={15} />
+              <button className="card-link" onClick={() => navigate("/projects/customer-360")} type="button">
+                Open Project <ArrowRight aria-hidden="true" size={15} />
               </button>
             )}
           </Card>
@@ -309,14 +288,14 @@ export function ProjectsPage() {
                   <ProgressBar
                     compact
                     tone={stage.tone}
-                    value={(stage.count / 4) * 100}
+                    value={stage.count > 0 ? 100 : 0}
                   />
                   <strong>{stage.count}</strong>
                 </div>
               ))}
               <div className="pipeline-list__total">
                 <span>Total Projects</span>
-                <strong>13</strong>
+                <strong>1</strong>
               </div>
             </div>
           </Card>
@@ -338,7 +317,7 @@ export function ProjectsPage() {
                 </li>
               ))}
             </ul>
-            <button className="card-link" type="button">
+            <button className="card-link" onClick={() => navigate("/projects/customer-360/build")} type="button">
               View all issues <ArrowRight aria-hidden="true" size={15} />
             </button>
           </Card>

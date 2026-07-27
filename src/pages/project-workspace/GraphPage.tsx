@@ -1,15 +1,14 @@
 import { Box, Clock3, Database, Network, ShieldCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { KnowledgeGraphPreview } from "../../components/graph/KnowledgeGraphPreview";
 import { graphEntityTypes, graphRelationships } from "../../data/mock/customer360Fixtures";
 import { Button, Status, TextAction, WorkspaceKpi, WorkspaceKpis, WorkspacePageHeader, WorkspacePanel } from "../../components/workspace/WorkspaceUi";
-
-const graphNodes = ["Account", "Interaction", "Household", "Product", "Organization", "Channel", "Address", "Employee", "Policy", "Segment"];
 
 export function GraphPage() {
   const navigate = useNavigate();
   return (
     <div className="workspace-screen">
-      <WorkspacePageHeader actions={<><Button>Graph View</Button><Button>Model View</Button><select className="workspace-select" aria-label="Graph domain"><option>Domain: All</option><option>Customer</option></select></>} description="Explore the knowledge graph schema, data model, and entity relationships." title="Knowledge Graph & Data Model" />
+      <WorkspacePageHeader actions={<><Button onClick={() => document.querySelector(".graph-preview-panel")?.scrollIntoView({ behavior: "smooth" })} variant="primary">Graph View</Button><Button onClick={() => document.querySelector(".model-cards")?.scrollIntoView({ behavior: "smooth" })}>Model View</Button><select className="workspace-select" aria-label="Graph domain"><option>Domain: All</option><option>Customer</option><option>Product</option><option>Service</option><option>Governance</option></select></>} description="Explore governed business entities, source provenance, semantic mappings, policies, and downstream consumers." title="Knowledge Graph & Data Model" />
       <WorkspaceKpis>
         <WorkspaceKpi icon={Database} label="Entities (Node Types)" note="+8 this week" tone="purple" trend="up" value={156} />
         <WorkspaceKpi icon={Network} label="Relationships (Edge Types)" note="+11 this week" tone="green" trend="up" value={214} />
@@ -18,13 +17,9 @@ export function GraphPage() {
         <WorkspaceKpi icon={Clock3} label="Last Graph Build" note="May 26, 2024 10:15 AM" tone="purple" value="2h ago" />
       </WorkspaceKpis>
       <div className="graph-workspace-grid">
-        <WorkspacePanel action={<Button>Fit to screen</Button>} className="graph-preview-panel" title="Knowledge Graph Preview">
-          <div className="graph-legend"><span>● Entity</span><span>● Relationship</span><span>● Domain</span><span>● Source</span></div>
-          <div className="radial-graph">
-            <div className="graph-center">Customer</div>
-            {graphNodes.map((node, index) => <div className={`graph-node graph-node--${index + 1}`} key={node}><i>{index % 3 === 0 ? "◇" : "⬡"}</i><span>{node}</span></div>)}
-          </div>
-          <div className="graph-preview-footer"><span>Nodes <b>156</b></span><span>Relationships <b>214</b></span><span>Domains <b>12</b></span><span>Sources <b>6</b></span><TextAction onClick={() => navigate("/graph-explorer")}>View full graph →</TextAction></div>
+        <WorkspacePanel action={<Status tone="blue">Interactive preview</Status>} className="graph-preview-panel" title="Enterprise Knowledge Graph">
+          <KnowledgeGraphPreview />
+          <div className="graph-preview-footer"><span>Nodes <b>156</b></span><span>Relationships <b>214</b></span><span>Domains <b>12</b></span><span>Sources <b>6</b></span><TextAction onClick={() => navigate("/projects/customer-360/build")}>Continue to Build & Govern →</TextAction></div>
         </WorkspacePanel>
         <div className="graph-table-stack">
           <WorkspacePanel action={<TextAction>View all</TextAction>} title="Top Entity Types"><table className="workspace-table compact-table"><thead><tr><th>Entity Type</th><th>Description</th><th>Instances</th><th>Change (7D)</th></tr></thead><tbody>{graphEntityTypes.map((row) => <tr key={row[0]}>{row.map((cell, index) => <td key={cell}>{index === 0 ? <strong>{cell}</strong> : index === 3 ? <span className="trend--up">{cell}</span> : cell}</td>)}</tr>)}</tbody></table></WorkspacePanel>

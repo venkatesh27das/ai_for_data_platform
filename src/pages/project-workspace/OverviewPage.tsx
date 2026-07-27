@@ -7,8 +7,10 @@ import {
   Network,
   ShieldCheck,
   UploadCloud,
+  Workflow,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { SourceSystemLogo } from "../../components/assets/SourceSystemLogo";
 import { sourceSystems } from "../../data/mock/customer360Fixtures";
 import {
   Button,
@@ -26,11 +28,35 @@ export function OverviewPage() {
   return (
     <div className="workspace-screen">
       <WorkspaceKpis>
-        <article className="workspace-kpi workspace-kpi--progress">
-          <Ring label="Overall" tone="green" value={12} />
-          <div><small>Overall Progress</small><strong className="workspace-kpi__compact">In Progress</strong><span>Started May 24, 2024</span></div>
+        <article className="workspace-kpi workspace-kpi--assembly">
+          <div className="assembly-progress">
+            <div className="assembly-progress__header">
+              <span className="assembly-progress__icon">
+                <Workflow aria-hidden="true" size={15} />
+              </span>
+              <small>Current Assembly</small>
+            </div>
+            <div className="assembly-progress__value">
+              <strong>68%</strong>
+              <em>In Progress</em>
+            </div>
+            <div
+              aria-label="Assembly is 68% complete"
+              aria-valuemax={100}
+              aria-valuemin={0}
+              aria-valuenow={68}
+              className="assembly-progress__bar"
+              role="progressbar"
+            >
+              <i />
+            </div>
+            <div className="assembly-progress__baseline">
+              <span>Version 1.4</span>
+              <b>Baseline v1.3</b>
+            </div>
+          </div>
         </article>
-        <WorkspaceKpi icon={Database} label="Assets Ingested" note="of 520 · 14%" tone="purple" value={71} />
+        <WorkspaceKpi icon={Database} label="Assets Ingested" note="Across 6 governed sources" tone="purple" value={71} />
         <WorkspaceKpi icon={Network} label="Entities" note="+142 this week" tone="green" trend="up" value="1,842" />
         <WorkspaceKpi icon={Link2} label="Relationships" note="+256 this week" tone="blue" trend="up" value="3,974" />
         <WorkspaceKpi icon={ShieldCheck} label="Quality Score" note="Good" tone="orange" value="86%" />
@@ -62,28 +88,32 @@ export function OverviewPage() {
         </WorkspacePanel>
         <WorkspacePanel action={<TextAction>View roadmap</TextAction>} title="Project Timeline">
           <ol className="timeline-list">
-            {["Project Created", "Ingestion & Analysis", "Knowledge Construction", "Validation & Publish", "Ready for Consumption"].map((item, index) => <li className={index < 2 ? "is-active" : ""} key={item}><i>{index < 1 ? "✓" : index + 1}</i><span><strong>{item}</strong><small>{index === 0 ? "May 24, 2024" : index === 1 ? "Connecting sources and analyzing assets" : "Upcoming"}</small></span>{index === 1 && <em>In Progress</em>}</li>)}
+            {["Assets Connected", "Graph Model Assembled", "Build & Govern", "Quality Validation", "Publish v1.4", "Measure Consumption"].map((item, index) => <li className={index < 3 ? "is-active" : ""} key={item}><i>{index < 2 ? "✓" : index + 1}</i><span><strong>{item}</strong><small>{index === 0 ? "71 assets from 6 governed sources" : index === 1 ? "1,842 entities and 3,974 relationships" : index === 2 ? "Policy binding and steward review in progress" : "Next in the demo journey"}</small></span>{index === 2 && <em>In Progress</em>}</li>)}
           </ol>
         </WorkspacePanel>
         <WorkspacePanel action={<TextAction>View all</TextAction>} title="Top Source Systems">
           <div className="source-bars">
-            {sourceSystems.slice(0, 5).map((source, index) => <div key={source.name}><span><i className={`source-symbol source-symbol--${source.tone}`}>{index + 1}</i><b>{source.name}</b><small>{source.assets} assets</small></span><MiniBar value={[88, 63, 42, 30, 24][index]} /><strong>{[34, 25, 17, 12, 11][index]}%</strong></div>)}
+            {sourceSystems.slice(0, 5).map((source, index) => <div key={source.name}><span><SourceSystemLogo name={source.name} size="compact"/><b>{source.name}</b><small>{source.assets} assets</small></span><MiniBar value={[88, 63, 42, 30, 24][index]} /><strong>{[34, 25, 17, 12, 11][index]}%</strong></div>)}
           </div>
         </WorkspacePanel>
-        <WorkspacePanel title="Next Steps">
+        <WorkspacePanel title="Next Governed Actions">
           <ol className="next-steps">
-            {["Define scope and domains", "Connect sources and select assets", "Configure success criteria", "Set governance & access", "Review & create"].map((item, index) => <li key={item}><i>{index < 2 ? "✓" : index + 1}</i><span><strong>{item}</strong><small>{index < 2 ? "Completed" : "Pending configuration"}</small></span>{index === 2 && <Button onClick={() => navigate("/projects/new")}>Continue</Button>}</li>)}
+            {[
+              ["Review 3 low-confidence mappings", "Resolve semantic and relationship ambiguity", "build"],
+              ["Run the next quality scan", "Validate the assembled graph and retrieval package", "quality"],
+              ["Publish Customer 360 v1.4", "Promote the approved package to five endpoints", "publish"],
+            ].map((item, index) => <li key={item[0]}><i>{index + 1}</i><span><strong>{item[0]}</strong><small>{item[1]}</small></span><Button onClick={() => navigate(item[2])}>{index === 0 ? "Review" : index === 1 ? "Validate" : "Publish"}</Button></li>)}
           </ol>
         </WorkspacePanel>
       </div>
 
       <div className="quick-links">
         <strong>Quick Links</strong>
-        <Button><UploadCloud size={15} />Upload Assets</Button>
+        <Button onClick={() => navigate("assets")}><UploadCloud size={15} />Review Assets</Button>
         <Button onClick={() => navigate("quality")}><ShieldCheck size={15} />Run Quality Check</Button>
         <Button onClick={() => navigate("graph")}><Network size={15} />View Knowledge Graph</Button>
-        <Button><Activity size={15} />Manage Access</Button>
-        <Button onClick={() => navigate("settings")}><ArrowRight size={15} />Configure Policies</Button>
+        <Button onClick={() => navigate("settings")}><Activity size={15} />Manage Access</Button>
+        <Button onClick={() => navigate("build")}><ArrowRight size={15} />Configure Policies</Button>
       </div>
     </div>
   );

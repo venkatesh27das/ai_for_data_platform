@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { PageHeader } from "../../components/layout/PageHeader";
+import { Customer360StoryBar } from "../../components/customer360/Customer360StoryBar";
 import { ProjectCard } from "../../components/projects/ProjectCard";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
@@ -23,6 +24,7 @@ import { KpiCard } from "../../components/ui/KpiCard";
 import { LoadingState } from "../../components/ui/LoadingState";
 import { SectionHeader } from "../../components/ui/SectionHeader";
 import { getHomeData } from "../../services/api/mockKnowledgeApi";
+import { useNewProjectStore } from "../../stores/newProjectStore";
 
 const activityIcons = {
   success: CheckCircle2,
@@ -35,6 +37,7 @@ const activityIcons = {
 
 export function HomePage() {
   const navigate = useNavigate();
+  const resetProject = useNewProjectStore((state) => state.resetProject);
   const { data, isError, isPending, refetch } = useQuery({
     queryKey: ["home"],
     queryFn: getHomeData,
@@ -62,27 +65,37 @@ export function HomePage() {
       <PageHeader
         actions={
           <>
-            <Button onClick={() => navigate("/projects/new")} variant="primary">
+            <Button
+              onClick={() => {
+                resetProject();
+                navigate("/projects/new");
+              }}
+              variant="primary"
+            >
               <Plus aria-hidden="true" size={17} />
               New Knowledge Project
             </Button>
             <Button onClick={() => navigate("/assets")}>
               <Link2 aria-hidden="true" size={17} />
-              Connect Assets
+              Browse Assets
             </Button>
           </>
         }
-        description="Assemble governed knowledge products from your existing enterprise assets."
+        description="Assemble governed enterprise assets into trusted knowledge products for AI, analytics, and operational applications."
         title="Enterprise Knowledge Workspace"
       />
 
       <section className="home-section">
-        <SectionHeader title="Continue Working" />
+        <SectionHeader title="Active Knowledge Project" />
         <div className="continue-grid">
           {data.continueWorking.map((project) => (
             <ProjectCard key={project.id} project={project} />
           ))}
         </div>
+      </section>
+
+      <section className="home-section">
+        <Customer360StoryBar />
       </section>
 
       <div className="home-dashboard-grid">
@@ -117,18 +130,18 @@ export function HomePage() {
               </button>
             ))}
           </div>
-          <button className="card-link" onClick={() => navigate("/projects")} type="button">
-            View all issues (8) <ArrowRight aria-hidden="true" size={15} />
+          <button className="card-link" onClick={() => navigate("/projects/customer-360/build")} type="button">
+            Review all 3 items <ArrowRight aria-hidden="true" size={15} />
           </button>
         </Card>
 
         <Card>
-          <SectionHeader title="Portfolio Summary" />
+          <SectionHeader title="Customer 360 Summary" />
           <div className="portfolio-grid">
             <KpiCard
               icon={FolderKanban}
-              label="Active Projects"
-              note="2 vs last 30 days"
+              label="Active Project"
+              note="Customer 360"
               tone="orange"
               trend="up"
               value={data.portfolio.activeProjects}
@@ -136,15 +149,15 @@ export function HomePage() {
             <KpiCard
               icon={Database}
               label="Connected Assets"
-              note="16 vs last 30 days"
+              note="Across 6 governed sources"
               tone="orange"
               trend="up"
               value={data.portfolio.connectedAssets}
             />
             <KpiCard
               icon={Box}
-              label="Published Knowledge Products"
-              note="1 vs last 30 days"
+              label="Published Product"
+              note="Version 1.3.0"
               tone="orange"
               trend="up"
               value={data.portfolio.publishedProducts}
@@ -152,7 +165,7 @@ export function HomePage() {
             <KpiCard
               icon={MessageCircle}
               label="Open Reviews"
-              note="2 vs last 30 days"
+              note="Human decisions required"
               tone="orange"
               trend="down"
               value={data.portfolio.openReviews}
@@ -181,7 +194,7 @@ export function HomePage() {
         </Card>
 
         <Card>
-          <SectionHeader title="Enterprise Asset Coverage" />
+          <SectionHeader title="Customer 360 Asset Coverage" />
           <table className="data-table data-table--compact">
             <thead>
               <tr>

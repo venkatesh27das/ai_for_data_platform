@@ -1,17 +1,17 @@
 export const sourceSystems = [
   { name: "Databricks Unity Catalog", assets: 24, sync: "2h ago", tone: "purple" },
-  { name: "Snowflake", assets: 18, sync: "2h ago", tone: "blue" },
+  { name: "MDM Platform", assets: 8, sync: "2h ago", tone: "green" },
   { name: "SharePoint", assets: 12, sync: "3h ago", tone: "teal" },
   { name: "Atlan Data Catalog", assets: 9, sync: "4h ago", tone: "blue" },
-  { name: "dbt Cloud", assets: 6, sync: "1h ago", tone: "orange" },
-  { name: "Neo4j Aura", assets: 2, sync: "1h ago", tone: "green" },
+  { name: "dbt Cloud", assets: 8, sync: "1h ago", tone: "orange" },
+  { name: "Neo4j Aura", assets: 10, sync: "1h ago", tone: "green" },
 ] as const;
 
 export const projectAssets = [
-  ["Customer 360 Data Product", "Data Product", "Databricks", "Customer", "Entity Source", "95%", "Ready", "2h ago"],
+  ["Customer 360 Data Product", "Data Product", "Databricks Unity Catalog", "Customer", "Entity Source", "95%", "Ready", "2h ago"],
   ["Customer Semantic Model", "Semantic Model", "dbt Cloud", "Customer", "Semantic Authority", "92%", "Ready", "3h ago"],
   ["Golden Customer Record", "MDM Entity", "MDM Platform", "Customer", "Identity Anchor", "97%", "Ready", "1h ago"],
-  ["Customer Lineage Graph", "Lineage Asset", "Atlan", "Customer", "Provenance Source", "89%", "Ready", "4h ago"],
+  ["Customer Lineage Graph", "Lineage Asset", "Atlan Data Catalog", "Customer", "Provenance Source", "89%", "Ready", "4h ago"],
   ["Consent Policy v2.1", "Policy Document", "SharePoint", "Compliance", "Policy Authority", "98%", "Ready", "5h ago"],
   ["Interaction Transcripts", "Document Collection", "SharePoint", "Customer", "Retrieval Source", "85%", "Review", "6h ago"],
   ["Existing Customer Graph", "Graph", "Neo4j Aura", "Customer", "Relationship Source", "91%", "Ready", "1d ago"],
@@ -71,7 +71,7 @@ export const qualitySeries = Array.from({ length: 14 }, (_, index) => ({
 
 export const activities = [
   ["2 minutes ago", "Quality check completed", "Quality Check", "128 checks passed, 2 failed, 1 warning", "Sarah Chen", "Success", "1m 24s", "Data Quality Agent"],
-  ["8 minutes ago", "Ingestion pipeline run", "Pipeline Run", "Synced 3,142 assets from 6 sources", "System", "Success", "12m 45s", "Ingestion Pipeline"],
+  ["8 minutes ago", "Ingestion pipeline run", "Pipeline Run", "Synchronized 71 scoped assets from 6 governed sources", "System", "Success", "12m 45s", "Ingestion Pipeline"],
   ["25 minutes ago", "Entity extraction completed", "System Event", "Extracted 842 entities", "System", "Success", "4m 12s", "Entity Extraction Job"],
   ["1 hour ago", "User updated access policy", "User Action", "Updated Financial Data access policy", "Rahul Mehta", "Success", "—", "Governance Console"],
   ["2 hours ago", "Knowledge graph build", "Pipeline Run", "Added 156 nodes, 214 relationships", "System", "Success", "18m 32s", "Graph Builder Pipeline"],

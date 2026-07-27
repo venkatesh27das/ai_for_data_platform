@@ -1,5 +1,5 @@
 import { CalendarDays, ChevronLeft, ExternalLink, FolderKanban, Settings, UserRound } from "lucide-react";
-import { NavLink, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Navigate, NavLink, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
 
@@ -21,6 +21,10 @@ export function ProjectWorkspaceShell() {
   const navigate = useNavigate();
   const base = `/projects/${projectId}`;
   const currentRoute = location.pathname.split("/").at(-1);
+
+  if (projectId !== "customer-360") {
+    return <Navigate replace to="/projects/customer-360" />;
+  }
 
   return (
     <div className="page project-workspace">
@@ -56,7 +60,7 @@ export function ProjectWorkspaceShell() {
         <div className="project-header-actions">
           {currentRoute !== "settings" && <Button onClick={() => navigate(`${base}/settings`)}><Settings size={15} />Project Settings</Button>}
           {currentRoute === projectId && <Button onClick={() => navigate(`${base}/build`)} variant="primary"><ExternalLink size={15}/>Open Project Workspace</Button>}
-          {currentRoute === "graph" && <Button onClick={() => navigate("/graph-explorer")} variant="primary"><ExternalLink size={15}/>Open in Graph Explorer</Button>}
+          {currentRoute === "graph" && <Button onClick={() => navigate(`${base}/build`)} variant="primary"><ExternalLink size={15}/>Continue to Build & Govern</Button>}
         </div>
       </div>
       <nav aria-label="Project workspace" className="project-tabs">

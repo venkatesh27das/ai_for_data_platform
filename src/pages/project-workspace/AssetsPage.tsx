@@ -1,6 +1,7 @@
 import { CheckCircle2, Database, Filter, Layers3, RefreshCw, Search, ShieldCheck } from "lucide-react";
 import { useMemo, useState } from "react";
 import { projectAssets, sourceSystems } from "../../data/mock/customer360Fixtures";
+import { SourceSystemLogo } from "../../components/assets/SourceSystemLogo";
 import { Button, MiniBar, Status, TextAction, WorkspaceKpi, WorkspaceKpis, WorkspacePanel } from "../../components/workspace/WorkspaceUi";
 
 export function AssetsPage() {
@@ -20,7 +21,7 @@ export function AssetsPage() {
       </WorkspaceKpis>
       <div className="assets-workspace-grid">
         <WorkspacePanel action={<TextAction onClick={() => setSynced(true)}>Refresh</TextAction>} className="source-system-panel" title="Connected Source Systems">
-          {sourceSystems.map((source, index) => <button className="connected-source" key={source.name} type="button"><i className={`source-symbol source-symbol--${source.tone}`}>{index + 1}</i><span><strong>{source.name}</strong><Status>Connected · Healthy</Status><small>Last sync {synced ? "just now" : source.sync}</small></span><b>{source.assets}<small> assets</small></b><em>⋮</em></button>)}
+          {sourceSystems.map((source) => <button className="connected-source" key={source.name} type="button"><SourceSystemLogo name={source.name}/><span><strong>{source.name}</strong><Status>Connected · Healthy</Status><small>Last sync {synced ? "just now" : source.sync}</small></span><b>{source.assets}<small> assets</small></b><em>⋮</em></button>)}
           <Button className="add-source-button">+ Add Source System</Button>
         </WorkspacePanel>
         <WorkspacePanel className="asset-inventory-panel" title="Project Asset Inventory">

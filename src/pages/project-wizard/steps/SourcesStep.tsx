@@ -1,7 +1,6 @@
 import {
   Boxes,
   Check,
-  Database,
   Filter,
   Grid2X2,
   Info,
@@ -12,6 +11,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { SourceSystemLogo } from "../../../components/assets/SourceSystemLogo";
 import { sourceSystems } from "../../../data/mock/wizardFixtures";
 import { useNewProjectStore } from "../../../stores/newProjectStore";
 import { Card } from "../../../components/ui/Card";
@@ -61,9 +61,7 @@ export function SourcesStep() {
         <ul className="source-system-list">
           {sourceSystems.map((source) => (
             <li key={source.id}>
-              <span className={`source-logo source-logo--${source.tone}`}>
-                <Database aria-hidden="true" size={17} />
-              </span>
+              <SourceSystemLogo name={source.name} />
               <div>
                 <strong>{source.name}</strong>
                 <small>

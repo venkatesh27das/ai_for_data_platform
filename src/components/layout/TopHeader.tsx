@@ -26,8 +26,8 @@ export function TopHeader() {
       >
         <Search aria-hidden="true" size={18} />
         <input
-          aria-label="Search projects, assets, and concepts"
-          placeholder="Search projects, assets, concepts..."
+          aria-label="Search enterprise assets, projects, products, concepts, and policies"
+          placeholder="Search assets, projects, products, concepts..."
           type="search"
         />
       </form>

@@ -19,11 +19,7 @@ interface SidebarLink {
 
 const primaryLinks: SidebarLink[] = [
   { label: "Home", to: "/", icon: Home, end: true },
-  {
-    label: "Knowledge Projects",
-    to: "/projects",
-    icon: FolderKanban,
-  },
+  { label: "Knowledge Projects", to: "/projects", icon: FolderKanban },
   { label: "Enterprise Assets", to: "/assets", icon: Database },
   { label: "Knowledge Products", to: "/products", icon: Box },
 ];

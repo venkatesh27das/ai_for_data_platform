@@ -16,15 +16,15 @@ const wait = (duration: number) =>
 export async function getHomeData(): Promise<HomeData> {
   await wait(MOCK_LATENCY_MS);
   return {
-    continueWorking: projects.slice(0, 3),
+    continueWorking: projects,
     attentionItems,
     recentActivity,
     assetCoverage,
     portfolio: {
-      activeProjects: 6,
-      connectedAssets: 184,
-      publishedProducts: 4,
-      openReviews: 8,
+      activeProjects: 1,
+      connectedAssets: 71,
+      publishedProducts: 1,
+      openReviews: 3,
     },
   };
 }
@@ -37,10 +37,10 @@ export async function getProjectsData(): Promise<ProjectsData> {
     needsAttention: attentionItems,
     pipeline,
     totals: {
-      active: 6,
-      assembly: 3,
-      review: 2,
-      published: 4,
+      active: 1,
+      assembly: 1,
+      review: 3,
+      published: 1,
     },
   };
 }
